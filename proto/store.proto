@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "pb/store";
+
+message Event {
+  string title = 1;
+  string author = 2;
+  int32 page_count = 3;
+  optional string language = 4;
+}
+
+message GetEventRequest {}
+message GetEventResponse { Event event = 1; }
+
+
+message WatchRequest {}
+message WatchResponse {}
+
+service Store {
+  rpc Watch(WatchRequest) returns (stream WatchResponse) {}
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse) {}
+}
