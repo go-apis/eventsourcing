@@ -1,4 +1,4 @@
-module store/client
+module eventstore/client
 
 go 1.18
 

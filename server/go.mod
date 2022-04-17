@@ -1,4 +1,4 @@
-module store/server
+module eventstore/server
 
 go 1.18
 

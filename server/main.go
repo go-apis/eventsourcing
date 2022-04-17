@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	pb "eventstore/server/pb/store"
 	"log"
 	"net"
-	pb "store/server/pb/store"
 	"sync"
 	"time"
 

@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	pb "eventstore/client/pb/store"
 	"io"
 	"log"
-	pb "store/client/pb/store"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
