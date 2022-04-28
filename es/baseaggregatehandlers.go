@@ -13,7 +13,7 @@ type wrapped struct {
 type baseAggregateHandler struct {
 	store    Store
 	typeName string
-	factory  func() interface{}
+	factory  func() SourcedAggregate
 	handles  map[reflect.Type]*CommandHandle
 }
 
@@ -25,26 +25,19 @@ func (b *baseAggregateHandler) Handle(ctx context.Context, cmd Command) error {
 	}
 
 	aggregateId := cmd.GetAggregateId()
-	// TODO: get the namespace
-	namespace := "default"
 
 	agg := b.factory()
-	if err := b.store.LoadSnapshot(ctx, namespace, aggregateId, agg); err != nil {
+	if err := b.store.Load(ctx, aggregateId, b.typeName, agg); err != nil {
 		return err
-	}
-
-	// get the events
-	events, err := b.store.LoadEvents(ctx, namespace, aggregateId, 0)
-	if err != nil {
-		return err
-	}
-
-	for _, evt := range events {
-
 	}
 
 	// todo load it!.
-	return h.Handle(agg, ctx, cmd)
+	if err := h.Handle(agg, ctx, cmd); err != nil {
+		return err
+	}
+
+	// save the events.
+	agg
 }
 
 func NewBaseAggregateHandlers(store Store, agg Aggregate) (CommandHandlers, error) {
@@ -55,8 +48,8 @@ func NewBaseAggregateHandlers(store Store, agg Aggregate) (CommandHandlers, erro
 	if raw.Kind() == reflect.Ptr {
 		raw = raw.Elem()
 	}
-	factory := func() interface{} {
-		return reflect.New(raw).Interface()
+	factory := func() SourcedAggregate {
+		return reflect.New(raw).Interface().(SourcedAggregate)
 	}
 	handler := &baseAggregateHandler{
 		store:   store,

@@ -2,11 +2,16 @@ package es
 
 import (
 	"context"
-	"eventstore/es/event"
 )
 
 type Aggregate interface {
 	Apply(ctx context.Context, data interface{}) error
+}
+
+type SourcedAggregate interface {
+	GetEvents() []interface{}
+	GetVersion() int
+	IncrementVersion()
 }
 
 type BaseAggregate struct {
@@ -14,14 +19,20 @@ type BaseAggregate struct {
 	Id        string `bun:",pk,type:uuid"`
 	Version   int    `bun:"-"`
 
-	events []*event.Event
+	events []interface{}
 }
 
-func (a BaseAggregate) Apply(ctx context.Context, data interface{}) error {
-	evt := &event.Event{
-		Namespace:   a.Namespace,
-		AggregateId: a.Id,
-	}
-	a.events = append(a.events, evt)
+// GetVersion returns the version of the aggregate.
+func (a *BaseAggregate) GetVersion() int {
+	return a.Version
+}
+
+// IncrementVersion ads 1 to the current version
+func (a *BaseAggregate) IncrementVersion() {
+	a.Version++
+}
+
+func (a *BaseAggregate) Apply(ctx context.Context, data interface{}) error {
+	a.events = append(a.events, data)
 	return nil
 }
