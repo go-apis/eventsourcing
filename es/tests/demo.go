@@ -1,8 +1,8 @@
-package demo
+package tests
 
 import (
 	"context"
-	"eventstore/example/es"
+	"eventstore/es"
 	"fmt"
 )
 

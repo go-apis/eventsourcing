@@ -1,6 +1,6 @@
 package events
 
-import "eventstore/example/es/types"
+import "eventstore/es/types"
 
 type UserCreated struct {
 	Username string

@@ -2,19 +2,22 @@ package aggregates
 
 import (
 	"context"
-	"eventstore/example/commands"
-	"eventstore/example/es"
-	"eventstore/example/events"
+	"eventstore/es"
+	"eventstore/es/example/commands"
+	"eventstore/es/example/events"
+	"eventstore/es/types"
 )
 
 type User struct {
 	es.BaseAggregate
+
+	Username string
+	Password types.Encrypted
 }
 
 func (u *User) HandleCreate(ctx context.Context, cmd *commands.CreateUser) error {
-	u.Apply(ctx, events.UserCreated{
+	return u.Apply(ctx, events.UserCreated{
 		Username: cmd.Username,
 		Password: cmd.Password,
 	})
-	return nil
 }

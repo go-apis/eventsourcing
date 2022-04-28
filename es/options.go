@@ -2,7 +2,7 @@ package es
 
 type options struct {
 	url      string
-	entities []interface{}
+	handlers []interface{}
 }
 
 type optionFunc struct {
@@ -28,8 +28,14 @@ type Option interface {
 	apply(*options)
 }
 
-func WithEntities(entities ...interface{}) Option {
+func WithHandlers(handlers ...interface{}) Option {
 	return newOptionFunc(func(o *options) {
-		o.entities = append(o.entities, entities...)
+		o.handlers = append(o.handlers, handlers...)
+	})
+}
+
+func WithDb() Option {
+	return newOptionFunc(func(o *options) {
+		o.url = "http://localhost:6632"
 	})
 }

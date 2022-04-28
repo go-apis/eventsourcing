@@ -11,8 +11,8 @@ type Query[O QueryObject] interface {
 }
 
 type query[O QueryObject] struct {
-	client Client
-	obj    O
+	store Store
+	obj   O
 }
 
 func (q *query[O]) Find(ctx context.Context, id string) (O, error) {
@@ -20,9 +20,9 @@ func (q *query[O]) Find(ctx context.Context, id string) (O, error) {
 	return obj, nil
 }
 
-func NewQuery[O QueryObject](client Client, obj O) Query[O] {
+func NewQuery[O QueryObject](store Store, obj O) Query[O] {
 	return &query[O]{
-		client: client,
-		obj:    obj,
+		store: store,
+		obj:   obj,
 	}
 }
