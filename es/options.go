@@ -1,8 +1,9 @@
 package es
 
 type options struct {
-	url      string
-	handlers []interface{}
+	url         string
+	serviceName string
+	handlers    []interface{}
 }
 
 type optionFunc struct {
@@ -34,8 +35,14 @@ func WithHandlers(handlers ...interface{}) Option {
 	})
 }
 
-func WithDb() Option {
+func WithDb(url string) Option {
 	return newOptionFunc(func(o *options) {
-		o.url = "http://localhost:6632"
+		o.url = url
+	})
+}
+
+func WithServiceName(serviceName string) Option {
+	return newOptionFunc(func(o *options) {
+		o.serviceName = serviceName
 	})
 }

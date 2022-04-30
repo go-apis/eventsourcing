@@ -22,7 +22,7 @@ func NewEventStore(opt ...Option) (EventStore, error) {
 		o.apply(&opts)
 	}
 
-	store, err := NewStore(opts.url)
+	store, err := NewStore(opts.url, opts.serviceName)
 	if err != nil {
 		return nil, err
 	}

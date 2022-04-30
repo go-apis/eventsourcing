@@ -21,3 +21,8 @@ func (u *User) HandleCreate(ctx context.Context, cmd *commands.CreateUser) error
 		Password: cmd.Password,
 	})
 }
+func (u *User) HandleAddEmail(ctx context.Context, cmd *commands.AddEmail) error {
+	return u.Apply(ctx, events.EmailAdded{
+		Email: cmd.Email,
+	})
+}

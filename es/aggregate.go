@@ -17,19 +17,21 @@ type SourcedAggregate interface {
 type BaseAggregate struct {
 	Namespace string `bun:",pk" json:"-"`
 	Id        string `bun:",pk,type:uuid"`
-	Version   int    `bun:"-"`
 
-	events []interface{}
+	version int
+	events  []interface{}
 }
 
-// GetVersion returns the version of the aggregate.
+func (a *BaseAggregate) GetEvents() []interface{} {
+	return a.events
+}
+
 func (a *BaseAggregate) GetVersion() int {
-	return a.Version
+	return a.version
 }
 
-// IncrementVersion ads 1 to the current version
 func (a *BaseAggregate) IncrementVersion() {
-	a.Version++
+	a.version++
 }
 
 func (a *BaseAggregate) Apply(ctx context.Context, data interface{}) error {

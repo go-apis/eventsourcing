@@ -10,61 +10,80 @@ import (
 
 	"github.com/ugorji/go/codec"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
-	"github.com/uptrace/bun/driver/pgdriver"
 )
 
 type dbEvent struct {
+	bun.BaseModel `bun:"table:events,alias:evt"`
+
+	ServiceName   string `bun:",pk"`
 	Namespace     string `bun:",pk"`
 	AggregateId   string `bun:",pk,type:uuid"`
 	AggregateType string `bun:",pk"`
 	Version       int    `bun:",pk"`
 	Type          string `bun:",notnull"`
 	Timestamp     time.Time
-	Data          json.RawMessage        `bun:"type:jsonb"`
-	Metadata      map[string]interface{} `bun:"type:jsonb"`
+	Data          json.RawMessage `bun:"type:jsonb"`
+	Metadata      Metadata        `bun:"type:jsonb"`
 }
 
 // todo add version
 type dbSnapshot struct {
-	Namespace string          `bun:",pk"`
-	Id        string          `bun:",pk,type:uuid"`
-	Type      string          `bun:",pk"`
-	Revision  string          `bun:",pk"`
-	Aggregate json.RawMessage `bun:",notnull,type:jsonb"`
+	bun.BaseModel `bun:"table:events,alias:evt"`
+
+	ServiceName string `bun:",pk"`
+	Namespace   string `bun:",pk"`
+	Id          string `bun:",pk,type:uuid"`
+	Type        string `bun:",pk"`
+	Revision    string `bun:",pk"`
+	Aggregate   []byte `bun:",notnull,type:jsonb"`
 }
 
 type dbStore struct {
-	db *bun.DB
-	ch codec.Handle
+	serviceName string
+	db          *bun.DB
+	ch          codec.Handle
 }
 
-func (db *dbStore) loadSnapshot(ctx context.Context, namespace string, id string, typeName string, out interface{}) (int, error) {
+func (s *dbStore) loadSnapshot(ctx context.Context, namespace string, id string, typeName string, out interface{}) (int, error) {
 	return 0, nil
 }
-
-func (db *dbStore) loadEvents(ctx context.Context, namespace string, id string, typeName string, from int) ([]dbEvent, error) {
-	return nil, nil
+func (s *dbStore) loadEvents(ctx context.Context, namespace string, id string, typeName string, from int) ([]dbEvent, error) {
+	// Select all users.
+	var evts []dbEvent
+	if err := s.db.NewSelect().
+		Model(&evts).
+		Where("service_name = ?", s.serviceName).
+		Where("namespace = ?", namespace).
+		Where("aggregate_id = ?", id).
+		Where("aggregate_type = ?", typeName).
+		Where("version > ?", from).
+		Order("version").
+		Scan(ctx); err != nil {
+		if err != nil && sql.ErrNoRows != err {
+			return nil, err
+		}
+	}
+	return evts, nil
 }
 
-func (db *dbStore) loadSourced(ctx context.Context, id string, typeName string, out SourcedAggregate) error {
-	namespace := "default"
+func (s *dbStore) loadSourced(ctx context.Context, id string, typeName string, out SourcedAggregate) error {
+	namespace := NamespaceFromContext(ctx)
 
 	// load from snapshot
-	version, err := db.loadSnapshot(ctx, namespace, id, typeName, out)
+	version, err := s.loadSnapshot(ctx, namespace, id, typeName, out)
 	if err != nil {
 		return err
 	}
 
 	// get the events
-	events, err := db.loadEvents(ctx, namespace, id, typeName, version)
+	events, err := s.loadEvents(ctx, namespace, id, typeName, version)
 	if err != nil {
 		return err
 	}
 
 	for _, evt := range events {
 		r := bytes.NewReader(evt.Data)
-		d := codec.NewDecoder(r, db.ch)
+		d := codec.NewDecoder(r, s.ch)
 
 		if err := d.Decode(out); err != nil {
 			return err
@@ -74,26 +93,99 @@ func (db *dbStore) loadSourced(ctx context.Context, id string, typeName string, 
 
 	return nil
 }
+func (s *dbStore) saveSourced(ctx context.Context, id string, typeName string, out SourcedAggregate) ([]Event, error) {
+	datas := out.GetEvents()
+	if len(datas) == 0 {
+		return nil, nil // nothing to save
+	}
 
-func (db *dbStore) Load(ctx context.Context, id string, typeName string, out interface{}) error {
+	namespace := NamespaceFromContext(ctx)
+	version := out.GetVersion()
+
+	// get the events
+	evts := make([]Event, len(datas))
+	dbEvts := make([]dbEvent, len(datas))
+	for i, data := range datas {
+		buf := bytes.NewBuffer(make([]byte, 0, 4096))
+		e := codec.NewEncoder(buf, s.ch)
+		if err := e.Encode(data); err != nil {
+			return nil, err
+		}
+
+		name := fmt.Sprintf("%T", data)
+		metadata := MetadataFromContext(ctx)
+		v := version + i + 1
+		ts := time.Now()
+
+		evts[i] = Event{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: typeName,
+			Type:          name,
+			Version:       v,
+			Timestamp:     ts,
+			Data:          data,
+			Metadata:      metadata,
+		}
+		dbEvts[i] = dbEvent{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: typeName,
+			Type:          name,
+			Version:       v,
+			Timestamp:     ts,
+			Data:          buf.Bytes(),
+			Metadata:      metadata,
+		}
+	}
+
+	// save em
+	if _, err := s.db.
+		NewInsert().
+		Model(&dbEvts).
+		Exec(ctx); err != nil {
+		return nil, err
+	}
+	return evts, nil
+}
+
+func (s *dbStore) Load(ctx context.Context, id string, typeName string, out interface{}) error {
 	switch impl := out.(type) {
 	case SourcedAggregate:
-		return db.loadSourced(ctx, id, typeName, impl)
+		return s.loadSourced(ctx, id, typeName, impl)
 	default:
 		return fmt.Errorf("Invalid aggregate type")
 	}
-
-	return nil
+}
+func (s *dbStore) Save(ctx context.Context, id string, typeName string, out interface{}) ([]Event, error) {
+	switch impl := out.(type) {
+	case SourcedAggregate:
+		return s.saveSourced(ctx, id, typeName, impl)
+	default:
+		return nil, fmt.Errorf("Invalid aggregate type")
+	}
 }
 
-func NewDbStore(dsn string) (Store, error) {
+func NewDbStore(dsn string, serviceName string) (Store, error) {
+	types := []interface{}{
+		&dbEvent{},
+		&dbSnapshot{},
+	}
+	factory, err := NewDbFactory(dsn, true, true, types)
+	if err != nil {
+		return nil, err
+	}
+	db, err := factory.New()
+	if err != nil {
+		return nil, err
+	}
+
 	var jh codec.JsonHandle
-
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	db := bun.NewDB(sqldb, pgdialect.New())
-
 	return &dbStore{
-		db: db,
-		ch: &jh,
+		serviceName: serviceName,
+		db:          db,
+		ch:          &jh,
 	}, nil
 }

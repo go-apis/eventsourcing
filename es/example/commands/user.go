@@ -1,10 +1,16 @@
 package commands
 
+import "eventstore/es"
+
 type CreateUser struct {
+	es.BaseCommand
+
 	Username string
 	Password string
 }
 
-func (c *CreateUser) GetAggregateId() string {
-	return "user-1"
+type AddEmail struct {
+	es.BaseCommand
+
+	Email string
 }

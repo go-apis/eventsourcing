@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 )
 
@@ -11,10 +12,10 @@ type wrapped struct {
 }
 
 type baseAggregateHandler struct {
-	store    Store
-	typeName string
-	factory  func() SourcedAggregate
-	handles  map[reflect.Type]*CommandHandle
+	store   Store
+	name    string
+	factory func() SourcedAggregate
+	handles map[reflect.Type]*CommandHandle
 }
 
 func (b *baseAggregateHandler) Handle(ctx context.Context, cmd Command) error {
@@ -27,7 +28,7 @@ func (b *baseAggregateHandler) Handle(ctx context.Context, cmd Command) error {
 	aggregateId := cmd.GetAggregateId()
 
 	agg := b.factory()
-	if err := b.store.Load(ctx, aggregateId, b.typeName, agg); err != nil {
+	if err := b.store.Load(ctx, aggregateId, b.name, agg); err != nil {
 		return err
 	}
 
@@ -36,8 +37,14 @@ func (b *baseAggregateHandler) Handle(ctx context.Context, cmd Command) error {
 		return err
 	}
 
-	// save the events.
-	agg
+	evts, err := b.store.Save(ctx, aggregateId, b.name, agg)
+	if err != nil {
+		return err
+	}
+
+	// TODO store events to be published.
+	fmt.Printf("events", evts)
+	return nil
 }
 
 func NewBaseAggregateHandlers(store Store, agg Aggregate) (CommandHandlers, error) {
@@ -53,6 +60,7 @@ func NewBaseAggregateHandlers(store Store, agg Aggregate) (CommandHandlers, erro
 	}
 	handler := &baseAggregateHandler{
 		store:   store,
+		name:    raw.String(),
 		factory: factory,
 		handles: handles,
 	}
