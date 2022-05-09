@@ -1,14 +1,12 @@
 package es
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/ugorji/go/codec"
 	"github.com/uptrace/bun"
 )
 
@@ -41,7 +39,6 @@ type dbSnapshot struct {
 type dbStore struct {
 	serviceName string
 	db          *bun.DB
-	ch          codec.Handle
 }
 
 func (s *dbStore) loadSnapshot(ctx context.Context, namespace string, id string, typeName string, out interface{}) (int, error) {
@@ -82,10 +79,7 @@ func (s *dbStore) loadSourced(ctx context.Context, id string, typeName string, o
 	}
 
 	for _, evt := range events {
-		r := bytes.NewReader(evt.Data)
-		d := codec.NewDecoder(r, s.ch)
-
-		if err := d.Decode(out); err != nil {
+		if err := json.Unmarshal(evt.Data, out); err != nil {
 			return err
 		}
 		out.IncrementVersion()
@@ -106,9 +100,8 @@ func (s *dbStore) saveSourced(ctx context.Context, id string, typeName string, o
 	evts := make([]Event, len(datas))
 	dbEvts := make([]dbEvent, len(datas))
 	for i, data := range datas {
-		buf := bytes.NewBuffer(make([]byte, 0, 4096))
-		e := codec.NewEncoder(buf, s.ch)
-		if err := e.Encode(data); err != nil {
+		buf, err := json.Marshal(data)
+		if err != nil {
 			return nil, err
 		}
 
@@ -136,7 +129,7 @@ func (s *dbStore) saveSourced(ctx context.Context, id string, typeName string, o
 			Type:          name,
 			Version:       v,
 			Timestamp:     ts,
-			Data:          buf.Bytes(),
+			Data:          buf,
 			Metadata:      metadata,
 		}
 	}
@@ -167,6 +160,19 @@ func (s *dbStore) Save(ctx context.Context, id string, typeName string, out inte
 		return nil, fmt.Errorf("Invalid aggregate type")
 	}
 }
+func (s *dbStore) GetEvents(ctx context.Context) ([]Event, error) {
+	// Select all users.
+	var evts []Event
+	if err := s.db.NewSelect().
+		Model(&evts).
+		Order("timestamp desc").
+		Scan(ctx); err != nil {
+		if err != nil && sql.ErrNoRows != err {
+			return nil, err
+		}
+	}
+	return evts, nil
+}
 
 func NewDbStore(dsn string, serviceName string) (Store, error) {
 	types := []interface{}{
@@ -182,10 +188,8 @@ func NewDbStore(dsn string, serviceName string) (Store, error) {
 		return nil, err
 	}
 
-	var jh codec.JsonHandle
 	return &dbStore{
 		serviceName: serviceName,
 		db:          db,
-		ch:          &jh,
 	}, nil
 }

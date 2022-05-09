@@ -14,3 +14,17 @@ type AddEmail struct {
 
 	Email string
 }
+
+type AddConnection struct {
+	es.BaseCommand
+
+	Name     string
+	UserId   string
+	Username string
+}
+
+type UpdateConnection struct {
+	es.BaseCommand
+
+	Username string
+}

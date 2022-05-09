@@ -1,12 +1,22 @@
 package es
 
 import (
+	"context"
 	"fmt"
 )
 
 var ErrNotCommandHandler = fmt.Errorf("not a command handler")
 
 type EventStore interface {
+	Get(ctx context.Context) Tx
+}
+
+type Tx interface {
+	Dispatcher
+	Store
+}
+
+type tx struct {
 	Dispatcher
 	Store
 }
@@ -14,6 +24,13 @@ type EventStore interface {
 type eventStore struct {
 	Dispatcher
 	Store
+}
+
+func (e *eventStore) Get(ctx context.Context) Tx {
+	return &tx{
+		Dispatcher: e.Dispatcher,
+		Store:      e.Store,
+	}
 }
 
 func NewEventStore(opt ...Option) (EventStore, error) {

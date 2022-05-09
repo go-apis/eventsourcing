@@ -1,6 +1,9 @@
 package events
 
-import "eventstore/es/types"
+import (
+	"eventstore/es/example/models"
+	"eventstore/es/types"
+)
 
 type UserCreated struct {
 	Username string
@@ -9,4 +12,12 @@ type UserCreated struct {
 
 type EmailAdded struct {
 	Email string
+}
+
+type ConnectionAdded struct {
+	Connections types.SliceItem[models.Connection]
+}
+
+type ConnectionUpdated struct {
+	Connections types.SliceItem[models.ConnectionUpdate]
 }
