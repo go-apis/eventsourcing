@@ -8,6 +8,8 @@ type Aggregate interface {
 	Apply(ctx context.Context, data interface{}) error
 }
 
+type AggregateFactory func() (Aggregate, error)
+
 type SourcedAggregate interface {
 	GetEvents() []interface{}
 	GetVersion() int
@@ -15,9 +17,6 @@ type SourcedAggregate interface {
 }
 
 type BaseAggregate struct {
-	Namespace string `bun:",pk" json:"-"`
-	Id        string `bun:",pk,type:uuid"`
-
 	version int
 	events  []interface{}
 }

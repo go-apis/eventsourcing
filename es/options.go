@@ -1,9 +1,8 @@
 package es
 
 type options struct {
-	url         string
-	serviceName string
-	handlers    []interface{}
+	commandHandlers []interface{}
+	eventHandlers   []interface{}
 }
 
 type optionFunc struct {
@@ -20,29 +19,21 @@ func newOptionFunc(f func(*options)) *optionFunc {
 	}
 }
 
-var defaultOptions = options{
-	url: "http://localhost:6632",
-}
+var defaultOptions = options{}
 
 // Setup the options for the eventstore
 type Option interface {
 	apply(*options)
 }
 
-func WithHandlers(handlers ...interface{}) Option {
+func WithCommandHandlers(handlers ...interface{}) Option {
 	return newOptionFunc(func(o *options) {
-		o.handlers = append(o.handlers, handlers...)
+		o.commandHandlers = append(o.commandHandlers, handlers...)
 	})
 }
 
-func WithDb(url string) Option {
+func WithEventHandlers(handlers ...interface{}) Option {
 	return newOptionFunc(func(o *options) {
-		o.url = url
-	})
-}
-
-func WithServiceName(serviceName string) Option {
-	return newOptionFunc(func(o *options) {
-		o.serviceName = serviceName
+		o.eventHandlers = append(o.eventHandlers, handlers...)
 	})
 }

@@ -1,80 +1,52 @@
 package es
 
-import (
-	"context"
-	"fmt"
-)
-
-var ErrNotCommandHandler = fmt.Errorf("not a command handler")
+import "reflect"
 
 type EventStore interface {
-	Get(ctx context.Context) Tx
-}
-
-type Tx interface {
 	Dispatcher
 	Store
-}
 
-type tx struct {
-	Dispatcher
-	Store
+	Config(opt ...Option) error
 }
 
 type eventStore struct {
-	Dispatcher
+	*dispatcher
 	Store
 }
 
-func (e *eventStore) Get(ctx context.Context) Tx {
-	return &tx{
-		Dispatcher: e.Dispatcher,
-		Store:      e.Store,
-	}
-}
-
-func NewEventStore(opt ...Option) (EventStore, error) {
+func (es *eventStore) Config(opt ...Option) error {
 	opts := defaultOptions
 	for _, o := range opt {
 		o.apply(&opts)
 	}
 
-	store, err := NewStore(opts.url, opts.serviceName)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: how do we initialize things? ie create db entities?
-
-	// create the handlers.
-	handlers := make(CommandHandlers)
-	for _, h := range opts.handlers {
-		hs, err := BuildCommandHandlers(store, h)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := handlers.Add(hs); err != nil {
-			return nil, err
+	for _, h := range opts.commandHandlers {
+		if err := es.dispatcher.AddCommandHandler(h); err != nil {
+			return err
 		}
 	}
 
-	dispatcher, err := NewDispatcher(handlers)
+	for _, h := range opts.eventHandlers {
+		if err := es.dispatcher.AddEventHandler(h); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func NewEventStore(serviceName string, dsn string) (EventStore, error) {
+	d := &dispatcher{
+		commandHandlers: make(map[reflect.Type]CommandHandler),
+	}
+
+	store, err := NewStore(dsn, serviceName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &eventStore{
-		Dispatcher: dispatcher,
+		dispatcher: d,
 		Store:      store,
 	}, nil
-}
-
-func BuildCommandHandlers(store Store, h interface{}) (CommandHandlers, error) {
-	switch impl := h.(type) {
-	case Aggregate:
-		return NewBaseAggregateHandlers(store, impl)
-	default:
-		return nil, ErrNotCommandHandler
-	}
 }

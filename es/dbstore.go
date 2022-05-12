@@ -39,6 +39,14 @@ type dbSnapshot struct {
 type dbStore struct {
 	serviceName string
 	db          *bun.DB
+	tx          *bun.Tx
+}
+
+func (s *dbStore) idb() bun.IDB {
+	if s.tx != nil {
+		return s.tx
+	}
+	return s.db
 }
 
 func (s *dbStore) loadSnapshot(ctx context.Context, namespace string, id string, typeName string, out interface{}) (int, error) {
@@ -47,7 +55,7 @@ func (s *dbStore) loadSnapshot(ctx context.Context, namespace string, id string,
 func (s *dbStore) loadEvents(ctx context.Context, namespace string, id string, typeName string, from int) ([]dbEvent, error) {
 	// Select all users.
 	var evts []dbEvent
-	if err := s.db.NewSelect().
+	if err := s.idb().NewSelect().
 		Model(&evts).
 		Where("service_name = ?", s.serviceName).
 		Where("namespace = ?", namespace).
@@ -135,7 +143,7 @@ func (s *dbStore) saveSourced(ctx context.Context, id string, typeName string, o
 	}
 
 	// save em
-	if _, err := s.db.
+	if _, err := s.idb().
 		NewInsert().
 		Model(&dbEvts).
 		Exec(ctx); err != nil {
@@ -144,6 +152,24 @@ func (s *dbStore) saveSourced(ctx context.Context, id string, typeName string, o
 	return evts, nil
 }
 
+func (s *dbStore) NewTx(ctx context.Context) (Tx, error) {
+	c := s.tx
+	if c == nil {
+		// create one then return
+		tx, err := s.db.BeginTx(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		c = &tx
+	}
+
+	n := &dbStore{
+		serviceName: s.serviceName,
+		db:          s.db,
+		tx:          c,
+	}
+	return NewTx(ctx, n, c.Commit)
+}
 func (s *dbStore) Load(ctx context.Context, id string, typeName string, out interface{}) error {
 	switch impl := out.(type) {
 	case SourcedAggregate:
@@ -163,7 +189,7 @@ func (s *dbStore) Save(ctx context.Context, id string, typeName string, out inte
 func (s *dbStore) GetEvents(ctx context.Context) ([]Event, error) {
 	// Select all users.
 	var evts []Event
-	if err := s.db.NewSelect().
+	if err := s.idb().NewSelect().
 		Model(&evts).
 		Order("timestamp desc").
 		Scan(ctx); err != nil {
