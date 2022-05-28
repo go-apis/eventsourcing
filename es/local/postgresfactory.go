@@ -1,4 +1,4 @@
-package es
+package local
 
 import (
 	"context"
@@ -11,16 +11,16 @@ import (
 	"github.com/uptrace/bun/extra/bundebug"
 )
 
-type DbFactory interface {
+type PostgresFactory interface {
 	New() (*bun.DB, error)
 }
 
-type dbFactory struct {
+type pgFactory struct {
 	dsn     string
 	logging bool
 }
 
-func (s *dbFactory) New() (*bun.DB, error) {
+func (s *pgFactory) New() (*bun.DB, error) {
 	conn := pgdriver.NewConnector(
 		pgdriver.WithDSN(s.dsn),
 	)
@@ -39,7 +39,7 @@ func (s *dbFactory) New() (*bun.DB, error) {
 	return db, nil
 }
 
-func (s *dbFactory) recreate() error {
+func (s *pgFactory) recreate() error {
 	cfg := &pgdriver.Config{}
 	pgdriver.WithDSN(s.dsn)(cfg)
 	database := cfg.Database
@@ -72,7 +72,7 @@ func (s *dbFactory) recreate() error {
 	return nil
 }
 
-func (s *dbFactory) createTables(types []interface{}) error {
+func (s *pgFactory) createTables(types []interface{}) error {
 	db, err := s.New()
 	if err != nil {
 		return err
@@ -88,8 +88,8 @@ func (s *dbFactory) createTables(types []interface{}) error {
 	return nil
 }
 
-func NewDbFactory(dsn string, logging bool, recreate bool, tables []interface{}) (DbFactory, error) {
-	factory := &dbFactory{
+func NewPostgresFactory(dsn string, logging bool, recreate bool, tables []interface{}) (PostgresFactory, error) {
+	factory := &pgFactory{
 		dsn:     dsn,
 		logging: logging,
 	}

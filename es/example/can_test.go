@@ -6,30 +6,29 @@ import (
 	"eventstore/es/example/aggregates"
 	"eventstore/es/example/commands"
 	"eventstore/es/example/sagas"
+	"eventstore/es/local"
 	"testing"
 )
 
 func Test_It(t *testing.T) {
-	eventstore, err := es.NewEventStore("example", "postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
+	factory, err := local.NewPostgresData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
-	if err := eventstore.Config(
-		es.WithCommandHandlers(
-			&aggregates.User{},
-			&aggregates.ExternalUser{},
-		),
-		es.WithEventHandlers(
-			sagas.NewConnectionSaga(eventstore),
-		),
-	); err != nil {
+	eventstore := es.NewEventStore(factory, "example")
+	if err != nil {
 		t.Error(err)
 		return
 	}
+	eventstore.AddCommandHandler(
+		&aggregates.User{},
+		&aggregates.ExternalUser{},
+	)
+	eventstore.AddEventHandler(
+		sagas.NewConnectionSaga(eventstore),
+	)
 
-	ctx := context.Background()
 	cmds := []es.Command{
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
@@ -61,13 +60,11 @@ func Test_It(t *testing.T) {
 	}
 
 	// the event store should know the aggregates and the commands.
-	tx, err := eventstore.NewTx(ctx)
+	ctx, tx, err := factory.WithTx(context.Background())
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
-	ctx = tx.Context()
 
 	// send a commands to store.
 	if err := eventstore.Dispatch(ctx, cmds...); err != nil {
@@ -75,6 +72,7 @@ func Test_It(t *testing.T) {
 		return
 	}
 
+	// commit the tx.
 	if err := tx.Commit(); err != nil {
 		t.Error(err)
 		return

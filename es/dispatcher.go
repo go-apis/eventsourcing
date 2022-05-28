@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/jinzhu/copier"
 	"github.com/neilotoole/errgroup"
 )
 
 var ErrHandlerNotFound = fmt.Errorf("handler not found")
 var ErrNotCommandHandler = fmt.Errorf("not a command handler")
+var ErrNotEventHandler = fmt.Errorf("not a event handler")
 
 type Dispatcher interface {
 	DispatchAsync(ctx context.Context, cmds ...Command) error
@@ -19,7 +19,7 @@ type Dispatcher interface {
 
 type dispatcher struct {
 	commandHandlers map[reflect.Type]CommandHandler
-	eventHandlers   map[reflect.Type]EventHandler
+	eventHandlers   map[reflect.Type][]EventHandler
 }
 
 func (c *dispatcher) DispatchAsync(ctx context.Context, cmds ...Command) error {
@@ -56,49 +56,22 @@ func (c *dispatcher) Dispatch(ctx context.Context, cmds ...Command) error {
 	return nil
 }
 
-func (r *dispatcher) AddCommandHandler(h interface{}) error {
-	// TODO support non reflection based config
+func (c *dispatcher) PublishAsync(ctx context.Context, evts ...Event) error {
+	numG, qSize := 8, 4
+	g, ctx := errgroup.WithContextN(ctx, numG, qSize)
 
-	t := reflect.TypeOf(h)
-	handles := NewCommandHandles(t)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
+	for _, evt := range evts {
+		t := reflect.TypeOf(evt.Data)
+		handlers := c.eventHandlers[t]
 
-	switch impl := h.(type) {
-	case SourcedAggregate:
-		name := t.String()
-		factory := func() (Aggregate, error) {
-			agg := reflect.New(t).Interface().(Aggregate)
-			if err := copier.Copy(agg, impl); err != nil {
-				return nil, err
-			}
-			return agg, nil
+		for _, h := range handlers {
+			d := evt
+			in := h
+			g.Go(func() error {
+				return in.Handle(ctx, d, d.Data)
+			})
 		}
-		h := NewSourcedAggregateHandler(name, factory, handles)
-		for _, ch := range handles {
-			r.commandHandlers[ch.commandType] = h
-		}
-		return nil
-	default:
-		return ErrNotCommandHandler
-	}
-}
-
-func (r *dispatcher) AddEventHandler(h interface{}) error {
-	// TODO support non reflection based config
-
-	t := reflect.TypeOf(h)
-	handles := NewEventHandles(t)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
 	}
 
-	name := t.String()
-	eh := NewEventHandler(name, h, handles)
-	for _, ch := range handles {
-		r.eventHandlers[ch.eventType] = eh
-	}
-
-	return nil
+	return g.Wait()
 }

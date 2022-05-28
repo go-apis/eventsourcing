@@ -1,52 +1,80 @@
 package es
 
-import "reflect"
+import (
+	"reflect"
+
+	"github.com/jinzhu/copier"
+)
 
 type EventStore interface {
 	Dispatcher
-	Store
+	Data
 
-	Config(opt ...Option) error
+	AddCommandHandler(handlers ...interface{}) error
+	AddEventHandler(handlers ...interface{}) error
 }
 
 type eventStore struct {
 	*dispatcher
-	Store
+	Data
+
+	serviceName string
 }
 
-func (es *eventStore) Config(opt ...Option) error {
-	opts := defaultOptions
-	for _, o := range opt {
-		o.apply(&opts)
-	}
+func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {
+	for _, h := range handlers {
+		t := reflect.TypeOf(h)
+		handles := NewCommandHandles(t)
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
 
-	for _, h := range opts.commandHandlers {
-		if err := es.dispatcher.AddCommandHandler(h); err != nil {
-			return err
+		switch impl := h.(type) {
+		case SourcedAggregate:
+			name := t.String()
+			factory := func() (Aggregate, error) {
+				agg := reflect.New(t).Interface().(Aggregate)
+				if err := copier.Copy(agg, impl); err != nil {
+					return nil, err
+				}
+				return agg, nil
+			}
+			h := NewSourcedAggregateHandler(e, name, factory, handles)
+			for _, ch := range handles {
+				e.commandHandlers[ch.commandType] = h
+			}
+		default:
+			return ErrNotCommandHandler
 		}
 	}
-
-	for _, h := range opts.eventHandlers {
-		if err := es.dispatcher.AddEventHandler(h); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-func NewEventStore(serviceName string, dsn string) (EventStore, error) {
+func (e *eventStore) AddEventHandler(handlers ...interface{}) error {
+	for _, h := range handlers {
+		t := reflect.TypeOf(h)
+		handles := NewEventHandles(t)
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		name := t.String()
+		eh := NewEventHandler(name, h, handles)
+		for _, ch := range handles {
+			e.eventHandlers[ch.eventType] = append(e.eventHandlers[ch.eventType], eh)
+		}
+	}
+	return nil
+}
+
+func NewEventStore(data Data, serviceName string) EventStore {
 	d := &dispatcher{
 		commandHandlers: make(map[reflect.Type]CommandHandler),
-	}
-
-	store, err := NewStore(dsn, serviceName)
-	if err != nil {
-		return nil, err
+		eventHandlers:   make(map[reflect.Type][]EventHandler),
 	}
 
 	return &eventStore{
-		dispatcher: d,
-		Store:      store,
-	}, nil
+		dispatcher:  d,
+		Data:        data,
+		serviceName: serviceName,
+	}
 }

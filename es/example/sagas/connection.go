@@ -11,11 +11,15 @@ type ConnectionSaga struct {
 	es.Dispatcher
 }
 
-func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data *events.ConnectionAdded) error {
+func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.ConnectionAdded) error {
 	item := data.Connections.Value
 
 	cmds := []es.Command{
 		&commands.CreateExternalUser{
+			BaseCommand: es.BaseCommand{
+				AggregateId: evt.AggregateId,
+			},
+
 			Name:     item.Name,
 			UserId:   item.UserId,
 			Username: item.Username,

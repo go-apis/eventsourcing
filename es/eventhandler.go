@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	"reflect"
 )
 
 type EventHandler interface {
@@ -15,9 +16,18 @@ type eventHandler struct {
 }
 
 func (h *eventHandler) Handle(ctx context.Context, evt Event, data interface{}) error {
-	return nil
+	t := reflect.TypeOf(data)
+	r, ok := h.handles[t]
+	if !ok {
+		return ErrNotEventHandler
+	}
+	return r.Handle(h.h, ctx, evt, data)
 }
 
 func NewEventHandler(name string, h interface{}, handles EventHandles) EventHandler {
-	return &eventHandler{}
+	return &eventHandler{
+		name:    name,
+		h:       h,
+		handles: handles,
+	}
 }

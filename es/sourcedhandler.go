@@ -6,9 +6,10 @@ import (
 )
 
 type aggregateHandler struct {
-	name    string
-	factory AggregateFactory
-	handles map[reflect.Type]*CommandHandle
+	sourcedStore SourcedStore
+	name         string
+	factory      AggregateFactory
+	handles      map[reflect.Type]*CommandHandle
 }
 
 func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
@@ -19,14 +20,13 @@ func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
 	}
 
 	aggregateId := cmd.GetAggregateId()
-
-	// get the transaction
-	tx, err := TransactionCtx(ctx)
+	agg, err := b.factory()
 	if err != nil {
 		return err
 	}
 
-	agg, err := b.factory()
+	// get the transaction
+	tx, err := b.sourcedStore.GetTx(ctx)
 	if err != nil {
 		return err
 	}
@@ -35,22 +35,27 @@ func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
 		return err
 	}
 
-	// todo load it!.
 	if err := h.Handle(agg, ctx, cmd); err != nil {
 		return err
 	}
 
-	if _, err := tx.Save(ctx, aggregateId, b.name, agg); err != nil {
+	evts, err := tx.Save(ctx, aggregateId, b.name, agg)
+	if err != nil {
 		return err
 	}
+
+	// if err := b.eventStore.dispatcher.PublishAsync(ctx, evts...); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
-func NewSourcedAggregateHandler(name string, factory AggregateFactory, handles CommandHandles) CommandHandler {
+func NewSourcedAggregateHandler(sourcedStore SourcedStore, name string, factory AggregateFactory, handles CommandHandles) CommandHandler {
 	return &aggregateHandler{
-		name:    name,
-		factory: factory,
-		handles: handles,
+		sourcedStore: sourcedStore,
+		name:         name,
+		factory:      factory,
+		handles:      handles,
 	}
 }

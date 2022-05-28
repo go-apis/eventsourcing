@@ -16,11 +16,12 @@ type EventHandle struct {
 	fn         reflect.Value
 }
 
-func (h *EventHandle) Handle(agg interface{}, ctx context.Context, cmd Command) error {
+func (h *EventHandle) Handle(agg interface{}, ctx context.Context, evt Event, data interface{}) error {
 	values := []reflect.Value{
 		reflect.ValueOf(agg),
 		reflect.ValueOf(ctx),
-		reflect.ValueOf(cmd),
+		reflect.ValueOf(evt),
+		reflect.ValueOf(data),
 	}
 	out := h.fn.Call(values)
 	if len(out) != 1 {
@@ -42,7 +43,7 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 	}
 
 	numIn := m.Type.NumIn()
-	if numIn != 3 {
+	if numIn != 4 {
 		return nil, false
 	}
 	numOut := m.Type.NumOut()
@@ -55,9 +56,10 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 		return nil, false
 	}
 	in3 := m.Type.In(2)
-	if !in3.ConvertibleTo(cmdType) {
+	if !in3.ConvertibleTo(eventType) {
 		return nil, false
 	}
+	in4 := m.Type.In(3)
 	out1 := m.Type.Out(0)
 	if !out1.ConvertibleTo(errType) {
 		return nil, false
@@ -65,7 +67,7 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 
 	return &EventHandle{
 		methodName: m.Name,
-		eventType:  in3,
+		eventType:  in4,
 		fn:         m.Func,
 	}, true
 }
