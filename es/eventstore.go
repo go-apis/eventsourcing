@@ -32,14 +32,15 @@ func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {
 		switch impl := h.(type) {
 		case SourcedAggregate:
 			name := t.String()
-			factory := func() (Aggregate, error) {
-				agg := reflect.New(t).Interface().(Aggregate)
+			factory := func() (SourcedAggregate, error) {
+				agg := reflect.New(t).Interface().(SourcedAggregate)
 				if err := copier.Copy(agg, impl); err != nil {
 					return nil, err
 				}
 				return agg, nil
 			}
-			h := NewSourcedAggregateHandler(e, name, factory, handles)
+			s := NewSourcedStore(e, name, factory)
+			h := NewSourcedAggregateHandler(s, handles)
 			for _, ch := range handles {
 				e.commandHandlers[ch.commandType] = h
 			}

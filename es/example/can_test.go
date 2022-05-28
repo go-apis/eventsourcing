@@ -6,17 +6,22 @@ import (
 	"eventstore/es/example/aggregates"
 	"eventstore/es/example/commands"
 	"eventstore/es/example/sagas"
-	"eventstore/es/local"
+	"eventstore/es/local/pg"
 	"testing"
 )
 
 func Test_It(t *testing.T) {
-	factory, err := local.NewPostgresData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
+	data, err := pg.NewData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	eventstore := es.NewEventStore(factory, "example")
+	// data, err := dg.NewData("localhost:9180")
+	// if err != nil {
+	// 	t.Error(err)
+	// 	return
+	// }
+	eventstore := es.NewEventStore(data, "example")
 	if err != nil {
 		t.Error(err)
 		return
@@ -60,7 +65,7 @@ func Test_It(t *testing.T) {
 	}
 
 	// the event store should know the aggregates and the commands.
-	ctx, tx, err := factory.WithTx(context.Background())
+	ctx, tx, err := data.WithTx(context.Background())
 	if err != nil {
 		t.Error(err)
 		return
@@ -73,7 +78,7 @@ func Test_It(t *testing.T) {
 	}
 
 	// commit the tx.
-	if err := tx.Commit(); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		t.Error(err)
 		return
 	}

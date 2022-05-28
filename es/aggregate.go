@@ -8,7 +8,7 @@ type Aggregate interface {
 	Apply(ctx context.Context, data interface{}) error
 }
 
-type AggregateFactory func() (Aggregate, error)
+type SourcedAggregateFactory func() (SourcedAggregate, error)
 
 type SourcedAggregate interface {
 	GetEvents() []interface{}
