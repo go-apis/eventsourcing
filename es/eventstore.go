@@ -1,24 +1,33 @@
 package es
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/jinzhu/copier"
 )
 
 type EventStore interface {
-	Dispatcher
-	Data
-
 	AddCommandHandler(handlers ...interface{}) error
 	AddEventHandler(handlers ...interface{}) error
+
+	WithTx(ctx context.Context) (context.Context, Tx, error)
+	GetTx(ctx context.Context) (Tx, error)
+
+	Dispatcher
 }
 
 type eventStore struct {
 	*dispatcher
-	Data
 
-	serviceName string
+	client Client
+}
+
+func (e *eventStore) GetTx(ctx context.Context) (Tx, error) {
+	return e.client.GetTx(ctx)
+}
+func (e *eventStore) WithTx(ctx context.Context) (context.Context, Tx, error) {
+	return e.client.WithTx(ctx)
 }
 
 func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {
@@ -39,8 +48,8 @@ func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {
 				}
 				return agg, nil
 			}
-			s := NewSourcedStore(e, name, factory)
-			h := NewSourcedAggregateHandler(s, handles)
+			s := e.client.NewSourcedStore(e.dispatcher, name)
+			h := NewSourcedAggregateHandler(s, handles, factory)
 			for _, ch := range handles {
 				e.commandHandlers[ch.commandType] = h
 			}
@@ -67,15 +76,14 @@ func (e *eventStore) AddEventHandler(handlers ...interface{}) error {
 	return nil
 }
 
-func NewEventStore(data Data, serviceName string) EventStore {
+func NewEventStore(client Client) EventStore {
 	d := &dispatcher{
 		commandHandlers: make(map[reflect.Type]CommandHandler),
 		eventHandlers:   make(map[reflect.Type][]EventHandler),
 	}
 
 	return &eventStore{
-		dispatcher:  d,
-		Data:        data,
-		serviceName: serviceName,
+		dispatcher: d,
+		client:     client,
 	}
 }

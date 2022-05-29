@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"eventstore/es"
 
 	"github.com/uptrace/bun"
@@ -16,23 +17,24 @@ type tx struct {
 func (t *tx) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
 	return nil
 }
-func (t *tx) GetEvents(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, from int) ([]es.Event, error) {
+func (t *tx) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, from int) ([]json.RawMessage, error) {
 	// Select all users.
-	var evts []es.Event
+	var datas []json.RawMessage
 	if err := t.inner.NewSelect().
-		Model(&evts).
+		TableExpr("events").
+		ColumnExpr("data").
 		Where("service_name = ?", serviceName).
 		Where("namespace = ?", namespace).
 		Where("aggregate_type = ?", aggregateName).
 		Where("aggregate_id = ?", id).
 		Where("version > ?", from).
 		Order("version").
-		Scan(ctx); err != nil {
+		Scan(ctx, &datas); err != nil {
 		if err != nil && sql.ErrNoRows != err {
 			return nil, err
 		}
 	}
-	return evts, nil
+	return datas, nil
 }
 func (t *tx) SaveEvents(ctx context.Context, events []es.Event) error {
 	if len(events) == 0 {

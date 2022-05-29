@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"encoding/json"
 	"eventstore/es"
 
 	"github.com/uptrace/bun"
@@ -26,6 +27,9 @@ func (s *postgresData) WithTx(ctx context.Context) (context.Context, es.Tx, erro
 	}
 	return setTransaction(ctx, n), n, nil
 }
+func (s *postgresData) GetTx(ctx context.Context) (es.Tx, error) {
+	return transactionCtx(ctx)
+}
 
 func (s *postgresData) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
 	tx, err := transactionCtx(ctx)
@@ -37,7 +41,7 @@ func (s *postgresData) LoadSnapshot(ctx context.Context, serviceName string, agg
 	}
 	return tx.LoadSnapshot(ctx, serviceName, aggregateName, namespace, id, out)
 }
-func (s *postgresData) GetEvents(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]es.Event, error) {
+func (s *postgresData) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error) {
 	tx, err := transactionCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -45,7 +49,7 @@ func (s *postgresData) GetEvents(ctx context.Context, serviceName string, aggreg
 	if tx == nil {
 		return nil, ErrNoTransaction
 	}
-	return tx.GetEvents(ctx, serviceName, aggregateName, namespace, id, fromVersion)
+	return tx.GetEventDatas(ctx, serviceName, aggregateName, namespace, id, fromVersion)
 }
 func (s *postgresData) SaveEvents(ctx context.Context, events []es.Event) error {
 	tx, err := transactionCtx(ctx)

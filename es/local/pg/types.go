@@ -17,7 +17,7 @@ type dbEvent struct {
 	Version       int    `bun:",pk"`
 	Type          string `bun:",notnull"`
 	Timestamp     time.Time
-	Data          []byte      `bun:"type:jsonb"`
+	Data          interface{} `bun:"type:jsonb"`
 	Metadata      es.Metadata `bun:"type:jsonb"`
 }
 

@@ -15,6 +15,7 @@ var ErrNotEventHandler = fmt.Errorf("not a event handler")
 type Dispatcher interface {
 	DispatchAsync(ctx context.Context, cmds ...Command) error
 	Dispatch(ctx context.Context, cmds ...Command) error
+	PublishAsync(ctx context.Context, evts ...Event) error
 }
 
 type dispatcher struct {
