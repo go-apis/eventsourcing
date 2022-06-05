@@ -1,52 +1,28 @@
 # github.com/fatih/color v1.13.0
 ## explicit; go 1.13
 github.com/fatih/color
-# github.com/gin-contrib/sse v0.1.0
-## explicit; go 1.12
-# github.com/gin-gonic/gin v1.7.7
-## explicit; go 1.13
 # github.com/go-chi/chi/v5 v5.0.7
 ## explicit; go 1.14
 github.com/go-chi/chi/v5
 github.com/go-chi/chi/v5/middleware
-# github.com/go-playground/locales v0.14.0
-## explicit; go 1.13
-# github.com/go-playground/universal-translator v0.18.0
-## explicit; go 1.13
-# github.com/go-playground/validator/v10 v10.11.0
-## explicit; go 1.13
-# github.com/golang/protobuf v1.5.2
-## explicit; go 1.9
-# github.com/google/go-cmp v0.5.6
-## explicit; go 1.8
 # github.com/jinzhu/copier v0.3.5
 ## explicit; go 1.13
 github.com/jinzhu/copier
 # github.com/jinzhu/inflection v1.0.0
 ## explicit
 github.com/jinzhu/inflection
-# github.com/json-iterator/go v1.1.12
-## explicit; go 1.12
-# github.com/leodido/go-urn v1.2.1
-## explicit; go 1.13
 # github.com/mattn/go-colorable v0.1.12
 ## explicit; go 1.13
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.14
 ## explicit; go 1.12
 github.com/mattn/go-isatty
-# github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
-## explicit
-# github.com/modern-go/reflect2 v1.0.2
-## explicit; go 1.12
 # github.com/neilotoole/errgroup v0.1.6
 ## explicit; go 1.14
 github.com/neilotoole/errgroup
 # github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc
 ## explicit
 github.com/tmthrgd/go-hex
-# github.com/ugorji/go/codec v1.2.7
-## explicit; go 1.11
 # github.com/uptrace/bun v1.1.4
 ## explicit; go 1.17
 github.com/uptrace/bun
@@ -86,14 +62,8 @@ golang.org/x/crypto/pbkdf2
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
-# golang.org/x/text v0.3.7
-## explicit; go 1.17
-# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-## explicit; go 1.11
-# google.golang.org/protobuf v1.28.0
-## explicit; go 1.11
-# gopkg.in/yaml.v2 v2.4.0
-## explicit; go 1.15
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+## explicit
 # mellium.im/sasl v0.2.1
 ## explicit
 mellium.im/sasl

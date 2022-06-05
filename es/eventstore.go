@@ -11,10 +11,7 @@ type EventStore interface {
 	AddCommandHandler(handlers ...interface{}) error
 	AddEventHandler(handlers ...interface{}) error
 
-	WithTx(ctx context.Context) (context.Context, Tx, error)
-	GetTx(ctx context.Context) (Tx, error)
-
-	Dispatcher
+	NewTx(ctx context.Context) (Transaction, error)
 }
 
 type eventStore struct {
@@ -23,11 +20,13 @@ type eventStore struct {
 	client Client
 }
 
-func (e *eventStore) GetTx(ctx context.Context) (Tx, error) {
-	return e.client.GetTx(ctx)
-}
-func (e *eventStore) WithTx(ctx context.Context) (context.Context, Tx, error) {
-	return e.client.WithTx(ctx)
+func (e *eventStore) NewTx(ctx context.Context) (Transaction, error) {
+	tx, err := e.client.NewTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewTransaction(tx)
 }
 
 func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {

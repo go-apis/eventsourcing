@@ -5,7 +5,6 @@ import (
 	"eventstore/es"
 	"eventstore/es/example/aggregates"
 	"eventstore/es/example/commands"
-	"eventstore/es/example/sagas"
 	"eventstore/es/local"
 	"eventstore/es/local/pg"
 	"testing"
@@ -28,9 +27,9 @@ func Test_It(t *testing.T) {
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 	)
-	eventstore.AddEventHandler(
-		sagas.NewConnectionSaga(eventstore),
-	)
+	// eventstore.AddEventHandler(
+	// 	sagas.NewConnectionSaga(eventstore),
+	// )
 
 	cmds := []es.Command{
 		&commands.CreateUser{
@@ -62,15 +61,17 @@ func Test_It(t *testing.T) {
 		},
 	}
 
+	ctx := context.Background()
+
 	// the event store should know the aggregates and the commands.
-	ctx, tx, err := data.WithTx(context.Background())
+	tx, err := eventstore.GetTx(ctx)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	// send a commands to store.
-	if err := eventstore.Dispatch(ctx, cmds...); err != nil {
+	if err := tx.Dispatch(ctx, cmds...); err != nil {
 		t.Error(err)
 		return
 	}

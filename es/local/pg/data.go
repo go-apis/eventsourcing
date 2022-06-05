@@ -12,23 +12,8 @@ type postgresData struct {
 	db *bun.DB
 }
 
-func (s *postgresData) WithTx(ctx context.Context) (context.Context, es.Tx, error) {
-	// do we already have one?
-	tx, _ := transactionCtx(ctx)
-	// return if we already have a transaction
-	if tx != nil {
-		return ctx, tx, nil
-	}
-
-	// create a new one
-	n, err := newTx(ctx, s)
-	if err != nil {
-		return nil, nil, err
-	}
-	return setTransaction(ctx, n), n, nil
-}
-func (s *postgresData) GetTx(ctx context.Context) (es.Tx, error) {
-	return transactionCtx(ctx)
+func (s *postgresData) NewTx(ctx context.Context) (es.Tx, error) {
+	return newTx(ctx, s)
 }
 
 func (s *postgresData) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {

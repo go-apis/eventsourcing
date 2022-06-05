@@ -29,5 +29,10 @@ func NewCommandHandler[T es.Command](store es.EventStore) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		if err := tx.Commit(ctx); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 }
