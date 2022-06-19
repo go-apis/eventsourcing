@@ -20,8 +20,10 @@ func main() {
 	}
 
 	cli := local.NewClient(data, "example")
+
 	store := es.NewEventStore(cli)
 	store.AddCommandHandler(&aggregates.User{})
+	// store.AddEventHandler(sagas.NewConnectionSaga(cli))
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

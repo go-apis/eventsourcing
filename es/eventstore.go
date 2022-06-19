@@ -11,34 +11,35 @@ type EventStore interface {
 	AddCommandHandler(handlers ...interface{}) error
 	AddEventHandler(handlers ...interface{}) error
 
-	NewTx(ctx context.Context) (Transaction, error)
+	NewUnit(ctx context.Context) (Unit, error)
 }
 
 type eventStore struct {
 	*dispatcher
+	*publisher
 
 	client Client
 }
 
-func (e *eventStore) NewTx(ctx context.Context) (Transaction, error) {
+func (e *eventStore) NewUnit(ctx context.Context) (Unit, error) {
 	tx, err := e.client.NewTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewTransaction(tx)
+	return NewUnit(tx)
 }
 
 func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {
 	for _, h := range handlers {
-		t := reflect.TypeOf(h)
-		handles := NewCommandHandles(t)
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
-
 		switch impl := h.(type) {
 		case SourcedAggregate:
+			t := reflect.TypeOf(h)
+			handles := NewCommandHandles(t)
+			for t.Kind() == reflect.Ptr {
+				t = t.Elem()
+			}
+
 			name := t.String()
 			factory := func() (SourcedAggregate, error) {
 				agg := reflect.New(t).Interface().(SourcedAggregate)
@@ -49,6 +50,7 @@ func (e *eventStore) AddCommandHandler(handlers ...interface{}) error {
 			}
 			s := e.client.NewSourcedStore(e.dispatcher, name)
 			h := NewSourcedAggregateHandler(s, handles, factory)
+
 			for _, ch := range handles {
 				e.commandHandlers[ch.commandType] = h
 			}
@@ -78,11 +80,14 @@ func (e *eventStore) AddEventHandler(handlers ...interface{}) error {
 func NewEventStore(client Client) EventStore {
 	d := &dispatcher{
 		commandHandlers: make(map[reflect.Type]CommandHandler),
-		eventHandlers:   make(map[reflect.Type][]EventHandler),
+	}
+	p := &publisher{
+		eventHandlers: make(map[reflect.Type][]EventHandler),
 	}
 
 	return &eventStore{
 		dispatcher: d,
+		publisher:  p,
 		client:     client,
 	}
 }

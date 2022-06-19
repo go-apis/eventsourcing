@@ -6,9 +6,8 @@ import (
 )
 
 type aggregateHandler struct {
-	sourcedStore SourcedStore
-	handles      map[reflect.Type]*CommandHandle
-	factory      SourcedAggregateFactory
+	handles map[reflect.Type]*CommandHandle
+	factory SourcedAggregateFactory
 }
 
 func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
@@ -39,10 +38,9 @@ func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
 	return nil
 }
 
-func NewSourcedAggregateHandler(sourcedStore SourcedStore, handles CommandHandles, factory SourcedAggregateFactory) CommandHandler {
+func NewSourcedAggregateHandler(handles CommandHandles, factory SourcedAggregateFactory) CommandHandler {
 	return &aggregateHandler{
-		sourcedStore: sourcedStore,
-		handles:      handles,
-		factory:      factory,
+		handles: handles,
+		factory: factory,
 	}
 }

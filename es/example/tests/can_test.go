@@ -64,20 +64,20 @@ func Test_It(t *testing.T) {
 	ctx := context.Background()
 
 	// the event store should know the aggregates and the commands.
-	tx, err := eventstore.GetTx(ctx)
+	unit, err := eventstore.NewUnit(ctx)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	// send a commands to store.
-	if err := tx.Dispatch(ctx, cmds...); err != nil {
+	if err := unit.Dispatch(ctx, cmds...); err != nil {
 		t.Error(err)
 		return
 	}
 
 	// commit the tx.
-	if err := tx.Commit(ctx); err != nil {
+	if err := unit.Commit(ctx); err != nil {
 		t.Error(err)
 		return
 	}

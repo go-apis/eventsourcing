@@ -10,17 +10,14 @@ import (
 
 var ErrHandlerNotFound = fmt.Errorf("handler not found")
 var ErrNotCommandHandler = fmt.Errorf("not a command handler")
-var ErrNotEventHandler = fmt.Errorf("not a event handler")
 
 type Dispatcher interface {
 	DispatchAsync(ctx context.Context, cmds ...Command) error
 	Dispatch(ctx context.Context, cmds ...Command) error
-	PublishAsync(ctx context.Context, evts ...Event) error
 }
 
 type dispatcher struct {
 	commandHandlers map[reflect.Type]CommandHandler
-	eventHandlers   map[reflect.Type][]EventHandler
 }
 
 func (c *dispatcher) DispatchAsync(ctx context.Context, cmds ...Command) error {
@@ -55,24 +52,4 @@ func (c *dispatcher) Dispatch(ctx context.Context, cmds ...Command) error {
 		}
 	}
 	return nil
-}
-
-func (c *dispatcher) PublishAsync(ctx context.Context, evts ...Event) error {
-	numG, qSize := 8, 4
-	g, ctx := errgroup.WithContextN(ctx, numG, qSize)
-
-	for _, evt := range evts {
-		t := reflect.TypeOf(evt.Data)
-		handlers := c.eventHandlers[t]
-
-		for _, h := range handlers {
-			d := evt
-			in := h
-			g.Go(func() error {
-				return in.Handle(ctx, d, d.Data)
-			})
-		}
-	}
-
-	return g.Wait()
 }

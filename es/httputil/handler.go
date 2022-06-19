@@ -18,19 +18,18 @@ func NewCommandHandler[T es.Command](store es.EventStore) http.HandlerFunc {
 
 		ctx := r.Context()
 
-		// get the transaction
-		tx, err := store.GetTx(ctx)
+		unit, err := store.NewUnit(ctx)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if err := tx.Dispatch(ctx, cmd); err != nil {
+		if err := unit.Dispatch(ctx, cmd); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if err := tx.Commit(ctx); err != nil {
+		if err := unit.Commit(ctx); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
