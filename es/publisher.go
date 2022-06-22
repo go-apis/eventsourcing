@@ -37,3 +37,9 @@ func (c *publisher) PublishAsync(ctx context.Context, evts ...Event) error {
 
 	return g.Wait()
 }
+
+func NewPublisher(eventHandlers map[reflect.Type][]EventHandler) Publisher {
+	return &publisher{
+		eventHandlers: eventHandlers,
+	}
+}

@@ -14,9 +14,9 @@ type User struct {
 	es.BaseAggregate
 
 	Username    string
-	Password    types.Encrypted
+	Password    string
 	Email       string
-	Connections types.Slice[models.Connection]
+	Connections types.Slice[models.Connection] `gorm:"type:jsonb;serializer:json"`
 }
 
 func (u *User) HandleCreate(ctx context.Context, cmd *commands.CreateUser) error {

@@ -8,29 +8,23 @@ import (
 )
 
 type ConnectionSaga struct {
-	es.Dispatcher
+	es.BaseSaga
 }
 
 func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.ConnectionAdded) error {
 	item := data.Connections.Value
-
-	cmds := []es.Command{
-		&commands.CreateExternalUser{
-			BaseCommand: es.BaseCommand{
-				AggregateId: evt.AggregateId,
-			},
-
-			Name:     item.Name,
-			UserId:   item.UserId,
-			Username: item.Username,
+	s.Handle(ctx, &commands.CreateExternalUser{
+		BaseCommand: es.BaseCommand{
+			AggregateId: evt.AggregateId,
 		},
-	}
 
-	return s.Dispatch(ctx, cmds...)
+		Name:     item.Name,
+		UserId:   item.UserId,
+		Username: item.Username,
+	})
+	return nil
 }
 
-func NewConnectionSaga(dispatcher es.Dispatcher) *ConnectionSaga {
-	return &ConnectionSaga{
-		Dispatcher: dispatcher,
-	}
+func NewConnectionSaga() *ConnectionSaga {
+	return &ConnectionSaga{}
 }

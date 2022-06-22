@@ -4,22 +4,48 @@ import (
 	"context"
 )
 
-type key int
+type Key int
 
-const namespaceKey key = 0
+const (
+	NamespaceKey Key = iota
+	UnitKey
+	TxKey
+)
 
 const defaultNamespace = "default"
 
 func SetNamespace(ctx context.Context, namespace string) context.Context {
-	return context.WithValue(ctx, namespaceKey, namespace)
+	return context.WithValue(ctx, NamespaceKey, namespace)
 }
 
 func NamespaceFromContext(ctx context.Context) string {
-	namespace, ok := ctx.Value(namespaceKey).(string)
+	namespace, ok := ctx.Value(NamespaceKey).(string)
 	if ok {
 		return namespace
 	}
 	return defaultNamespace
+}
+
+func SetTx(ctx context.Context, tx Tx) context.Context {
+	return context.WithValue(ctx, TxKey, tx)
+}
+func TxFromContext(ctx context.Context) Tx {
+	tx, ok := ctx.Value(TxKey).(Tx)
+	if ok {
+		return tx
+	}
+	return nil
+}
+
+func SetUnit(ctx context.Context, unit Unit) context.Context {
+	return context.WithValue(ctx, UnitKey, unit)
+}
+func UnitFromContext(ctx context.Context) Unit {
+	unit, ok := ctx.Value(UnitKey).(Unit)
+	if ok {
+		return unit
+	}
+	return nil
 }
 
 func MetadataFromContext(ctx context.Context) map[string]interface{} {

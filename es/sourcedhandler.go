@@ -2,20 +2,16 @@ package es
 
 import (
 	"context"
-	"reflect"
 )
 
 type aggregateHandler struct {
-	handles map[reflect.Type]*CommandHandle
-	factory SourcedAggregateFactory
+	handle       *CommandHandle
+	factory      SourcedAggregateFactory
+	sourcedStore SourcedStore
 }
 
 func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
-	t := reflect.TypeOf(cmd)
-	h, ok := b.handles[t]
-	if !ok {
-		return ErrNotCommandHandler
-	}
+	namespace := NamespaceFromContext(ctx)
 
 	aggregateId := cmd.GetAggregateId()
 	agg, err := b.factory()
@@ -23,24 +19,30 @@ func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
 		return err
 	}
 
-	if err := b.sourcedStore.Load(ctx, aggregateId, agg); err != nil {
+	switch a := agg.(type) {
+	case SetAggregate:
+		a.SetId(aggregateId, namespace)
+	}
+
+	if err := b.sourcedStore.Load(ctx, aggregateId, namespace, agg); err != nil {
 		return err
 	}
 
-	if err := h.Handle(agg, ctx, cmd); err != nil {
+	if err := b.handle.Handle(agg, ctx, cmd); err != nil {
 		return err
 	}
 
-	if err := b.sourcedStore.Save(ctx, aggregateId, agg); err != nil {
+	if err := b.sourcedStore.Save(ctx, aggregateId, namespace, agg); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func NewSourcedAggregateHandler(handles CommandHandles, factory SourcedAggregateFactory) CommandHandler {
+func NewSourcedAggregateHandler(handle *CommandHandle, factory SourcedAggregateFactory, sourcedStore SourcedStore) CommandHandler {
 	return &aggregateHandler{
-		handles: handles,
-		factory: factory,
+		handle:       handle,
+		factory:      factory,
+		sourcedStore: sourcedStore,
 	}
 }

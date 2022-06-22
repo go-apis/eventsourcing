@@ -8,25 +8,24 @@ import (
 )
 
 type SourcedStore interface {
-	Load(ctx context.Context, id string, out SourcedAggregate) error
-	Save(ctx context.Context, id string, val SourcedAggregate) error
+	Load(ctx context.Context, id string, namespace string, out SourcedAggregate) error
+	Save(ctx context.Context, id string, namespace string, val SourcedAggregate) error
 }
 
-type sourceStore struct {
-	tx            Tx
+type sourcedStore struct {
 	publisher     Publisher
 	serviceName   string
 	aggregateName string
 }
 
-func (s *sourceStore) Load(ctx context.Context, id string, out SourcedAggregate) error {
-	namespace := NamespaceFromContext(ctx)
+func (s *sourcedStore) Load(ctx context.Context, id string, namespace string, out SourcedAggregate) error {
+	tx := TxFromContext(ctx)
 
-	if err := s.tx.LoadSnapshot(ctx, s.serviceName, s.aggregateName, namespace, id, out); err != nil {
+	if err := tx.LoadSnapshot(ctx, s.serviceName, s.aggregateName, namespace, id, out); err != nil {
 		return err
 	}
 
-	datas, err := s.tx.GetEventDatas(ctx, s.serviceName, s.aggregateName, namespace, id, out.GetVersion())
+	datas, err := tx.GetEventDatas(ctx, s.serviceName, s.aggregateName, namespace, id, out.GetVersion())
 	if err != nil {
 		return err
 	}
@@ -40,10 +39,10 @@ func (s *sourceStore) Load(ctx context.Context, id string, out SourcedAggregate)
 
 	return nil
 }
-func (s *sourceStore) Save(ctx context.Context, id string, val SourcedAggregate) error {
+func (s *sourcedStore) Save(ctx context.Context, id string, namespace string, val SourcedAggregate) error {
 	datas := val.GetEvents()
 	version := val.GetVersion()
-	namespace := NamespaceFromContext(ctx)
+	tx := TxFromContext(ctx)
 
 	if len(datas) == 0 {
 		return nil
@@ -70,7 +69,31 @@ func (s *sourceStore) Save(ctx context.Context, id string, val SourcedAggregate)
 		}
 	}
 
-	if err := s.tx.SaveEvents(ctx, evts); err != nil {
+	if err := tx.SaveEvents(ctx, evts); err != nil {
+		return err
+	}
+
+	// HACK
+	for _, evt := range evts {
+		raw, err := json.Marshal(evt.Data)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(raw, val); err != nil {
+			return err
+		}
+		val.IncrementVersion()
+	}
+
+	// Save read view.
+	entity := Entity{
+		ServiceName:   s.serviceName,
+		Namespace:     namespace,
+		AggregateId:   id,
+		AggregateType: s.aggregateName,
+		Data:          val,
+	}
+	if err := tx.SaveEntity(ctx, entity); err != nil {
 		return err
 	}
 
@@ -81,9 +104,8 @@ func (s *sourceStore) Save(ctx context.Context, id string, val SourcedAggregate)
 	return nil
 }
 
-func newSourcedStore(tx Tx, publisher Publisher, serviceName string, aggregateName string) SourcedStore {
-	return &sourceStore{
-		tx:            tx,
+func NewSourcedStore(publisher Publisher, serviceName string, aggregateName string) SourcedStore {
+	return &sourcedStore{
 		publisher:     publisher,
 		serviceName:   serviceName,
 		aggregateName: aggregateName,

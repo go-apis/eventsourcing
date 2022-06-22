@@ -16,9 +16,21 @@ type SourcedAggregate interface {
 	IncrementVersion()
 }
 
+type SetAggregate interface {
+	SetId(id string, namespace string)
+}
+
 type BaseAggregate struct {
+	Id        string
+	Namespace string
+
 	version int
 	events  []interface{}
+}
+
+func (a *BaseAggregate) SetId(id string, namespace string) {
+	a.Id = id
+	a.Namespace = namespace
 }
 
 func (a *BaseAggregate) GetEvents() []interface{} {
