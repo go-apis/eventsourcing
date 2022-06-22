@@ -1,6 +1,6 @@
 package commands
 
-import "eventstore/es"
+import "github.com/contextcloud/eventstore/es"
 
 type CreateUser struct {
 	es.BaseCommand

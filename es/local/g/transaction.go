@@ -3,8 +3,10 @@ package g
 import (
 	"context"
 	"encoding/json"
-	"eventstore/es"
-	"eventstore/es/filters"
+
+	"github.com/contextcloud/eventstore/es/filters"
+
+	"github.com/contextcloud/eventstore/es"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

@@ -2,9 +2,10 @@ package httputil
 
 import (
 	"encoding/json"
-	"eventstore/es"
-	"eventstore/es/filters"
 	"net/http"
+
+	"github.com/contextcloud/eventstore/es"
+	"github.com/contextcloud/eventstore/es/filters"
 )
 
 func NewQueryHandler[T any](cli es.Client) http.HandlerFunc {

@@ -2,8 +2,9 @@ package es
 
 import (
 	"context"
-	"eventstore/es/filters"
 	"reflect"
+
+	"github.com/contextcloud/eventstore/es/filters"
 )
 
 type Query[T any] interface {

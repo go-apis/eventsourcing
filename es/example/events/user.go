@@ -1,8 +1,8 @@
 package events
 
 import (
-	"eventstore/es/example/models"
-	"eventstore/es/types"
+	"github.com/contextcloud/eventstore/es/example/models"
+	"github.com/contextcloud/eventstore/es/types"
 )
 
 type UserCreated struct {

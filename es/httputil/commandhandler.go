@@ -2,8 +2,9 @@ package httputil
 
 import (
 	"encoding/json"
-	"eventstore/es"
 	"net/http"
+
+	"github.com/contextcloud/eventstore/es"
 )
 
 func NewCommandHandler[T es.Command](cli es.Client) http.HandlerFunc {

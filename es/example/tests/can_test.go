@@ -2,13 +2,15 @@ package tests
 
 import (
 	"context"
-	"eventstore/es"
-	"eventstore/es/example/aggregates"
-	"eventstore/es/example/commands"
-	"eventstore/es/example/sagas"
-	"eventstore/es/filters"
-	"eventstore/es/local/g"
 	"testing"
+
+	"github.com/contextcloud/eventstore/es/example/aggregates"
+	"github.com/contextcloud/eventstore/es/example/commands"
+	"github.com/contextcloud/eventstore/es/example/sagas"
+	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/es/local/g"
+
+	"github.com/contextcloud/eventstore/es"
 )
 
 func Test_It(t *testing.T) {

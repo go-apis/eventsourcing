@@ -3,7 +3,8 @@ package es
 import (
 	"context"
 	"encoding/json"
-	"eventstore/es/filters"
+
+	"github.com/contextcloud/eventstore/es/filters"
 )
 
 type Tx interface {

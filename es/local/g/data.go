@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"eventstore/es"
+	"github.com/contextcloud/eventstore/es"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

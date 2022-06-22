@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	pb "eventstore/server/pb/store"
 	"log"
 	"net"
 	"sync"
 	"time"
+
+	pb "github.com/contextcloud/eventstore/server/pb/store"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"

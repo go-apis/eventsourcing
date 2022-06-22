@@ -1,13 +1,15 @@
 package main
 
 import (
-	"eventstore/es"
-	"eventstore/es/example/aggregates"
-	"eventstore/es/example/commands"
-	"eventstore/es/example/sagas"
-	"eventstore/es/httputil"
-	"eventstore/es/local/g"
 	"net/http"
+
+	"github.com/contextcloud/eventstore/es/example/aggregates"
+	"github.com/contextcloud/eventstore/es/example/commands"
+	"github.com/contextcloud/eventstore/es/example/sagas"
+	"github.com/contextcloud/eventstore/es/httputil"
+	"github.com/contextcloud/eventstore/es/local/g"
+
+	"github.com/contextcloud/eventstore/es"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"

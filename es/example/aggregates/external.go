@@ -2,9 +2,11 @@ package aggregates
 
 import (
 	"context"
-	"eventstore/es"
-	"eventstore/es/example/commands"
-	"eventstore/es/example/events"
+
+	"github.com/contextcloud/eventstore/es/example/commands"
+	"github.com/contextcloud/eventstore/es/example/events"
+
+	"github.com/contextcloud/eventstore/es"
 )
 
 type ExternalUser struct {

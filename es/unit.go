@@ -2,9 +2,10 @@ package es
 
 import (
 	"context"
-	"eventstore/es/filters"
 	"fmt"
 	"reflect"
+
+	"github.com/contextcloud/eventstore/es/filters"
 
 	"github.com/neilotoole/errgroup"
 )

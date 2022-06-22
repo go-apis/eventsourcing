@@ -1,9 +1,10 @@
 package g
 
 import (
-	"eventstore/es/filters"
 	"fmt"
 	"strings"
+
+	"github.com/contextcloud/eventstore/es/filters"
 
 	"gorm.io/gorm"
 )

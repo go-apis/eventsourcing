@@ -1,9 +1,10 @@
 package g
 
 import (
-	"eventstore/es"
 	"strings"
 	"time"
+
+	"github.com/contextcloud/eventstore/es"
 
 	"github.com/jinzhu/inflection"
 )
