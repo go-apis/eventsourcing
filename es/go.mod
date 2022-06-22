@@ -1,4 +1,4 @@
-module eventstore/es
+module github.com/contextcloud/eventstore/es
 
 go 1.18
 
