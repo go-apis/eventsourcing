@@ -1,4 +1,4 @@
-package g
+package local
 
 import (
 	"context"

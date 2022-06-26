@@ -8,7 +8,7 @@ import (
 	"github.com/contextcloud/eventstore/es/example/commands"
 	"github.com/contextcloud/eventstore/es/example/sagas"
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/es/local/g"
+	"github.com/contextcloud/eventstore/es/local"
 
 	"github.com/contextcloud/eventstore/es"
 
@@ -47,17 +47,14 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 }
 
 func main() {
-	data, err := g.NewData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
-	if err != nil {
-		panic(err)
-	}
-
 	cfg, err := es.NewConfig(
 		"example",
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
 	)
+
+	data, err := local.NewData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
 	if err != nil {
 		panic(err)
 	}
