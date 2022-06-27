@@ -6,12 +6,7 @@ type Slice[T any] []T
 
 func (n *Slice[T]) UnmarshalJSON(buf []byte) error {
 	if len(buf) > 0 && buf[0] == '{' {
-		// get the index.
-		s := struct {
-			Index  int             `json:"index"`
-			Value  json.RawMessage `json:"value"`
-			Delete bool            `json:"delete"`
-		}{}
+		var s SliceItem[json.RawMessage]
 		if err := json.Unmarshal(buf, &s); err != nil {
 			return err
 		}
@@ -41,11 +36,7 @@ func (n *Slice[T]) UnmarshalJSON(buf []byte) error {
 }
 
 type SliceItem[T any] struct {
-	Index int `json:"index"`
-	Value T   `json:"value"`
-}
-
-type SliceDelete struct {
 	Index  int  `json:"index"`
+	Value  T    `json:"value"`
 	Delete bool `json:"delete"`
 }
