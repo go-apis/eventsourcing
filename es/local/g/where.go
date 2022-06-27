@@ -36,9 +36,9 @@ func whereClauseQuery(c filters.WhereClause) string {
 	case `not.lte`:
 		return fmt.Sprintf(`%s > ?`, c.Column)
 	case `like`:
-		return fmt.Sprintf(`%s LIKE ?`, c.Column)
+		return fmt.Sprintf(`%s ILIKE ?`, c.Column)
 	case `not.like`:
-		return fmt.Sprintf(`%s NOT LIKE ?`, c.Column)
+		return fmt.Sprintf(`%s NOT ILIKE ?`, c.Column)
 	case `is`:
 		return fmt.Sprintf(`%s IS ?`, c.Column)
 	case `not.is`:
