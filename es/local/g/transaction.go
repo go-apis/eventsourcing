@@ -109,7 +109,7 @@ func (t *transaction) Find(ctx context.Context, serviceName string, aggregateNam
 		Find(out)
 	return r.Error
 }
-func (t *transaction) Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int64, error) {
+func (t *transaction) Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int, error) {
 	var totalRows int64
 
 	table := tableName(serviceName, aggregateName)
@@ -119,7 +119,7 @@ func (t *transaction) Count(ctx context.Context, serviceName string, aggregateNa
 
 	q = where(q, filter.Where)
 	r := q.Count(&totalRows)
-	return totalRows, r.Error
+	return int(totalRows), r.Error
 }
 
 func newTransaction(db *gorm.DB) es.Tx {

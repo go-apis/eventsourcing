@@ -21,8 +21,8 @@ type SetAggregate interface {
 }
 
 type BaseAggregate struct {
-	Id        string
-	Namespace string
+	Id        string `json:"id"`
+	Namespace string `json:"namespace"`
 
 	version int
 	events  []interface{}

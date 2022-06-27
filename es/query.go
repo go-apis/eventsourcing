@@ -10,17 +10,17 @@ import (
 )
 
 type Pagination[T any] struct {
-	Limit      int64
-	Page       int64
-	TotalItems int64
-	TotalPages int64
-	Items      []T
+	Limit      int `json:"limit"`
+	Page       int `json:"page"`
+	TotalItems int `json:"total_items"`
+	TotalPages int `json:"total_pages"`
+	Items      []T `json:"items"`
 }
 
 type Query[T any] interface {
 	Load(ctx context.Context, id string) (*T, error)
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
-	Count(ctx context.Context, filter filters.Filter) (int64, error)
+	Count(ctx context.Context, filter filters.Filter) (int, error)
 	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
 }
 
@@ -45,7 +45,7 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	return items, nil
 }
 
-func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int64, error) {
+func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error) {
 	return q.unit.Count(ctx, q.aggregateName, filter)
 }
 
@@ -67,10 +67,10 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, err
 	}
 
-	totalPages := int64(math.Ceil(float64(totalItems) / float64(*filter.Limit)))
+	totalPages := int(math.Ceil(float64(totalItems) / float64(*filter.Limit)))
 	return &Pagination[T]{
-		Limit:      int64(*filter.Limit),
-		Page:       int64(*filter.Offset) + 1,
+		Limit:      *filter.Limit,
+		Page:       *filter.Offset + 1,
 		TotalItems: totalItems,
 		TotalPages: totalPages,
 		Items:      items,
