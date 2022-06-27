@@ -114,8 +114,14 @@ func Test_It(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
 	t.Log(users)
+
+	total, err := userQuery.Count(ctx, filter)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Log(total)
 
 	// commit the tx.
 	if err := unit.Commit(ctx); err != nil {

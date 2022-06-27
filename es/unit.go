@@ -19,6 +19,7 @@ type Unit interface {
 	Commit(ctx context.Context) error
 	Load(ctx context.Context, id string, aggregateName string, out interface{}) error
 	Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error
+	Count(ctx context.Context, aggregateName string, filter filters.Filter) (int64, error)
 }
 
 type unit struct {
@@ -77,6 +78,11 @@ func (u *unit) Load(ctx context.Context, id string, aggregateName string, out in
 func (u *unit) Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error {
 	namespace := NamespaceFromContext(ctx)
 	return u.tx.Find(ctx, u.serviceName, aggregateName, namespace, filter, out)
+}
+
+func (u *unit) Count(ctx context.Context, aggregateName string, filter filters.Filter) (int64, error) {
+	namespace := NamespaceFromContext(ctx)
+	return u.tx.Count(ctx, u.serviceName, aggregateName, namespace, filter)
 }
 
 func NewUnit(cfg Config, tx Tx) (Unit, error) {

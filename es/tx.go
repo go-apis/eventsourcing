@@ -17,4 +17,5 @@ type Tx interface {
 
 	Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out interface{}) error
 	Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
+	Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int64, error)
 }

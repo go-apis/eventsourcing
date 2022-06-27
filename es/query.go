@@ -10,6 +10,7 @@ import (
 type Query[T any] interface {
 	Load(ctx context.Context, id string) (*T, error)
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
+	Count(ctx context.Context, filter filters.Filter) (int64, error)
 }
 
 type query[T any] struct {
@@ -31,6 +32,10 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int64, error) {
+	return q.unit.Count(ctx, q.aggregateName, filter)
 }
 
 func NewQuery[T any](unit Unit) Query[T] {
