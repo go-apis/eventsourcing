@@ -70,6 +70,9 @@ func (t *transaction) SaveEntity(ctx context.Context, raw es.Entity) error {
 func (t *transaction) Commit(ctx context.Context) error {
 	return t.db.Commit().Error
 }
+func (t *transaction) Rollback(ctx context.Context) error {
+	return t.db.Rollback().Error
+}
 
 func (t *transaction) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out interface{}) error {
 	table := tableName(serviceName, aggregateName)

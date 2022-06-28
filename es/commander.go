@@ -28,6 +28,7 @@ func (c *commander[T]) Handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer unit.Rollback(ctx)
 
 	if err := unit.Dispatch(ctx, cmd); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

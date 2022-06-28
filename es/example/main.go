@@ -47,15 +47,22 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 }
 
 func main() {
+	data, err := g.NewData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
+	if err != nil {
+		panic(err)
+	}
+
 	cfg, err := es.NewConfig(
 		"example",
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
 	)
-
-	data, err := g.NewData(cfg, "postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
 	if err != nil {
+		panic(err)
+	}
+
+	if err := data.Initialize(cfg); err != nil {
 		panic(err)
 	}
 

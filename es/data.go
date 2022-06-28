@@ -5,5 +5,6 @@ import (
 )
 
 type Data interface {
+	Initialize(cfg Config) error
 	NewTx(ctx context.Context) (Tx, error)
 }

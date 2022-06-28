@@ -17,6 +17,7 @@ type Unit interface {
 	DispatchAsync(ctx context.Context, cmds ...Command) error
 	Dispatch(ctx context.Context, cmds ...Command) error
 	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
 	Load(ctx context.Context, id string, aggregateName string, out interface{}) error
 	Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, filter filters.Filter) (int, error)
@@ -69,6 +70,9 @@ func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 
 func (u *unit) Commit(ctx context.Context) error {
 	return u.tx.Commit(ctx)
+}
+func (u *unit) Rollback(ctx context.Context) error {
+	return u.tx.Rollback(ctx)
 }
 
 func (u *unit) Load(ctx context.Context, id string, aggregateName string, out interface{}) error {

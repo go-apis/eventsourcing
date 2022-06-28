@@ -9,6 +9,7 @@ import (
 
 type Tx interface {
 	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
 
 	LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out SourcedAggregate) error
 	GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error)
