@@ -40,11 +40,11 @@ func (c *config) sourced(agg SourcedAggregate) error {
 
 	name := t.String()
 	factory := func() (SourcedAggregate, error) {
-		agg := reflect.New(t).Interface().(SourcedAggregate)
-		if err := copier.Copy(agg, agg); err != nil {
+		out := reflect.New(t).Interface().(SourcedAggregate)
+		if err := copier.Copy(out, agg); err != nil {
 			return nil, err
 		}
-		return agg, nil
+		return out, nil
 	}
 
 	pub := NewPublisher(c.eventHandlers)
@@ -71,11 +71,11 @@ func (c *config) saga(s Saga) error {
 	}
 	// name := t.String()
 	factory := func() (Saga, error) {
-		agg := reflect.New(t).Interface().(Saga)
-		if err := copier.Copy(agg, agg); err != nil {
+		out := reflect.New(t).Interface().(Saga)
+		if err := copier.Copy(out, s); err != nil {
 			return nil, err
 		}
-		return agg, nil
+		return out, nil
 	}
 
 	for t, handle := range handles {
