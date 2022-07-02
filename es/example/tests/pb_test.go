@@ -14,8 +14,11 @@ import (
 )
 
 func Test_Pb(t *testing.T) {
-
-	data := pb.NewData("localhost:6565")
+	data, err := pb.NewData("localhost:6565")
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 	cfg, err := es.NewConfig(
 		"example",

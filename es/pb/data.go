@@ -13,8 +13,6 @@ type data struct {
 }
 
 func (d *data) NewTx(ctx context.Context) (es.Tx, error) {
-	tx, err := d.storeClient.NewTx(ctx)
-
 	return nil, nil
 }
 

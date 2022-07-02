@@ -1,0 +1,5 @@
+make: Entering directory `/Users/chris/workspace/contextcloud/eventstore'
+protoc --proto_path=proto proto/*.proto --go_out=server --go-grpc_out=server
+protoc --proto_path=proto proto/*.proto --go_out=es --go-grpc_out=es
+make: Leaving directory `/Users/chris/workspace/contextcloud/eventstore'
+ 
