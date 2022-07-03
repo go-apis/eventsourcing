@@ -8,21 +8,27 @@ type Client interface {
 
 type client struct {
 	cfg  Config
-	data Data
+	conn Conn
 }
 
 func (c *client) NewUnit(ctx context.Context) (Unit, error) {
-	tx, err := c.data.NewTx(ctx)
+	data, err := c.conn.NewData(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return NewUnit(c.cfg, tx)
+
+	return newUnit(c.cfg, data)
 }
 
-func NewClient(cfg Config, data Data) Client {
+func NewClient(cfg Config, conn Conn) (Client, error) {
+	ctx := context.Background()
+	if err := conn.Initialize(ctx, cfg); err != nil {
+		return nil, err
+	}
+
 	cli := &client{
 		cfg:  cfg,
-		data: data,
+		conn: conn,
 	}
-	return cli
+	return cli, nil
 }

@@ -17,8 +17,17 @@ import (
 )
 
 func handle[T es.Command](cli es.Client) http.HandlerFunc {
-	commander := es.NewCommander[T](cli)
-	return commander.Handle
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		unit, err := cli.NewUnit(ctx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		commander := es.NewCommander[T](unit)
+		commander.Handle(w, r)
+	}
 }
 
 func userQueryFunc(cli es.Client) http.HandlerFunc {
@@ -47,23 +56,24 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 }
 
 func main() {
+	conn, err := local.NewConn("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
+	if err != nil {
+		panic(err)
+	}
+
 	cfg, err := es.NewConfig(
 		"example",
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
 	)
-
-	data, err := local.NewData("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
 	if err != nil {
 		panic(err)
 	}
-
-	if err := data.Initialize(cfg); err != nil {
+	cli, err := es.NewClient(cfg, conn)
+	if err != nil {
 		panic(err)
 	}
-
-	cli := es.NewClient(cfg, data)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

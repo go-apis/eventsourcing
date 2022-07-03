@@ -19,13 +19,14 @@ type sourcedStore struct {
 }
 
 func (s *sourcedStore) Load(ctx context.Context, id string, namespace string, out SourcedAggregate) error {
-	tx := TxFromContext(ctx)
+	unit := UnitFromContext(ctx)
+	data := unit.GetData()
 
-	if err := tx.LoadSnapshot(ctx, s.serviceName, s.aggregateName, namespace, id, out); err != nil {
+	if err := data.LoadSnapshot(ctx, s.serviceName, s.aggregateName, namespace, id, out); err != nil {
 		return err
 	}
 
-	datas, err := tx.GetEventDatas(ctx, s.serviceName, s.aggregateName, namespace, id, out.GetVersion())
+	datas, err := data.GetEventDatas(ctx, s.serviceName, s.aggregateName, namespace, id, out.GetVersion())
 	if err != nil {
 		return err
 	}
@@ -42,7 +43,9 @@ func (s *sourcedStore) Load(ctx context.Context, id string, namespace string, ou
 func (s *sourcedStore) Save(ctx context.Context, id string, namespace string, val SourcedAggregate) error {
 	datas := val.GetEvents()
 	version := val.GetVersion()
-	tx := TxFromContext(ctx)
+
+	unit := UnitFromContext(ctx)
+	data := unit.GetData()
 
 	if len(datas) == 0 {
 		return nil
@@ -69,7 +72,7 @@ func (s *sourcedStore) Save(ctx context.Context, id string, namespace string, va
 		}
 	}
 
-	if err := tx.SaveEvents(ctx, evts); err != nil {
+	if err := data.SaveEvents(ctx, evts); err != nil {
 		return err
 	}
 
@@ -93,7 +96,7 @@ func (s *sourcedStore) Save(ctx context.Context, id string, namespace string, va
 		AggregateType: s.aggregateName,
 		Data:          val,
 	}
-	if err := tx.SaveEntity(ctx, entity); err != nil {
+	if err := data.SaveEntity(ctx, entity); err != nil {
 		return err
 	}
 

@@ -10,7 +10,7 @@ type Commander[T Command] interface {
 }
 
 type commander[T Command] struct {
-	cli Client
+	unit Unit
 }
 
 func (c *commander[T]) Handle(w http.ResponseWriter, r *http.Request) {
@@ -23,24 +23,24 @@ func (c *commander[T]) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	unit, err := c.cli.NewUnit(ctx)
+	tx, err := c.unit.NewTx(ctx)
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	if err := c.unit.Dispatch(ctx, cmd); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer unit.Rollback(ctx)
 
-	if err := unit.Dispatch(ctx, cmd); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if err := unit.Commit(ctx); err != nil {
+	if _, err := tx.Commit(ctx); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 }
 
-func NewCommander[T Command](cli Client) Commander[T] {
-	return &commander[T]{cli: cli}
+func NewCommander[T Command](unit Unit) Commander[T] {
+	return &commander[T]{unit: unit}
 }
