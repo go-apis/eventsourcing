@@ -1,6 +1,6 @@
 gen:
 	protoc --proto_path=proto proto/*.proto --go_out=server --go-grpc_out=server
-	protoc --proto_path=proto proto/*.proto --go_out=client --go-grpc_out=client
+	protoc --proto_path=proto proto/*.proto --go_out=es --go-grpc_out=es
 
 clean:
 	rm -rf server/pb/

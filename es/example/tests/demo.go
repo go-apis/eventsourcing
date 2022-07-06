@@ -3,28 +3,31 @@ package tests
 import (
 	"context"
 	"log"
-	"testing"
 
+	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/example/aggregates"
 	"github.com/contextcloud/eventstore/es/example/commands"
 	"github.com/contextcloud/eventstore/es/example/sagas"
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/es/local/g"
-
-	"github.com/contextcloud/eventstore/es"
+	"github.com/contextcloud/eventstore/es/local"
+	"github.com/contextcloud/eventstore/es/pb"
 )
 
-func Setup() (es.Client, error) {
+func LocalConn() (es.Conn, error) {
 	dsn := "postgresql://es:es@localhost:5432/eventstore?sslmode=disable"
-	if err := g.ResetDb(dsn); err != nil {
+	if err := local.ResetDb(dsn); err != nil {
 		return nil, err
 	}
 
-	data, err := g.NewData(dsn)
-	if err != nil {
-		return nil, err
-	}
+	return local.NewConn(dsn)
+}
 
+func PbConn() (es.Conn, error) {
+	dsn := "localhost:3332"
+	return pb.NewConn(dsn)
+}
+
+func SetupClient(conn es.Conn) (es.Client, error) {
 	cfg, err := es.NewConfig(
 		"example",
 		&aggregates.User{},
@@ -34,25 +37,10 @@ func Setup() (es.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if err := data.Initialize(cfg); err != nil {
-		return nil, err
-	}
-
-	cli := es.NewClient(cfg, data)
-	return cli, nil
+	return es.NewClient(cfg, conn)
 }
 
-func QueryUsers(cli es.Client) error {
-	ctx := context.Background()
-
-	// the event store should know the aggregates and the commands.
-	unit, err := cli.NewUnit(ctx)
-	if err != nil {
-		return err
-	}
-	defer unit.Rollback(ctx)
-
+func QueryUsers(ctx context.Context, unit es.Unit) error {
 	userQuery := es.NewQuery[aggregates.User](unit)
 	user, err := userQuery.Load(ctx, "98f1f7d3-f312-4d57-8847-5b9ac8d5797d")
 	if err != nil {
@@ -87,7 +75,7 @@ func QueryUsers(cli es.Client) error {
 	return err
 }
 
-func Test_It(t *testing.T) {
+func UserCommands(ctx context.Context, unit es.Unit) error {
 	cmds := []es.Command{
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
@@ -125,38 +113,21 @@ func Test_It(t *testing.T) {
 		},
 	}
 
-	cli, err := Setup()
+	tx, err := unit.NewTx(ctx)
 	if err != nil {
-		t.Error(err)
-		return
+		return err
 	}
-	ctx := context.Background()
-
-	// the event store should know the aggregates and the commands.
-	unit, err := cli.NewUnit(ctx)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	defer tx.Rollback(ctx)
 
 	// send a commands to store.
 	if err := unit.Dispatch(ctx, cmds...); err != nil {
-		t.Error(err)
-		return
+		return err
 	}
 
 	// commit the tx.
-	if err := unit.Commit(ctx); err != nil {
-		t.Error(err)
-		return
+	if _, err := tx.Commit(ctx); err != nil {
+		return err
 	}
 
-	for i := 0; i < 1000; i++ {
-		if err := QueryUsers(cli); err != nil {
-			t.Error(err)
-			return
-		}
-
-		t.Logf("index: %d", i)
-	}
+	return nil
 }

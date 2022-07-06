@@ -26,17 +26,6 @@ func NamespaceFromContext(ctx context.Context) string {
 	return defaultNamespace
 }
 
-func SetTx(ctx context.Context, tx Tx) context.Context {
-	return context.WithValue(ctx, TxKey, tx)
-}
-func TxFromContext(ctx context.Context) Tx {
-	tx, ok := ctx.Value(TxKey).(Tx)
-	if ok {
-		return tx
-	}
-	return nil
-}
-
 func SetUnit(ctx context.Context, unit Unit) context.Context {
 	return context.WithValue(ctx, UnitKey, unit)
 }

@@ -2,21 +2,22 @@ syntax = "proto3";
 
 option go_package = "pb/store";
 
-message Event {
-  string title = 1;
-  string author = 2;
-  int32 page_count = 3;
-  optional string language = 4;
+import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
+
+service Store {	
+	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
+	rpc Commit (google.protobuf.Empty) returns (CommitResponse){};
+	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
 }
 
-message GetEventRequest {}
-message GetEventResponse { Event event = 1; }
+message NewTxRequest {
+}
 
+message NewTxResponse {
+	string transactionID = 1;
+}
 
-message WatchRequest {}
-message WatchResponse {}
-
-service Store {
-  rpc Watch(WatchRequest) returns (stream WatchResponse) {}
-  rpc GetEvent(GetEventRequest) returns (GetEventResponse) {}
+message CommitResponse {
+	uint32 updatedRows = 1;
 }

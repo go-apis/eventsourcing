@@ -16,22 +16,22 @@ var ErrNotCommandHandler = fmt.Errorf("not a command handler")
 type Unit interface {
 	DispatchAsync(ctx context.Context, cmds ...Command) error
 	Dispatch(ctx context.Context, cmds ...Command) error
-	Commit(ctx context.Context) error
-	Rollback(ctx context.Context) error
+
+	GetData() Data
+	NewTx(ctx context.Context) (Tx, error)
 	Load(ctx context.Context, id string, aggregateName string, out interface{}) error
 	Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, filter filters.Filter) (int, error)
 }
 
 type unit struct {
-	tx              Tx
+	data            Data
 	serviceName     string
 	commandHandlers map[reflect.Type]CommandHandler
 }
 
 func (u *unit) DispatchAsync(ctx context.Context, cmds ...Command) error {
 	numG, qSize := 8, 4
-	ctx = SetTx(ctx, u.tx)
 	ctx = SetUnit(ctx, u)
 	g, ctx := errgroup.WithContextN(ctx, numG, qSize)
 
@@ -52,7 +52,6 @@ func (u *unit) DispatchAsync(ctx context.Context, cmds ...Command) error {
 }
 
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
-	ctx = SetTx(ctx, u.tx)
 	ctx = SetUnit(ctx, u)
 
 	for _, cmd := range cmds {
@@ -68,30 +67,31 @@ func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 	return nil
 }
 
-func (u *unit) Commit(ctx context.Context) error {
-	return u.tx.Commit(ctx)
+func (u *unit) GetData() Data {
+	return u.data
 }
-func (u *unit) Rollback(ctx context.Context) error {
-	return u.tx.Rollback(ctx)
+
+func (u *unit) NewTx(ctx context.Context) (Tx, error) {
+	return u.data.NewTx(ctx)
 }
 
 func (u *unit) Load(ctx context.Context, id string, aggregateName string, out interface{}) error {
 	namespace := NamespaceFromContext(ctx)
-	return u.tx.Load(ctx, u.serviceName, aggregateName, namespace, id, out)
+	return u.data.Load(ctx, u.serviceName, aggregateName, namespace, id, out)
 }
 func (u *unit) Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error {
 	namespace := NamespaceFromContext(ctx)
-	return u.tx.Find(ctx, u.serviceName, aggregateName, namespace, filter, out)
+	return u.data.Find(ctx, u.serviceName, aggregateName, namespace, filter, out)
 }
 
 func (u *unit) Count(ctx context.Context, aggregateName string, filter filters.Filter) (int, error) {
 	namespace := NamespaceFromContext(ctx)
-	return u.tx.Count(ctx, u.serviceName, aggregateName, namespace, filter)
+	return u.data.Count(ctx, u.serviceName, aggregateName, namespace, filter)
 }
 
-func NewUnit(cfg Config, tx Tx) (Unit, error) {
+func newUnit(cfg Config, data Data) (Unit, error) {
 	return &unit{
-		tx:              tx,
+		data:            data,
 		serviceName:     cfg.GetServiceName(),
 		commandHandlers: cfg.GetCommandHandlers(),
 	}, nil
