@@ -14,12 +14,20 @@ import (
 )
 
 func LocalConn() (es.Conn, error) {
-	dsn := "postgresql://es:es@localhost:5432/eventstore?sslmode=disable"
-	if err := local.ResetDb(dsn); err != nil {
+	// dsn := "postgresql://inflow:kU1tvu@pg.data:5432/inflow-assets?sslmode=disable"
+	// dsn := "postgresql://es:es@localhost:5432/eventstore?sslmode=disable"
+
+	opts := []local.OptionFunc{
+		local.WithDbUser("es"),
+		local.WithDbPassword("es"),
+		local.WithDbName("eventstore"),
+	}
+
+	if err := local.ResetDb(opts...); err != nil {
 		return nil, err
 	}
 
-	return local.NewConn(dsn)
+	return local.NewConn(opts...)
 }
 
 func PbConn() (es.Conn, error) {

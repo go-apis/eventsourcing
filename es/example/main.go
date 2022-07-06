@@ -56,7 +56,7 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 }
 
 func main() {
-	conn, err := local.NewConn("postgresql://es:es@localhost:5432/eventstore?sslmode=disable")
+	conn, err := local.NewConn(local.WithDbUser("es"), local.WithDbPassword("es"), local.WithDbName("eventstore"))
 	if err != nil {
 		panic(err)
 	}

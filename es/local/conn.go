@@ -48,12 +48,24 @@ func (c *conn) Close(ctx context.Context) error {
 	return sqlDB.Close()
 }
 
-func NewConn(dsn string) (es.Conn, error) {
+func NewConn(opts ...OptionFunc) (es.Conn, error) {
+	o := NewOptions()
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	dsn := o.DSN()
+
+	level := logger.Info
+	if !o.Debug {
+		level = logger.Error
+	}
+
 	newLogger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags),
 		logger.Config{
 			SlowThreshold:             time.Second, // Slow SQL threshold
-			LogLevel:                  logger.Info, // Log level
+			LogLevel:                  level,       // Log level
 			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
 			Colorful:                  true,        // Disable color
 		},
