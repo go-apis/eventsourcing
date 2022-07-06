@@ -10,6 +10,7 @@ import (
 	"github.com/contextcloud/eventstore/es/example/sagas"
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/local"
+	"github.com/contextcloud/eventstore/es/pb"
 )
 
 func LocalConn() (es.Conn, error) {
@@ -22,12 +23,8 @@ func LocalConn() (es.Conn, error) {
 }
 
 func PbConn() (es.Conn, error) {
-	dsn := "postgresql://es:es@localhost:5432/eventstore?sslmode=disable"
-	if err := local.ResetDb(dsn); err != nil {
-		return nil, err
-	}
-
-	return local.NewConn(dsn)
+	dsn := "localhost:3332"
+	return pb.NewConn(dsn)
 }
 
 func SetupClient(conn es.Conn) (es.Client, error) {

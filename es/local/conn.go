@@ -40,6 +40,14 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	return newData(db), nil
 }
 
+func (c *conn) Close(ctx context.Context) error {
+	sqlDB, err := c.db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
+}
+
 func NewConn(dsn string) (es.Conn, error) {
 	newLogger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags),

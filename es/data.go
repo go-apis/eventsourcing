@@ -10,6 +10,7 @@ import (
 type Conn interface {
 	Initialize(ctx context.Context, cfg Config) error
 	NewData(ctx context.Context) (Data, error)
+	Close(ctx context.Context) error
 }
 
 type Tx interface {
