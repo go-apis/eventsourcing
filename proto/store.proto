@@ -7,8 +7,8 @@ import "google/protobuf/struct.proto";
 
 service Store {	
 	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
-	rpc Commit (google.protobuf.Empty) returns (CommitResponse){};
-	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
+	rpc Commit (Tx) returns (CommitResponse){};
+	rpc Rollback (Tx) returns (google.protobuf.Empty){};
 }
 
 message NewTxRequest {
@@ -18,6 +18,24 @@ message NewTxResponse {
 	string transactionID = 1;
 }
 
+message Tx {
+	string transactionID = 1;
+}
+
 message CommitResponse {
 	uint32 updatedRows = 1;
+}
+
+
+message ErrorInfo {
+	string code = 1;
+	string cause = 2;
+}
+
+message DebugInfo {
+	string stack = 1;
+}
+
+message RetryInfo {
+	int32 retry_delay = 1;
 }

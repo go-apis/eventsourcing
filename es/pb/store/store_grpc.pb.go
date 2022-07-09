@@ -24,8 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StoreClient interface {
 	NewTx(ctx context.Context, in *NewTxRequest, opts ...grpc.CallOption) (*NewTxResponse, error)
-	Commit(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CommitResponse, error)
-	Rollback(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Commit(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*CommitResponse, error)
+	Rollback(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type storeClient struct {
@@ -45,7 +45,7 @@ func (c *storeClient) NewTx(ctx context.Context, in *NewTxRequest, opts ...grpc.
 	return out, nil
 }
 
-func (c *storeClient) Commit(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*CommitResponse, error) {
+func (c *storeClient) Commit(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*CommitResponse, error) {
 	out := new(CommitResponse)
 	err := c.cc.Invoke(ctx, "/Store/Commit", in, out, opts...)
 	if err != nil {
@@ -54,7 +54,7 @@ func (c *storeClient) Commit(ctx context.Context, in *emptypb.Empty, opts ...grp
 	return out, nil
 }
 
-func (c *storeClient) Rollback(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *storeClient) Rollback(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/Store/Rollback", in, out, opts...)
 	if err != nil {
@@ -68,8 +68,8 @@ func (c *storeClient) Rollback(ctx context.Context, in *emptypb.Empty, opts ...g
 // for forward compatibility
 type StoreServer interface {
 	NewTx(context.Context, *NewTxRequest) (*NewTxResponse, error)
-	Commit(context.Context, *emptypb.Empty) (*CommitResponse, error)
-	Rollback(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Commit(context.Context, *Tx) (*CommitResponse, error)
+	Rollback(context.Context, *Tx) (*emptypb.Empty, error)
 	mustEmbedUnimplementedStoreServer()
 }
 
@@ -80,10 +80,10 @@ type UnimplementedStoreServer struct {
 func (UnimplementedStoreServer) NewTx(context.Context, *NewTxRequest) (*NewTxResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewTx not implemented")
 }
-func (UnimplementedStoreServer) Commit(context.Context, *emptypb.Empty) (*CommitResponse, error) {
+func (UnimplementedStoreServer) Commit(context.Context, *Tx) (*CommitResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
 }
-func (UnimplementedStoreServer) Rollback(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (UnimplementedStoreServer) Rollback(context.Context, *Tx) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rollback not implemented")
 }
 func (UnimplementedStoreServer) mustEmbedUnimplementedStoreServer() {}
@@ -118,7 +118,7 @@ func _Store_NewTx_Handler(srv interface{}, ctx context.Context, dec func(interfa
 }
 
 func _Store_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(Tx)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -130,13 +130,13 @@ func _Store_Commit_Handler(srv interface{}, ctx context.Context, dec func(interf
 		FullMethod: "/Store/Commit",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StoreServer).Commit(ctx, req.(*emptypb.Empty))
+		return srv.(StoreServer).Commit(ctx, req.(*Tx))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _Store_Rollback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+	in := new(Tx)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func _Store_Rollback_Handler(srv interface{}, ctx context.Context, dec func(inte
 		FullMethod: "/Store/Rollback",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StoreServer).Rollback(ctx, req.(*emptypb.Empty))
+		return srv.(StoreServer).Rollback(ctx, req.(*Tx))
 	}
 	return interceptor(ctx, in, info, handler)
 }

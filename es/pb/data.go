@@ -10,11 +10,20 @@ import (
 )
 
 type data struct {
+	storeClient store.StoreClient
+
+	transactionId *string
 }
 
 func (d *data) NewTx(ctx context.Context) (es.Tx, error) {
+	req := &store.NewTxRequest{}
 
-	return nil, nil
+	resp, err := d.storeClient.NewTx(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return newTransaction(d.storeClient, resp.TransactionID), nil
 }
 func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
 	return nil
@@ -23,6 +32,7 @@ func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateN
 	return nil, nil
 }
 func (d *data) SaveEvents(ctx context.Context, events []es.Event) error {
+
 	return nil
 }
 func (d *data) SaveEntity(ctx context.Context, entity es.Entity) error {
@@ -40,5 +50,7 @@ func (d *data) Count(ctx context.Context, serviceName string, aggregateName stri
 }
 
 func newData(storeClient store.StoreClient) (es.Data, error) {
-	return &data{}, nil
+	return &data{
+		storeClient: storeClient,
+	}, nil
 }
