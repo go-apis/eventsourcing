@@ -30,12 +30,19 @@ func (d *data) inTransaction() bool {
 	return d.tx != nil && !d.isCommitted
 }
 
-func (d *data) NewTx(ctx context.Context) (es.Tx, error) {
-	tx := d.db.Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
+func (d *data) Begin(ctx context.Context) (es.Tx, error) {
+	if d.isCommitted {
+		return nil, fmt.Errorf("cannot begin transaction after commit")
 	}
-	d.tx = tx
+
+	if d.tx == nil {
+		tx := d.db.Begin()
+		if tx.Error != nil {
+			return nil, tx.Error
+		}
+		d.tx = tx
+	}
+
 	return newTransaction(d), nil
 }
 

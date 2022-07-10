@@ -26,6 +26,7 @@ type StoreClient interface {
 	NewTx(ctx context.Context, in *NewTxRequest, opts ...grpc.CallOption) (*NewTxResponse, error)
 	Commit(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*CommitResponse, error)
 	Rollback(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (*EventsResponse, error)
 }
 
 type storeClient struct {
@@ -63,6 +64,15 @@ func (c *storeClient) Rollback(ctx context.Context, in *Tx, opts ...grpc.CallOpt
 	return out, nil
 }
 
+func (c *storeClient) Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (*EventsResponse, error) {
+	out := new(EventsResponse)
+	err := c.cc.Invoke(ctx, "/Store/Events", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // StoreServer is the server API for Store service.
 // All implementations must embed UnimplementedStoreServer
 // for forward compatibility
@@ -70,6 +80,7 @@ type StoreServer interface {
 	NewTx(context.Context, *NewTxRequest) (*NewTxResponse, error)
 	Commit(context.Context, *Tx) (*CommitResponse, error)
 	Rollback(context.Context, *Tx) (*emptypb.Empty, error)
+	Events(context.Context, *EventsRequest) (*EventsResponse, error)
 	mustEmbedUnimplementedStoreServer()
 }
 
@@ -85,6 +96,9 @@ func (UnimplementedStoreServer) Commit(context.Context, *Tx) (*CommitResponse, e
 }
 func (UnimplementedStoreServer) Rollback(context.Context, *Tx) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rollback not implemented")
+}
+func (UnimplementedStoreServer) Events(context.Context, *EventsRequest) (*EventsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Events not implemented")
 }
 func (UnimplementedStoreServer) mustEmbedUnimplementedStoreServer() {}
 
@@ -153,6 +167,24 @@ func _Store_Rollback_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_Events_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StoreServer).Events(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Store/Events",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StoreServer).Events(ctx, req.(*EventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Store_ServiceDesc is the grpc.ServiceDesc for Store service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -171,6 +203,10 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Rollback",
 			Handler:    _Store_Rollback_Handler,
+		},
+		{
+			MethodName: "Events",
+			Handler:    _Store_Events_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

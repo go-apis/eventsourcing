@@ -15,21 +15,41 @@ type data struct {
 	transactionId *string
 }
 
-func (d *data) NewTx(ctx context.Context) (es.Tx, error) {
-	req := &store.NewTxRequest{}
-
-	resp, err := d.storeClient.NewTx(ctx, req)
-	if err != nil {
-		return nil, err
+func (d *data) Begin(ctx context.Context) (es.Tx, error) {
+	if d.transactionId == nil {
+		req := &store.NewTxRequest{}
+		resp, err := d.storeClient.NewTx(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		d.transactionId = &resp.TransactionID
 	}
 
-	return newTransaction(d.storeClient, resp.TransactionID), nil
+	return newTransaction(d.storeClient, *d.transactionId), nil
 }
 func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
 	return nil
 }
 func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error) {
-	return nil, nil
+	f := int64(fromVersion)
+	req := &store.EventsRequest{
+		TransactionID: d.transactionId,
+		ServiceName:   &serviceName,
+		AggregateType: &aggregateName,
+		AggregateId:   &id,
+		Namespace:     &namespace,
+		FromVersion:   &f,
+	}
+	resp, err := d.storeClient.Events(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	var datas []json.RawMessage
+	for _, event := range resp.Events {
+		datas = append(datas, event.Data)
+	}
+	return datas, nil
 }
 func (d *data) SaveEvents(ctx context.Context, events []es.Event) error {
 

@@ -72,7 +72,7 @@ func (u *unit) GetData() Data {
 }
 
 func (u *unit) NewTx(ctx context.Context) (Tx, error) {
-	return u.data.NewTx(ctx)
+	return u.data.Begin(ctx)
 }
 
 func (u *unit) Load(ctx context.Context, id string, aggregateName string, out interface{}) error {

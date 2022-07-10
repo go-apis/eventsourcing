@@ -3,8 +3,9 @@ package errors
 type Code string
 
 const (
-	CodeSuccessCompletion Code = "00000"
-	CodeInternalError     Code = "XX000"
+	CodeSuccessCompletion     Code = "00000"
+	CodeInternalError         Code = "XX000"
+	CodeInvalidParameterValue Code = "22023"
 )
 
 type MyError interface {

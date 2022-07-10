@@ -4,7 +4,8 @@ import (
 	"log"
 	"net"
 
-	pb "github.com/contextcloud/eventstore/server/pb/store"
+	"github.com/contextcloud/eventstore/server/pb"
+	"github.com/contextcloud/eventstore/server/pb/store"
 
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -13,26 +14,22 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type server struct {
-	pb.UnimplementedStoreServer
-}
-
 func main() {
 	listener, err := net.Listen("tcp", ":3332")
 	if err != nil {
 		panic(err)
 	}
 
+	srv := pb.NewServer()
+
 	s := grpc.NewServer()
 	reflection.Register(s)
 
-	server := &server{}
-
 	healthServer := health.NewServer()
 	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
-	healthServer.SetServingStatus(pb.Store_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
+	healthServer.SetServingStatus(store.Store_ServiceDesc.ServiceName, healthpb.HealthCheckResponse_SERVING)
 
-	pb.RegisterStoreServer(s, server)
+	store.RegisterStoreServer(s, srv)
 	healthpb.RegisterHealthServer(s, healthServer)
 
 	if err := s.Serve(listener); err != nil {

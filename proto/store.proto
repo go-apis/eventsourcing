@@ -4,11 +4,13 @@ option go_package = "pb/store";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 service Store {	
 	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
 	rpc Commit (Tx) returns (CommitResponse){};
 	rpc Rollback (Tx) returns (google.protobuf.Empty){};
+	rpc Events (EventsRequest) returns (EventsResponse){};
 }
 
 message NewTxRequest {
@@ -26,6 +28,29 @@ message CommitResponse {
 	uint32 updatedRows = 1;
 }
 
+message EventsRequest {
+	optional string transactionID = 1;
+	optional string serviceName = 2;
+	optional string namespace = 3;
+	optional string aggregateType = 4;
+	optional string aggregateId = 5;
+	optional int64 fromVersion = 6;
+}
+message EventsResponse {
+	repeated Event events = 1;
+}
+
+message Event {
+	string serviceName = 1;
+	string namespace = 2;
+	string aggregateType = 3;
+	string aggregateId = 4;
+	int64 version = 5;
+	string eventType = 6;
+	google.protobuf.Timestamp timestamp = 7;
+	bytes data = 8;
+    google.protobuf.Struct Metadata = 9;
+}
 
 message ErrorInfo {
 	string code = 1;
