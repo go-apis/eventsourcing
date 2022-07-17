@@ -11,25 +11,31 @@ service Store {
 	rpc Commit (Tx) returns (CommitResponse){};
 	rpc Rollback (Tx) returns (google.protobuf.Empty){};
 	rpc Events (EventsRequest) returns (EventsResponse){};
+	rpc SaveEvents (SaveEventsRequest) returns (google.protobuf.Empty){};
 }
 
 message NewTxRequest {
 }
 
 message NewTxResponse {
-	string transactionID = 1;
+	string transactionId = 1;
 }
 
 message Tx {
-	string transactionID = 1;
+	string transactionId = 1;
 }
 
 message CommitResponse {
-	uint32 updatedRows = 1;
+	int32 updatedRows = 1;
+}
+
+message SaveEventsRequest {
+	string transactionId = 1;
+	repeated Event events = 2;
 }
 
 message EventsRequest {
-	optional string transactionID = 1;
+	optional string transactionId = 1;
 	optional string serviceName = 2;
 	optional string namespace = 3;
 	optional string aggregateType = 4;
@@ -46,10 +52,13 @@ message Event {
 	string aggregateType = 3;
 	string aggregateId = 4;
 	int64 version = 5;
-	string eventType = 6;
+	string type = 6;
+	// @gotags: gorm:"serializer:timestamppb;type:time"
 	google.protobuf.Timestamp timestamp = 7;
+	// @gotags: gorm:"type:jsonb"
 	bytes data = 8;
-    google.protobuf.Struct Metadata = 9;
+	// @gotags: gorm:"serializer:json;type:jsonb"
+	google.protobuf.Struct Metadata = 9;
 }
 
 message ErrorInfo {

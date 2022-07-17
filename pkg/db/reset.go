@@ -1,4 +1,4 @@
-package local
+package db
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func ResetDb(opts ...OptionFunc) error {
+func Reset(opts ...OptionFunc) error {
 	o := NewOptions()
 	for _, opt := range opts {
 		opt(o)

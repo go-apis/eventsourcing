@@ -9,6 +9,7 @@ import (
 	"github.com/contextcloud/eventstore/es/example/sagas"
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/local"
+	"github.com/contextcloud/eventstore/pkg/db"
 
 	"github.com/contextcloud/eventstore/es"
 
@@ -56,7 +57,11 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 }
 
 func main() {
-	conn, err := local.NewConn(local.WithDbUser("es"), local.WithDbPassword("es"), local.WithDbName("eventstore"))
+	conn, err := local.NewConn(
+		db.WithDbUser("es"),
+		db.WithDbPassword("es"),
+		db.WithDbName("eventstore"),
+	)
 	if err != nil {
 		panic(err)
 	}

@@ -11,19 +11,20 @@ import (
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/es/pb"
+	"github.com/contextcloud/eventstore/pkg/db"
 )
 
 func LocalConn() (es.Conn, error) {
 	// dsn := "postgresql://inflow:kU1tvu@pg.data:5432/inflow-assets?sslmode=disable"
 	// dsn := "postgresql://es:es@localhost:5432/eventstore?sslmode=disable"
 
-	opts := []local.OptionFunc{
-		local.WithDbUser("es"),
-		local.WithDbPassword("es"),
-		local.WithDbName("eventstore"),
+	opts := []db.OptionFunc{
+		db.WithDbUser("es"),
+		db.WithDbPassword("es"),
+		db.WithDbName("eventstore"),
 	}
 
-	if err := local.ResetDb(opts...); err != nil {
+	if err := db.Reset(opts...); err != nil {
 		return nil, err
 	}
 

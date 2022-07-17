@@ -3,6 +3,7 @@ package pb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
@@ -22,7 +23,7 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 		if err != nil {
 			return nil, err
 		}
-		d.transactionId = &resp.TransactionID
+		d.transactionId = &resp.TransactionId
 	}
 
 	return newTransaction(d.storeClient, *d.transactionId), nil
@@ -33,7 +34,7 @@ func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateNa
 func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error) {
 	f := int64(fromVersion)
 	req := &store.EventsRequest{
-		TransactionID: d.transactionId,
+		TransactionId: d.transactionId,
 		ServiceName:   &serviceName,
 		AggregateType: &aggregateName,
 		AggregateId:   &id,
@@ -52,7 +53,35 @@ func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateN
 	return datas, nil
 }
 func (d *data) SaveEvents(ctx context.Context, events []es.Event) error {
+	if d.transactionId == nil {
+		return fmt.Errorf("transaction not started")
+	}
 
+	evts := make([]*store.Event, len(events))
+	for i, event := range events {
+		// TODO what about a codec or something?
+		data, err := json.Marshal(event.Data)
+		if err != nil {
+			return err
+		}
+
+		evts[i] = &store.Event{
+			ServiceName:   event.ServiceName,
+			AggregateType: event.AggregateType,
+			AggregateId:   event.AggregateId,
+			Namespace:     event.Namespace,
+			Version:       int64(event.Version),
+			Data:          data,
+		}
+	}
+
+	req := &store.SaveEventsRequest{
+		TransactionId: *d.transactionId,
+		Events:        evts,
+	}
+	if _, err := d.storeClient.SaveEvents(ctx, req); err != nil {
+		return err
+	}
 	return nil
 }
 func (d *data) SaveEntity(ctx context.Context, entity es.Entity) error {

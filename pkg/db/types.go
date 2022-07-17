@@ -1,4 +1,4 @@
-package local
+package db
 
 import (
 	"strings"
@@ -9,7 +9,7 @@ import (
 	"github.com/jinzhu/inflection"
 )
 
-type event struct {
+type Event struct {
 	ServiceName   string `gorm:"primaryKey"`
 	Namespace     string `gorm:"primaryKey"`
 	AggregateId   string `gorm:"primaryKey;type:uuid"`
@@ -22,7 +22,7 @@ type event struct {
 }
 
 // todo add version
-type snapshot struct {
+type Snapshot struct {
 	ServiceName string `gorm:"primaryKey"`
 	Namespace   string `gorm:"primaryKey"`
 	Id          string `gorm:"primaryKey;type:uuid"`
@@ -31,12 +31,12 @@ type snapshot struct {
 	Aggregate   []byte `gorm:"type:jsonb"`
 }
 
-type entity struct {
+type Entity struct {
 	Namespace string `gorm:"primaryKey"`
 	Id        string `gorm:"primaryKey;type:uuid"`
 }
 
-func tableName(serviceName string, aggregateName string) string {
+func TableName(serviceName string, aggregateName string) string {
 	split := strings.Split(aggregateName, ".")
 	return strings.ToLower(serviceName + "_" + inflection.Plural(split[1]))
 }

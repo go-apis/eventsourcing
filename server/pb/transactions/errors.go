@@ -14,12 +14,11 @@ import (
 // var ErrNoTransactionAuthDataProvided = errors.New("no transaction auth data provided").WithCode(errors.CodInvalidAuthorizationSpecification)
 
 // var ErrTransactionNotFound = transactions.ErrTransactionNotFound
-// var ErrGuardAlreadyRunning = errors.New("session guard already launched")
-// var ErrGuardNotRunning = errors.New("session guard not running")
 
 var ErrInvalidOptionsProvided = errors.New("invalid options provided")
-var ErrSessionAlreadyPresent = errors.New("session already present").WithCode(errors.CodeInternalError)
-var ErrCantCreateSession = errors.New("can not create new session")
-var ErrMaxSessionsReached = fmt.Errorf("%w: max sessions number reached", ErrCantCreateSession)
-var ErrCantCreateSessionID = fmt.Errorf("%w: generation of session id failed", ErrCantCreateSession)
-var ErrSessionNotFound = errors.New("no session found").WithCode(errors.CodeInvalidParameterValue)
+var ErrTransactionAlreadyPresent = errors.New("transaction already present").WithCode(errors.CodeInternalError)
+var ErrCantCreateTransaction = errors.New("can not create new transaction")
+var ErrMaxTransactionsReached = fmt.Errorf("%w: max transactions number reached", ErrCantCreateTransaction)
+var ErrTransactionNotFound = errors.New("no transaction found").WithCode(errors.CodeInvalidParameterValue)
+var ErrGuardAlreadyRunning = errors.New("transaction guard already launched")
+var ErrGuardNotRunning = errors.New("transaction guard not running")

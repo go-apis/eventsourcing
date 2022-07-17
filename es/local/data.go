@@ -7,6 +7,7 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/pkg/db"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,7 +59,7 @@ func (t *data) GetEventDatas(ctx context.Context, serviceName string, aggregateN
 		Where("aggregate_id = ?", id).
 		Where("version > ?", fromVersion).
 		Order("version").
-		Model(&event{}).
+		Model(&db.Event{}).
 		Pluck("data", &datas)
 	return datas, out.Error
 }
@@ -71,9 +72,9 @@ func (t *data) SaveEvents(ctx context.Context, events []es.Event) error {
 		return nil // nothing to save
 	}
 
-	data := make([]*event, len(events))
+	data := make([]*db.Event, len(events))
 	for i, evt := range events {
-		data[i] = &event{
+		data[i] = &db.Event{
 			ServiceName:   evt.ServiceName,
 			Namespace:     evt.Namespace,
 			AggregateId:   evt.AggregateId,
@@ -95,7 +96,7 @@ func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := tableName(raw.ServiceName, raw.AggregateType)
+	table := db.TableName(raw.ServiceName, raw.AggregateType)
 	out := t.getDb().WithContext(ctx).
 		Table(table).
 		Clauses(clause.OnConflict{
@@ -107,7 +108,7 @@ func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
 }
 
 func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out interface{}) error {
-	table := tableName(serviceName, aggregateName)
+	table := db.TableName(serviceName, aggregateName)
 
 	r := t.getDb().WithContext(ctx).
 		Table(table).
@@ -117,7 +118,7 @@ func (t *data) Load(ctx context.Context, serviceName string, aggregateName strin
 	return r.Error
 }
 func (t *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
-	table := tableName(serviceName, aggregateName)
+	table := db.TableName(serviceName, aggregateName)
 	q := t.getDb().WithContext(ctx).
 		Table(table).
 		Where("namespace = ?", namespace)
@@ -147,7 +148,7 @@ func (t *data) Find(ctx context.Context, serviceName string, aggregateName strin
 func (t *data) Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int, error) {
 	var totalRows int64
 
-	table := tableName(serviceName, aggregateName)
+	table := db.TableName(serviceName, aggregateName)
 	q := t.getDb().WithContext(ctx).
 		Table(table).
 		Where("namespace = ?", namespace)

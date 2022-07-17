@@ -8,6 +8,7 @@ import (
 
 	"github.com/contextcloud/eventstore/server/pb/logger"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type manager struct {
@@ -15,6 +16,7 @@ type manager struct {
 
 	running      bool
 	options      Options
+	gormDb       *gorm.DB
 	transactions map[string]*Transaction
 	ticker       *time.Ticker
 	done         chan bool
@@ -22,115 +24,142 @@ type manager struct {
 }
 
 type Manager interface {
-	NewTransaction() (*Transaction, error)
+	NewTransaction(ctx context.Context) (*Transaction, error)
+	TransactionExists(id string) bool
+	GetTransaction(id string) (*Transaction, error)
+	TransactionCount() int
 
-	// SessionPresent(sessionID string) bool
-	// DeleteSession(sessionID string) error
-	// UpdateSessionActivityTime(sessionID string)
-	// StartSessionsGuard() error
-	// StopSessionsGuard() error
-	// GetSession(sessionID string) (*Session, error)
-	// SessionCount() int
+	DeleteTransaction(id string) error
+	CommitTransaction(id string) (int, error)
+	UpdateSessionActivityTime(id string)
+
+	IsRunning() bool
+	Start() error
+	Stop() error
 }
 
-func NewManager(options *Options) (*manager, error) {
+func NewManager(options *Options, gormDb *gorm.DB) (*manager, error) {
 	if options == nil {
 		return nil, ErrInvalidOptionsProvided
 	}
 
 	guard := &manager{
-		sessions: make(map[string]*Session),
-		ticker:   time.NewTicker(options.SessionGuardCheckInterval),
-		done:     make(chan bool),
-		logger:   logger.NewSimpleLogger("immudb session guard", os.Stdout),
-		options:  *options,
+		gormDb:       gormDb,
+		transactions: make(map[string]*Transaction),
+		ticker:       time.NewTicker(options.SessionGuardCheckInterval),
+		done:         make(chan bool),
+		logger:       logger.NewSimpleLogger("transaction guard", os.Stdout),
+		options:      *options,
 	}
 
 	return guard, nil
 }
 
-func (sm *manager) NewSession() (*Session, error) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) IsRunning() bool {
+	sm.mux.RLock()
+	defer sm.mux.RUnlock()
 
-	if len(sm.sessions) >= sm.options.MaxSessions {
+	return sm.running
+}
+
+func (sm *manager) NewTransaction(ctx context.Context) (*Transaction, error) {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
+
+	if len(sm.transactions) >= sm.options.MaxSessions {
 		sm.logger.Warningf("max sessions reached")
-		return nil, ErrMaxSessionsReached
+		return nil, ErrMaxTransactionsReached
 	}
 
 	id := uuid.NewString()
 
-	sm.sessions[id] = NewSession(sessionID, user, db, sm.logger)
-	sm.logger.Debugf("created session %s", sessionID)
-
-	return sm.sessions[sessionID], nil
-}
-
-func (sm *manager) SessionPresent(sessionID string) bool {
-	sm.sessionMux.RLock()
-	defer sm.sessionMux.RUnlock()
-
-	_, isPresent := sm.sessions[sessionID]
-	return isPresent
-}
-
-func (sm *manager) GetSession(sessionID string) (*Session, error) {
-	sm.sessionMux.RLock()
-	defer sm.sessionMux.RUnlock()
-
-	session, ok := sm.sessions[sessionID]
-	if !ok {
-		return nil, ErrSessionNotFound
+	gormDb := sm.gormDb.Begin()
+	if gormDb.Error != nil {
+		return nil, gormDb.Error
 	}
 
-	return session, nil
+	sm.transactions[id] = NewTransaction(id, gormDb, sm.logger)
+	sm.logger.Debugf("created session %s", id)
+
+	return sm.transactions[id], nil
 }
 
-func (sm *manager) DeleteSession(sessionID string) error {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) TransactionExists(id string) bool {
+	sm.mux.RLock()
+	defer sm.mux.RUnlock()
 
-	return sm.deleteSession(sessionID)
+	_, ok := sm.transactions[id]
+	return ok
 }
 
-func (sm *manager) deleteSession(sessionID string) error {
-	sess, ok := sm.sessions[sessionID]
+func (sm *manager) GetTransaction(id string) (*Transaction, error) {
+	sm.mux.RLock()
+	defer sm.mux.RUnlock()
+
+	transaction, ok := sm.transactions[id]
 	if !ok {
-		return ErrSessionNotFound
+		return nil, ErrTransactionNotFound
 	}
 
-	err := sess.Rollback()
-	delete(sm.sessions, sessionID)
+	return transaction, nil
+}
+
+func (sm *manager) DeleteTransaction(id string) error {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
+
+	transaction, ok := sm.transactions[id]
+	if !ok {
+		return ErrTransactionNotFound
+	}
+
+	err := transaction.Rollback()
+	delete(sm.transactions, id)
 	if err != nil {
 		return err
 	}
-
-	sess.SetReadWriteTxOngoing(false)
-
 	return nil
 }
 
-func (sm *manager) UpdateSessionActivityTime(sessionID string) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) CommitTransaction(id string) (int, error) {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
 
-	if sess, ok := sm.sessions[sessionID]; ok {
+	transaction, ok := sm.transactions[id]
+	if !ok {
+		return 0, ErrTransactionNotFound
+	}
+	defer transaction.Rollback()
+
+	out, err := transaction.Commit()
+	delete(sm.transactions, id)
+	if err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func (sm *manager) UpdateSessionActivityTime(id string) {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
+
+	if sess, ok := sm.transactions[id]; ok {
 		now := time.Now()
 		sess.SetLastActivityTime(now)
-		sm.logger.Debugf("updated last activity time for %s at %s", sessionID, now.Format(time.UnixDate))
+		sm.logger.Debugf("updated last activity time for %s at %s", id, now.Format(time.UnixDate))
 	}
 }
 
-func (sm *manager) SessionCount() int {
-	sm.sessionMux.RLock()
-	defer sm.sessionMux.RUnlock()
+func (sm *manager) TransactionCount() int {
+	sm.mux.RLock()
+	defer sm.mux.RUnlock()
 
-	return len(sm.sessions)
+	return len(sm.transactions)
 }
 
-func (sm *manager) StartSessionsGuard() error {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) Start() error {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
 
 	if sm.running {
 		return ErrGuardAlreadyRunning
@@ -143,24 +172,16 @@ func (sm *manager) StartSessionsGuard() error {
 			case <-sm.done:
 				return
 			case <-sm.ticker.C:
-				sm.expireSessions(time.Now())
+				sm.expireTransactions(time.Now())
 			}
 		}
 	}()
 
 	return nil
 }
-
-func (sm *manager) IsRunning() bool {
-	sm.sessionMux.RLock()
-	defer sm.sessionMux.RUnlock()
-
-	return sm.running
-}
-
-func (sm *manager) StopSessionsGuard() error {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) Stop() error {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
 
 	if !sm.running {
 		return ErrGuardNotRunning
@@ -171,109 +192,59 @@ func (sm *manager) StopSessionsGuard() error {
 	// Wait for the guard to finish any pending cancellation work
 	// this must be done with unlocked mutex since
 	// mutex expiration may try to lock the mutex
-	sm.sessionMux.Unlock()
+	sm.mux.Unlock()
 	sm.done <- true
-	sm.sessionMux.Lock()
+	sm.mux.Lock()
 
 	// Delete all
-	for id := range sm.sessions {
-		sm.deleteSession(id)
+	for id, transaction := range sm.transactions {
+		transaction.Rollback()
+		delete(sm.transactions, id)
 	}
 
 	sm.logger.Debugf("shutdown")
-
 	return nil
 }
 
-func (sm *manager) expireSessions(now time.Time) (sessionsCount, inactiveSessCount, deletedSessCount int, err error) {
-	sm.sessionMux.Lock()
-	defer sm.sessionMux.Unlock()
+func (sm *manager) expireTransactions(now time.Time) (transactionCount, inactiveTransactionCount, deletedTransactionCount int, err error) {
+	sm.mux.Lock()
+	defer sm.mux.Unlock()
 
 	if !sm.running {
 		return 0, 0, 0, ErrGuardNotRunning
 	}
 
-	inactiveSessCount = 0
-	deletedSessCount = 0
+	inactiveTransactionCount = 0
+	deletedTransactionCount = 0
 	sm.logger.Debugf("checking at %s", now.Format(time.UnixDate))
-	for ID, sess := range sm.sessions {
 
-		createdAt := sess.GetCreationTime()
-		lastActivity := sess.GetLastActivityTime()
+	for id, transaction := range sm.transactions {
+		createdAt := transaction.GetCreationTime()
+		lastActivity := transaction.GetLastActivityTime()
+
+		if now.Sub(lastActivity) > sm.options.MaxSessionInactivityTime {
+			inactiveTransactionCount++
+			continue
+		}
 
 		if now.Sub(createdAt) > sm.options.MaxSessionAgeTime {
-			sm.logger.Debugf("removing session %s - exceeded MaxSessionAgeTime", ID)
-			sm.deleteSession(ID)
-			deletedSessCount++
-		} else if now.Sub(lastActivity) > sm.options.Timeout {
-			sm.logger.Debugf("removing session %s - exceeded Timeout", ID)
-			sm.deleteSession(ID)
-			deletedSessCount++
-		} else if now.Sub(lastActivity) > sm.options.MaxSessionInactivityTime {
-			inactiveSessCount++
+			sm.logger.Debugf("removing session %s - exceeded MaxSessionAgeTime", id)
+			transaction.Rollback()
+			delete(sm.transactions, id)
+			deletedTransactionCount++
+		}
+
+		if now.Sub(lastActivity) > sm.options.Timeout {
+			sm.logger.Debugf("removing session %s - exceeded Timeout", id)
+			transaction.Rollback()
+			delete(sm.transactions, id)
+			deletedTransactionCount++
 		}
 	}
 
-	sm.logger.Debugf("Open sessions count: %d\n", len(sm.sessions))
-	sm.logger.Debugf("Inactive sessions count: %d\n", inactiveSessCount)
-	sm.logger.Debugf("Deleted sessions count: %d\n", deletedSessCount)
+	sm.logger.Debugf("Open sessions count: %d\n", len(sm.transactions))
+	sm.logger.Debugf("Inactive sessions count: %d\n", inactiveTransactionCount)
+	sm.logger.Debugf("Deleted sessions count: %d\n", deletedTransactionCount)
 
-	return len(sm.sessions), inactiveSessCount, deletedSessCount, nil
-}
-
-func (sm *manager) GetTransactionFromContext(ctx context.Context) (transactions.Transaction, error) {
-	sessionID, err := GetSessionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	sess, err := sm.GetSession(sessionID)
-	if err != nil {
-		return nil, err
-	}
-
-	transactionID, err := GetTransactionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return sess.GetTransaction(transactionID)
-}
-
-func (sm *manager) GetSessionFromContext(ctx context.Context) (*Session, error) {
-	sessionID, err := GetSessionIDFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return sm.GetSession(sessionID)
-}
-
-func (sm *manager) DeleteTransaction(tx transactions.Transaction) error {
-	sessionID := tx.GetSessionID()
-	sess, err := sm.GetSession(sessionID)
-	if err != nil {
-		return err
-	}
-	return sess.RemoveTransaction(tx.GetID())
-}
-
-func (sm *manager) CommitTransaction(tx transactions.Transaction) ([]*sql.SQLTx, error) {
-	err := sm.DeleteTransaction(tx)
-	if err != nil {
-		return nil, err
-	}
-	cTxs, err := tx.Commit()
-	if err != nil {
-		return nil, err
-	}
-	return cTxs, nil
-}
-
-func (sm *manager) RollbackTransaction(tx transactions.Transaction) error {
-	err := sm.DeleteTransaction(tx)
-	if err != nil {
-		return err
-	}
-	return tx.Rollback()
+	return len(sm.transactions), inactiveTransactionCount, deletedTransactionCount, nil
 }

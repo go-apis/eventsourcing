@@ -15,7 +15,7 @@ type transaction struct {
 
 func (t *transaction) Commit(ctx context.Context) (int, error) {
 	resp, err := t.storeClient.Commit(ctx, &store.Tx{
-		TransactionID: t.id,
+		TransactionId: t.id,
 	})
 	if err != nil {
 		return 0, err
@@ -26,7 +26,7 @@ func (t *transaction) Commit(ctx context.Context) (int, error) {
 
 func (t *transaction) Rollback(ctx context.Context) error {
 	_, err := t.storeClient.Rollback(ctx, &store.Tx{
-		TransactionID: t.id,
+		TransactionId: t.id,
 	})
 	if err != nil {
 		return err
