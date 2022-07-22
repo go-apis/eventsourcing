@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/google/uuid"
 
 	"github.com/neilotoole/errgroup"
 )
@@ -19,7 +20,7 @@ type Unit interface {
 
 	GetData() Data
 	NewTx(ctx context.Context) (Tx, error)
-	Load(ctx context.Context, id string, aggregateName string, out interface{}) error
+	Load(ctx context.Context, id uuid.UUID, aggregateName string, out interface{}) error
 	Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, filter filters.Filter) (int, error)
 }
@@ -75,7 +76,7 @@ func (u *unit) NewTx(ctx context.Context) (Tx, error) {
 	return u.data.Begin(ctx)
 }
 
-func (u *unit) Load(ctx context.Context, id string, aggregateName string, out interface{}) error {
+func (u *unit) Load(ctx context.Context, id uuid.UUID, aggregateName string, out interface{}) error {
 	namespace := NamespaceFromContext(ctx)
 	return u.data.Load(ctx, u.serviceName, aggregateName, namespace, id, out)
 }

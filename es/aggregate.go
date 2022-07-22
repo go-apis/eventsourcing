@@ -2,6 +2,8 @@ package es
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type Aggregate interface {
@@ -17,18 +19,18 @@ type SourcedAggregate interface {
 }
 
 type SetAggregate interface {
-	SetId(id string, namespace string)
+	SetId(id uuid.UUID, namespace string)
 }
 
 type BaseAggregate struct {
-	Id        string `json:"id"`
-	Namespace string `json:"namespace"`
+	Id        uuid.UUID `json:"id"`
+	Namespace string    `json:"namespace"`
 
 	version int
 	events  []interface{}
 }
 
-func (a *BaseAggregate) SetId(id string, namespace string) {
+func (a *BaseAggregate) SetId(id uuid.UUID, namespace string) {
 	a.Id = id
 	a.Namespace = namespace
 }

@@ -1,7 +1,7 @@
 package events
 
 import (
-	"github.com/contextcloud/eventstore/es/example/models"
+	"github.com/contextcloud/eventstore/demo/users/models"
 	"github.com/contextcloud/eventstore/es/types"
 )
 

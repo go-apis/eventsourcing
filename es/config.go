@@ -11,6 +11,7 @@ type Config interface {
 	GetServiceName() string
 	GetEntities() map[reflect.Type]*Entity
 	GetCommandHandlers() map[reflect.Type]CommandHandler
+	GetEventHandlers() map[reflect.Type][]EventHandler
 }
 
 type config struct {
@@ -29,6 +30,9 @@ func (c *config) GetEntities() map[reflect.Type]*Entity {
 }
 func (c *config) GetCommandHandlers() map[reflect.Type]CommandHandler {
 	return c.commandHandlers
+}
+func (c *config) GetEventHandlers() map[reflect.Type][]EventHandler {
+	return c.eventHandlers
 }
 
 func (c *config) sourced(agg SourcedAggregate) error {

@@ -3,6 +3,8 @@ package es
 import (
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Metadata is a simple map to store event's metadata
@@ -11,7 +13,7 @@ type Metadata = map[string]interface{}
 type Event struct {
 	ServiceName   string      `json:"service_name"`
 	Namespace     string      `json:"namespace"`
-	AggregateId   string      `json:"aggregate_id"`
+	AggregateId   uuid.UUID   `json:"aggregate_id"`
 	AggregateType string      `json:"aggregate_type"`
 	Version       int         `json:"version"`
 	Type          string      `json:"type"`

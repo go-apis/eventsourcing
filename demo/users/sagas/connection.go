@@ -3,8 +3,8 @@ package sagas
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es/example/commands"
-	"github.com/contextcloud/eventstore/es/example/events"
+	"github.com/contextcloud/eventstore/demo/users/commands"
+	"github.com/contextcloud/eventstore/demo/users/events"
 
 	"github.com/contextcloud/eventstore/es"
 )

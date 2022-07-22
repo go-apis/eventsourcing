@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type SourcedStore interface {
-	Load(ctx context.Context, id string, namespace string, out SourcedAggregate) error
-	Save(ctx context.Context, id string, namespace string, val SourcedAggregate) error
+	Load(ctx context.Context, id uuid.UUID, namespace string, out SourcedAggregate) error
+	Save(ctx context.Context, id uuid.UUID, namespace string, val SourcedAggregate) error
 }
 
 type sourcedStore struct {
@@ -18,7 +20,7 @@ type sourcedStore struct {
 	aggregateName string
 }
 
-func (s *sourcedStore) Load(ctx context.Context, id string, namespace string, out SourcedAggregate) error {
+func (s *sourcedStore) Load(ctx context.Context, id uuid.UUID, namespace string, out SourcedAggregate) error {
 	unit := UnitFromContext(ctx)
 	data := unit.GetData()
 
@@ -40,7 +42,7 @@ func (s *sourcedStore) Load(ctx context.Context, id string, namespace string, ou
 
 	return nil
 }
-func (s *sourcedStore) Save(ctx context.Context, id string, namespace string, val SourcedAggregate) error {
+func (s *sourcedStore) Save(ctx context.Context, id uuid.UUID, namespace string, val SourcedAggregate) error {
 	datas := val.GetEvents()
 	version := val.GetVersion()
 

@@ -8,6 +8,7 @@ import (
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/google/uuid"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -47,10 +48,10 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	return newTransaction(d), nil
 }
 
-func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
+func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out es.SourcedAggregate) error {
 	return nil
 }
-func (t *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error) {
+func (t *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]json.RawMessage, error) {
 	var datas []json.RawMessage
 	out := t.getDb().WithContext(ctx).
 		Where("service_name = ?", serviceName).
@@ -107,7 +108,7 @@ func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
 	return out.Error
 }
 
-func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out interface{}) error {
+func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	table := db.TableName(serviceName, aggregateName)
 
 	r := t.getDb().WithContext(ctx).

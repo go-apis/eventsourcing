@@ -28,6 +28,7 @@ type StoreClient interface {
 	Rollback(ctx context.Context, in *Tx, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (*EventsResponse, error)
 	SaveEvents(ctx context.Context, in *SaveEventsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	EventStream(ctx context.Context, in *EventStreamRequest, opts ...grpc.CallOption) (Store_EventStreamClient, error)
 }
 
 type storeClient struct {
@@ -83,6 +84,38 @@ func (c *storeClient) SaveEvents(ctx context.Context, in *SaveEventsRequest, opt
 	return out, nil
 }
 
+func (c *storeClient) EventStream(ctx context.Context, in *EventStreamRequest, opts ...grpc.CallOption) (Store_EventStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Store_ServiceDesc.Streams[0], "/Store/EventStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &storeEventStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Store_EventStreamClient interface {
+	Recv() (*EventStreamResponse, error)
+	grpc.ClientStream
+}
+
+type storeEventStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *storeEventStreamClient) Recv() (*EventStreamResponse, error) {
+	m := new(EventStreamResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // StoreServer is the server API for Store service.
 // All implementations must embed UnimplementedStoreServer
 // for forward compatibility
@@ -92,6 +125,7 @@ type StoreServer interface {
 	Rollback(context.Context, *Tx) (*emptypb.Empty, error)
 	Events(context.Context, *EventsRequest) (*EventsResponse, error)
 	SaveEvents(context.Context, *SaveEventsRequest) (*emptypb.Empty, error)
+	EventStream(*EventStreamRequest, Store_EventStreamServer) error
 	mustEmbedUnimplementedStoreServer()
 }
 
@@ -113,6 +147,9 @@ func (UnimplementedStoreServer) Events(context.Context, *EventsRequest) (*Events
 }
 func (UnimplementedStoreServer) SaveEvents(context.Context, *SaveEventsRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SaveEvents not implemented")
+}
+func (UnimplementedStoreServer) EventStream(*EventStreamRequest, Store_EventStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
 }
 func (UnimplementedStoreServer) mustEmbedUnimplementedStoreServer() {}
 
@@ -217,6 +254,27 @@ func _Store_SaveEvents_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Store_EventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(EventStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(StoreServer).EventStream(m, &storeEventStreamServer{stream})
+}
+
+type Store_EventStreamServer interface {
+	Send(*EventStreamResponse) error
+	grpc.ServerStream
+}
+
+type storeEventStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *storeEventStreamServer) Send(m *EventStreamResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Store_ServiceDesc is the grpc.ServiceDesc for Store service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -245,6 +303,12 @@ var Store_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Store_SaveEvents_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "EventStream",
+			Handler:       _Store_EventStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "store.proto",
 }

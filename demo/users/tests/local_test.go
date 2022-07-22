@@ -3,6 +3,8 @@ package tests
 import (
 	"context"
 	"testing"
+
+	"github.com/contextcloud/eventstore/demo/users/config"
 )
 
 func Test_Local(t *testing.T) {
@@ -12,7 +14,7 @@ func Test_Local(t *testing.T) {
 		return
 	}
 
-	cli, err := SetupClient(conn)
+	cli, err := config.SetupClient(conn)
 	if err != nil {
 		t.Error(err)
 		return

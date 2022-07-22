@@ -7,11 +7,19 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 service Store {	
+	rpc Initialize(InitializeRequest) returns (InitializeResponse) {}
 	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
 	rpc Commit (Tx) returns (CommitResponse){};
 	rpc Rollback (Tx) returns (google.protobuf.Empty){};
 	rpc Events (EventsRequest) returns (EventsResponse){};
 	rpc SaveEvents (SaveEventsRequest) returns (google.protobuf.Empty){};
+	rpc EventStream(EventStreamRequest) returns (stream EventStreamResponse);
+}
+
+message InitializeRequest {
+}
+
+message InitializeResponse {
 }
 
 message NewTxRequest {
@@ -43,6 +51,15 @@ message EventsRequest {
 	optional int64 fromVersion = 6;
 }
 message EventsResponse {
+	repeated Event events = 1;
+}
+
+message EventStreamRequest {
+	string serviceName = 1;
+	repeated string eventTypes = 2;
+}
+
+message EventStreamResponse {
 	repeated Event events = 1;
 }
 

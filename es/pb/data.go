@@ -8,6 +8,7 @@ import (
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/pb/store"
+	"github.com/google/uuid"
 )
 
 type data struct {
@@ -28,16 +29,18 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 
 	return newTransaction(d.storeClient, *d.transactionId), nil
 }
-func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
+func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out es.SourcedAggregate) error {
 	return nil
 }
-func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error) {
+func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]json.RawMessage, error) {
 	f := int64(fromVersion)
+	idStr := id.String()
+
 	req := &store.EventsRequest{
 		TransactionId: d.transactionId,
 		ServiceName:   &serviceName,
 		AggregateType: &aggregateName,
-		AggregateId:   &id,
+		AggregateId:   &idStr,
 		Namespace:     &namespace,
 		FromVersion:   &f,
 	}
@@ -68,7 +71,7 @@ func (d *data) SaveEvents(ctx context.Context, events []es.Event) error {
 		evts[i] = &store.Event{
 			ServiceName:   event.ServiceName,
 			AggregateType: event.AggregateType,
-			AggregateId:   event.AggregateId,
+			AggregateId:   event.AggregateId.String(),
 			Namespace:     event.Namespace,
 			Version:       int64(event.Version),
 			Data:          data,
@@ -88,7 +91,7 @@ func (d *data) SaveEntity(ctx context.Context, entity es.Entity) error {
 	return nil
 }
 
-func (d *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out interface{}) error {
+func (d *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	return nil
 }
 func (d *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {

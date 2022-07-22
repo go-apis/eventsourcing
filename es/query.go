@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/google/uuid"
 )
 
 type Pagination[T any] struct {
@@ -18,7 +19,7 @@ type Pagination[T any] struct {
 }
 
 type Query[T any] interface {
-	Load(ctx context.Context, id string) (*T, error)
+	Load(ctx context.Context, id uuid.UUID) (*T, error)
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	Count(ctx context.Context, filter filters.Filter) (int, error)
 	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
@@ -29,7 +30,7 @@ type query[T any] struct {
 	aggregateName string
 }
 
-func (q *query[T]) Load(ctx context.Context, id string) (*T, error) {
+func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (*T, error) {
 	var item T
 	if err := q.unit.Load(ctx, id, q.aggregateName, &item); err != nil {
 		return nil, err

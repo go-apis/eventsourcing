@@ -3,6 +3,7 @@ package pb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
@@ -126,6 +127,24 @@ func (s server) SaveEvents(ctx context.Context, req *store.SaveEventsRequest) (*
 		return nil, q.Error
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (s server) EventStream(req *store.EventStreamRequest, stream store.Store_EventStreamServer) error {
+	fmt.Printf("EventStream function was invoked with %v\n", req)
+
+	for i := 0; i < 10; i++ {
+		// todo create some events
+		event := &store.Event{}
+		events := []*store.Event{event}
+
+		res := &store.EventStreamResponse{
+			Events: events,
+		}
+		stream.Send(res)
+		time.Sleep(1000 * time.Millisecond)
+	}
+
+	return nil
 }
 
 func NewServer(gormDb *gorm.DB, transactionsManager transactions.Manager) store.StoreServer {

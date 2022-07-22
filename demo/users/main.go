@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/contextcloud/eventstore/es/example/aggregates"
-	"github.com/contextcloud/eventstore/es/example/commands"
-	"github.com/contextcloud/eventstore/es/example/sagas"
+	"github.com/contextcloud/eventstore/demo/users/aggregates"
+	"github.com/contextcloud/eventstore/demo/users/commands"
+	"github.com/contextcloud/eventstore/demo/users/sagas"
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/pkg/db"

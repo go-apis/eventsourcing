@@ -6,6 +6,7 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/pb/store"
+	multierror "github.com/hashicorp/go-multierror"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -14,9 +15,17 @@ import (
 type conn struct {
 	clientConn  *grpc.ClientConn
 	storeClient store.StoreClient
+	streamer    Streamer
 }
 
 func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
+	// todo send schemas to server
+
+	// subscribe to events
+	c.streamer = NewStreamer(c.storeClient, cfg)
+	if err := c.streamer.Run(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -25,7 +34,18 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 }
 
 func (c *conn) Close(ctx context.Context) error {
-	return c.clientConn.Close()
+	var result error
+
+	if err := c.clientConn.Close(); err != nil {
+		result = multierror.Append(result, err)
+	}
+	if c.streamer != nil {
+		if err := c.streamer.Close(ctx); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	return result
 }
 
 func NewConn(dsn string) (es.Conn, error) {

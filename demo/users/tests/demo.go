@@ -4,14 +4,14 @@ import (
 	"context"
 	"log"
 
+	"github.com/contextcloud/eventstore/demo/users/aggregates"
+	"github.com/contextcloud/eventstore/demo/users/commands"
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/es/example/aggregates"
-	"github.com/contextcloud/eventstore/es/example/commands"
-	"github.com/contextcloud/eventstore/es/example/sagas"
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/es/pb"
 	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/google/uuid"
 )
 
 func LocalConn() (es.Conn, error) {
@@ -36,22 +36,9 @@ func PbConn() (es.Conn, error) {
 	return pb.NewConn(dsn)
 }
 
-func SetupClient(conn es.Conn) (es.Client, error) {
-	cfg, err := es.NewConfig(
-		"example",
-		&aggregates.User{},
-		&aggregates.ExternalUser{},
-		sagas.NewConnectionSaga(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return es.NewClient(cfg, conn)
-}
-
 func QueryUsers(ctx context.Context, unit es.Unit) error {
 	userQuery := es.NewQuery[aggregates.User](unit)
-	user, err := userQuery.Load(ctx, "98f1f7d3-f312-4d57-8847-5b9ac8d5797d")
+	user, err := userQuery.Load(ctx, uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"))
 	if err != nil {
 		return err
 	}
@@ -88,20 +75,20 @@ func UserCommands(ctx context.Context, unit es.Unit) error {
 	cmds := []es.Command{
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
-				AggregateId: "98f1f7d3-f312-4d57-8847-5b9ac8d5797d",
+				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
 			},
 			Username: "chris.kolenko",
 			Password: "12345678",
 		},
 		&commands.AddEmail{
 			BaseCommand: es.BaseCommand{
-				AggregateId: "98f1f7d3-f312-4d57-8847-5b9ac8d5797d",
+				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
 			},
 			Email: "chris@context.gg",
 		},
 		&commands.AddConnection{
 			BaseCommand: es.BaseCommand{
-				AggregateId: "98f1f7d3-f312-4d57-8847-5b9ac8d5797d",
+				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
 			},
 			Name:     "Smashgg",
 			UserId:   "demo1",
@@ -109,13 +96,13 @@ func UserCommands(ctx context.Context, unit es.Unit) error {
 		},
 		&commands.UpdateConnection{
 			BaseCommand: es.BaseCommand{
-				AggregateId: "98f1f7d3-f312-4d57-8847-5b9ac8d5797d",
+				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
 			},
 			Username: "aaaaaaaaaa",
 		},
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
-				AggregateId: "2ca16492-ea7a-4d96-8599-b256c26e89b5",
+				AggregateId: uuid.MustParse("2ca16492-ea7a-4d96-8599-b256c26e89b5"),
 			},
 			Username: "calvin.harris",
 			Password: "12345678",
