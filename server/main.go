@@ -11,6 +11,7 @@ import (
 	"github.com/contextcloud/eventstore/server/pb"
 	"github.com/contextcloud/eventstore/server/pb/logger"
 	"github.com/contextcloud/eventstore/server/pb/store"
+	"github.com/contextcloud/eventstore/server/pb/streams"
 	"github.com/contextcloud/eventstore/server/pb/transactions"
 
 	"google.golang.org/grpc/health"
@@ -48,8 +49,13 @@ func main() {
 		logit.Errorf("failed to create transactions manager: %v", err)
 		return
 	}
+	streamsManager, err := streams.NewManager(gormDb)
+	if err != nil {
+		logit.Errorf("failed to create streams manager: %v", err)
+		return
+	}
 
-	srv := pb.NewServer(gormDb, transactionsManager)
+	srv := pb.NewServer(gormDb, transactionsManager, streamsManager)
 
 	s := grpc.NewServer()
 	reflection.Register(s)
@@ -81,6 +87,9 @@ func main() {
 
 	if err := transactionsManager.Stop(); err != nil {
 		logit.Errorf("failed to stop transactions manager: %v", err)
+	}
+	if err := streamsManager.Stop(); err != nil {
+		logit.Errorf("failed to stop streams manager: %v", err)
 	}
 
 	s.GracefulStop()

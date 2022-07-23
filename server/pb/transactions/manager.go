@@ -38,23 +38,6 @@ type Manager interface {
 	Stop() error
 }
 
-func NewManager(options *Options, gormDb *gorm.DB) (*manager, error) {
-	if options == nil {
-		return nil, ErrInvalidOptionsProvided
-	}
-
-	guard := &manager{
-		gormDb:       gormDb,
-		transactions: make(map[string]*Transaction),
-		ticker:       time.NewTicker(options.SessionGuardCheckInterval),
-		done:         make(chan bool),
-		logger:       logger.NewSimpleLogger("transaction guard", os.Stdout),
-		options:      *options,
-	}
-
-	return guard, nil
-}
-
 func (sm *manager) IsRunning() bool {
 	sm.mux.RLock()
 	defer sm.mux.RUnlock()
@@ -247,4 +230,21 @@ func (sm *manager) expireTransactions(now time.Time) (transactionCount, inactive
 	sm.logger.Debugf("Deleted sessions count: %d\n", deletedTransactionCount)
 
 	return len(sm.transactions), inactiveTransactionCount, deletedTransactionCount, nil
+}
+
+func NewManager(options *Options, gormDb *gorm.DB) (*manager, error) {
+	if options == nil {
+		return nil, ErrInvalidOptionsProvided
+	}
+
+	guard := &manager{
+		gormDb:       gormDb,
+		transactions: make(map[string]*Transaction),
+		ticker:       time.NewTicker(options.SessionGuardCheckInterval),
+		done:         make(chan bool),
+		logger:       logger.NewSimpleLogger("transaction guard", os.Stdout),
+		options:      *options,
+	}
+
+	return guard, nil
 }

@@ -21,3 +21,7 @@ type ConnectionAdded struct {
 type ConnectionUpdated struct {
 	Connections types.SliceItem[models.ConnectionUpdate]
 }
+
+type GroupAdded struct {
+	Groups types.SliceItem[models.Group]
+}

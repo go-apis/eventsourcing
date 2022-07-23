@@ -3,12 +3,12 @@ package pb
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/pkg/db"
 	"github.com/contextcloud/eventstore/server/pb/store"
+	"github.com/contextcloud/eventstore/server/pb/streams"
 	"github.com/contextcloud/eventstore/server/pb/transactions"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gorm.io/gorm"
@@ -31,6 +31,7 @@ type server struct {
 
 	gormDb              *gorm.DB
 	transactionsManager transactions.Manager
+	streamsManager      streams.Manager
 }
 
 func (s server) getDb(transactionId *string) (*gorm.DB, error) {
@@ -130,26 +131,17 @@ func (s server) SaveEvents(ctx context.Context, req *store.SaveEventsRequest) (*
 }
 
 func (s server) EventStream(req *store.EventStreamRequest, stream store.Store_EventStreamServer) error {
-	fmt.Printf("EventStream function was invoked with %v\n", req)
-
-	for i := 0; i < 10; i++ {
-		// todo create some events
-		event := &store.Event{}
-		events := []*store.Event{event}
-
-		res := &store.EventStreamResponse{
-			Events: events,
-		}
-		stream.Send(res)
-		time.Sleep(1000 * time.Millisecond)
+	item := streams.NewStreamItem(stream, req.ServiceName, req.EventTypes)
+	if err := s.streamsManager.Listen(item); err != nil {
+		return err
 	}
-
 	return nil
 }
 
-func NewServer(gormDb *gorm.DB, transactionsManager transactions.Manager) store.StoreServer {
+func NewServer(gormDb *gorm.DB, transactionsManager transactions.Manager, streamsManager streams.Manager) store.StoreServer {
 	return &server{
 		gormDb:              gormDb,
 		transactionsManager: transactionsManager,
+		streamsManager:      streamsManager,
 	}
 }

@@ -10,14 +10,17 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 make: *** No rule to make target `all'.  Stop.
 
 
-# Make data base, printed on Sat Jul  2 10:56:33 2022
+# Make data base, printed on Sat Jul 23 10:57:02 2022
 
 # Variables
 
 # automatic
 <D = $(patsubst %/,%,$(dir $<))
 # automatic
+ 
 ?F = $(notdir $?)
+# environment
+ELECTRON_NO_ATTACH_CONSOLE = 1
 # environment
 VSCODE_LOG_NATIVE = false
 # automatic
@@ -43,13 +46,13 @@ VSCODE_VERBOSE_LOGGING = true
 # environment
 __CFBundleIdentifier = com.microsoft.VSCode
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /var/folders/54/m4msrbhn0b56jflgbc0qvdzm0000gn/T/vscode-ipc-0c2da6e0-5a59-4c73-9412-baaf4b4ba9b8.sock
+VSCODE_IPC_HOOK_EXTHOST = /var/folders/54/m4msrbhn0b56jflgbc0qvdzm0000gn/T/vscode-ipc-ada4edc8-b19c-47a2-991d-adefdfc76c04.sock
 # environment
-VSCODE_CWD = /
+VSCODE_CWD = /Users/chris/workspace/contextcloud/eventstore
 # environment
 GOPROXY = https://proxy.golang.org,direct
 # environment
-PATH = /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+PATH = /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/chris/go/bin
 # environment
 LSCOLORS = Gxfxcxdxbxegedabagacad
 # environment
@@ -77,6 +80,8 @@ HOME = /Users/chris
 # default
 MAKEFILEPATH = $(shell /usr/bin/xcode-select -print-path 2>/dev/null || echo /Developer)/Makefiles
 # environment
+VSCODE_CLI = 1
+# environment
 VSCODE_CODE_CACHE_PATH = /Users/chris/Library/Application Support/Code/CachedData/c3511e6c69bb39013c4a4b7b9566ec1ca73fc4d5
 # environment
 LOGNAME = chris
@@ -90,24 +95,33 @@ VSCODE_HANDLES_UNCAUGHT_ERRORS = true
 ^D = $(patsubst %/,%,$(dir $^))
 # environment
 XPC_FLAGS = 0x0
+# environment
+COLORTERM = truecolor
 # default
 MAKE = $(MAKE_COMMAND)
-# default
-MAKECMDGOALS := all
 # environment
-SHLVL = 1
+LC_TERMINAL = iTerm2
+# environment
+SHLVL = 3
 # default
 MAKE_VERSION := 3.81
 # environment
 USER = chris
 # makefile
 .DEFAULT_GOAL := gen
+ 
+# default
+MAKECMDGOALS := all
+# environment
+TERM_SESSION_ID = w0t2p0:6CB7229B-8FFE-41CC-9C9F-1BB60356FB1A
 # environment
 LESS = -R
 # automatic
 %D = $(patsubst %/,%,$(dir $%))
 # default
 MAKE_COMMAND := /Library/Developer/CommandLineTools/usr/bin/make
+# environment
+TERM_PROGRAM = iTerm.app
 # default
 .VARIABLES := 
 # environment
@@ -123,11 +137,19 @@ MFLAGS = -Rrqp
 # automatic
 *D = $(patsubst %/,%,$(dir $*))
 # environment
-XPC_SERVICE_NAME = application.com.microsoft.VSCode.2940076.2940082
+TERM_PROGRAM_VERSION = 3.4.15
+# environment
+XPC_SERVICE_NAME = application.com.microsoft.VSCode.2940076.2940082.A93C76B7-DBB9-4AA5-A3F9-D47AEC877071
+# environment
+LC_TERMINAL_VERSION = 3.4.15
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
 # automatic
 +F = $(notdir $+)
+# environment
+ITERM_SESSION_ID = w0t2p0:6CB7229B-8FFE-41CC-9C9F-1BB60356FB1A
+# environment
+COLORFGBG = 15;0
 # environment
 __CF_USER_TEXT_ENCODING = 0x1F5:0:15
 # environment
@@ -136,6 +158,8 @@ COMMAND_MODE = unix2003
 MAKEFILES := 
 # automatic
 <F = $(notdir $<)
+# environment
+ITERM_PROFILE = Default
 # environment
 PAGER = less
 # environment
@@ -153,9 +177,12 @@ MAKELEVEL := 0
 # environment
 LANG = C
 # environment
+TERM = xterm-256color
+# environment
 VSCODE_PID = 93183
 # variable set hash-table stats:
-# Load=70/1024=7%, Rehash=0, Collisions=2/94=2%
+ 
+# Load=82/1024=8%, Rehash=0, Collisions=5/106=5%
 
 # Pattern-specific Variable Values
 
@@ -163,9 +190,9 @@ VSCODE_PID = 93183
 
 # Directories
 
-# . (device 16777221, inode 1553418): 12 files, no impossibilities.
+# . (device 16777221, inode 1553418): 14 files, no impossibilities.
 
-# 12 files, no impossibilities in 1 directories.
+# 14 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -188,11 +215,10 @@ all:
 #  Modification time never checked.
 #  File has not been updated.
 
- 
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-06-26 11:57:15
+#  Last modified 2022-07-23 08:36:57
 #  File has been updated.
 #  Successfully updated.
 # variable set hash-table stats:
@@ -202,7 +228,7 @@ server:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
-#  commands to execute (from `Makefile', line 10):
+#  commands to execute (from `Makefile', line 12):
 	go run server/main.go
 	
 
@@ -210,7 +236,7 @@ test:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
-#  commands to execute (from `Makefile', line 17):
+#  commands to execute (from `Makefile', line 19):
 	rm -rf tmp && mkdir tmp
 	go test -cover -race serializer/*.go
 	
@@ -222,6 +248,8 @@ gen:
 #  commands to execute (from `Makefile', line 2):
 	protoc --proto_path=proto proto/*.proto --go_out=server --go-grpc_out=server
 	protoc --proto_path=proto proto/*.proto --go_out=es --go-grpc_out=es
+	protoc-go-inject-tag -input="es/pb/store/*.pb.go"
+	protoc-go-inject-tag -input="server/pb/store/*.pb.go"
 	
 
 # Not a target:
@@ -234,7 +262,7 @@ clean:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
-#  commands to execute (from `Makefile', line 6):
+#  commands to execute (from `Makefile', line 8):
 	rm -rf server/pb/
 	rm -rf client/pb/
 	
@@ -243,7 +271,7 @@ install:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
-#  commands to execute (from `Makefile', line 13):
+#  commands to execute (from `Makefile', line 15):
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	
@@ -256,11 +284,12 @@ install:
 
 # No general (`VPATH' variable) search path.
 
+ 
 # # of strings in strcache: 1
 # # of strcache buffers: 1
 # strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
 # strcache free: total = 4087 / max = 4087 / min = 4087 / avg = 4087
 
-# Finished Make data base on Sat Jul  2 10:56:33 2022
+# Finished Make data base on Sat Jul 23 10:57:02 2022
 
  

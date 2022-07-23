@@ -1,5 +1,7 @@
 package models
 
+import "github.com/google/uuid"
+
 type Connection struct {
 	Name     string
 	UserId   string
@@ -8,4 +10,9 @@ type Connection struct {
 
 type ConnectionUpdate struct {
 	Username string
+}
+
+type Group struct {
+	Id   uuid.UUID
+	Name string
 }

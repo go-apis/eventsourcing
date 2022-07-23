@@ -26,5 +26,6 @@ func (u *Group) HandleCreate(ctx context.Context, cmd *commands.CreateGroup) err
 func (u *Group) HandleAddUser(ctx context.Context, cmd *commands.AddUser) error {
 	return u.Apply(ctx, events.UserAdded{
 		UserId: cmd.UserId,
+		Name:   u.Name,
 	})
 }

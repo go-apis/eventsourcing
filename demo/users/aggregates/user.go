@@ -19,6 +19,7 @@ type User struct {
 	Password    string
 	Email       string
 	Connections types.Slice[models.Connection] `gorm:"type:jsonb;serializer:json"`
+	Groups      types.Slice[models.Group]      `gorm:"type:jsonb;serializer:json"`
 }
 
 func (u *User) HandleCreate(ctx context.Context, cmd *commands.CreateUser) error {
@@ -41,6 +42,18 @@ func (u *User) HandleAddConnection(ctx context.Context, cmd *commands.AddConnect
 				Name:     cmd.Name,
 				UserId:   cmd.UserId,
 				Username: cmd.Username,
+			},
+		},
+	})
+}
+
+func (u *User) HandleAddGroup(ctx context.Context, cmd *commands.AddGroup) error {
+	return u.Apply(ctx, events.GroupAdded{
+		Groups: types.SliceItem[models.Group]{
+			Index: len(u.Groups),
+			Value: models.Group{
+				Id:   cmd.GroupId,
+				Name: cmd.Name,
 			},
 		},
 	})
