@@ -13,7 +13,7 @@ service Store {
 	rpc Rollback (Tx) returns (google.protobuf.Empty){};
 	rpc Events (EventsRequest) returns (EventsResponse){};
 	rpc SaveEvents (SaveEventsRequest) returns (google.protobuf.Empty){};
-	rpc EventStream(EventStreamRequest) returns (stream EventStreamResponse);
+	rpc EventStream(stream EventStreamRequest) returns (stream EventStreamResponse);
 }
 
 message InitializeRequest {
@@ -55,12 +55,29 @@ message EventsResponse {
 }
 
 message EventStreamRequest {
-	string serviceName = 1;
-	repeated string eventTypes = 2;
+	message Init {
+		string serviceName = 1;
+		repeated string eventTypes = 2;
+	}
+
+	oneof msg {
+		Init init_msg = 1;
+		EventId ack_msg = 2;
+		EventId nack_msg = 3;
+	}
 }
 
 message EventStreamResponse {
-	repeated Event events = 1;
+	Event event = 1;
+}
+
+message EventId {
+	string serviceName = 1;
+	string namespace = 2;
+	string aggregateType = 3;
+	string aggregateId = 4;
+	int64 version = 5;
+	string type = 6;
 }
 
 message Event {

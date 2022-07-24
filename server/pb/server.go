@@ -130,9 +130,11 @@ func (s server) SaveEvents(ctx context.Context, req *store.SaveEventsRequest) (*
 	return &emptypb.Empty{}, nil
 }
 
-func (s server) EventStream(req *store.EventStreamRequest, stream store.Store_EventStreamServer) error {
-	item := streams.NewStreamItem(stream, req.ServiceName, req.EventTypes)
-	if err := s.streamsManager.Listen(item); err != nil {
+func (s server) EventStream(stream store.Store_EventStreamServer) error {
+	sender := s.streamsManager.NewStream(stream)
+	defer s.streamsManager.DeleteSender(sender)
+
+	if err := sender.Run(); err != nil {
 		return err
 	}
 	return nil

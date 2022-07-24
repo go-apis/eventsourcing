@@ -6,18 +6,14 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # PARTICULAR PURPOSE.
 
 # This program built for i386-apple-darwin11.3.0
- 
-make: *** No rule to make target `all'.  Stop.
 
-
-# Make data base, printed on Sat Jul 23 10:57:02 2022
+# Make data base, printed on Sun Jul 24 12:10:15 2022
 
 # Variables
 
 # automatic
 <D = $(patsubst %/,%,$(dir $<))
 # automatic
- 
 ?F = $(notdir $?)
 # environment
 ELECTRON_NO_ATTACH_CONSOLE = 1
@@ -46,7 +42,7 @@ VSCODE_VERBOSE_LOGGING = true
 # environment
 __CFBundleIdentifier = com.microsoft.VSCode
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /var/folders/54/m4msrbhn0b56jflgbc0qvdzm0000gn/T/vscode-ipc-ada4edc8-b19c-47a2-991d-adefdfc76c04.sock
+VSCODE_IPC_HOOK_EXTHOST = /var/folders/54/m4msrbhn0b56jflgbc0qvdzm0000gn/T/vscode-ipc-ce9e8fe5-1447-4b37-9f02-e58c853c485e.sock
 # environment
 VSCODE_CWD = /Users/chris/workspace/contextcloud/eventstore
 # environment
@@ -109,7 +105,6 @@ MAKE_VERSION := 3.81
 USER = chris
 # makefile
 .DEFAULT_GOAL := gen
- 
 # default
 MAKECMDGOALS := all
 # environment
@@ -181,7 +176,6 @@ TERM = xterm-256color
 # environment
 VSCODE_PID = 93183
 # variable set hash-table stats:
- 
 # Load=82/1024=8%, Rehash=0, Collisions=5/106=5%
 
 # Pattern-specific Variable Values
@@ -284,12 +278,13 @@ install:
 
 # No general (`VPATH' variable) search path.
 
- 
 # # of strings in strcache: 1
 # # of strcache buffers: 1
 # strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
 # strcache free: total = 4087 / max = 4087 / min = 4087 / avg = 4087
 
-# Finished Make data base on Sat Jul 23 10:57:02 2022
+# Finished Make data base on Sun Jul 24 12:10:15 2022
 
  
+make: *** No rule to make target `all'.  Stop.
+

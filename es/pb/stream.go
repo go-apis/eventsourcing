@@ -26,36 +26,31 @@ type streamer struct {
 	cancel      context.CancelFunc
 }
 
-func (s *streamer) handle(ctx context.Context, msg *store.EventStreamResponse) error {
-	evts := make([]es.Event, len(msg.Events))
-	for i, evt := range msg.Events {
-		aggregateId, err := uuid.Parse(evt.AggregateId)
-		if err != nil {
-			return err
-		}
-
-		// create the event
-		event := es.Event{
-			ServiceName:   evt.ServiceName,
-			Namespace:     evt.Namespace,
-			AggregateId:   aggregateId,
-			AggregateType: evt.AggregateType,
-			Type:          evt.Type,
-			Timestamp:     evt.Timestamp.AsTime(),
-		}
-
-		if evt.Data != nil {
-			t := s.eventMap[evt.Type]
-			event.Data = reflect.New(t).Interface()
-			if err := json.Unmarshal(evt.Data, event.Data); err != nil {
-				return err
-			}
-		}
-
-		evts[i] = event
+func (s *streamer) handle(ctx context.Context, evt *store.Event) error {
+	aggregateId, err := uuid.Parse(evt.AggregateId)
+	if err != nil {
+		return err
 	}
 
-	if err := s.publisher.PublishAsync(ctx, evts...); err != nil {
+	// create the event
+	event := es.Event{
+		ServiceName:   evt.ServiceName,
+		Namespace:     evt.Namespace,
+		AggregateId:   aggregateId,
+		AggregateType: evt.AggregateType,
+		Type:          evt.Type,
+		Timestamp:     evt.Timestamp.AsTime(),
+	}
+
+	if evt.Data != nil {
+		t := s.eventMap[evt.Type]
+		event.Data = reflect.New(t).Interface()
+		if err := json.Unmarshal(evt.Data, event.Data); err != nil {
+			return err
+		}
+	}
+
+	if err := s.publisher.PublishAsync(ctx, event); err != nil {
 		return err
 	}
 	return nil
@@ -72,26 +67,58 @@ func (s *streamer) watch(ctx context.Context, stream store.Store_EventStreamClie
 		default:
 			msg, err := stream.Recv()
 			if err == io.EOF {
+				// todo how do we reconnect
 				// we've reached the end of the stream
 				break
 			}
 			if err != nil {
 				log.Fatalf("error while reading stream: %v", err)
+				continue
 			}
-			if err := s.handle(ctx, msg); err != nil {
+			if err := s.handle(ctx, msg.Event); err != nil {
 				log.Fatalf("error while handling stream: %v", err)
+
+				// send nack
+				nack := &store.EventStreamRequest{
+					Msg: &store.EventStreamRequest_NackMsg{
+						NackMsg: &store.EventId{
+							ServiceName:   msg.Event.ServiceName,
+							Namespace:     msg.Event.Namespace,
+							AggregateType: msg.Event.AggregateType,
+							AggregateId:   msg.Event.AggregateId,
+							Type:          msg.Event.Type,
+							Version:       msg.Event.Version,
+						},
+					},
+				}
+				if err := stream.Send(nack); err != nil {
+					log.Fatalf("error while sending nack: %v", err)
+				}
+				continue
+			}
+
+			// send ack
+			ack := &store.EventStreamRequest{
+				Msg: &store.EventStreamRequest_AckMsg{
+					AckMsg: &store.EventId{
+						ServiceName:   msg.Event.ServiceName,
+						Namespace:     msg.Event.Namespace,
+						AggregateType: msg.Event.AggregateType,
+						AggregateId:   msg.Event.AggregateId,
+						Type:          msg.Event.Type,
+						Version:       msg.Event.Version,
+					},
+				},
+			}
+			if err := stream.Send(ack); err != nil {
+				log.Fatalf("error while sending ack: %v", err)
 			}
 		}
 	}
 }
 
 func (s *streamer) Run(ctx context.Context) error {
-	req := &store.EventStreamRequest{
-		ServiceName: s.serviceName,
-		EventTypes:  s.eventTypes,
-	}
-
-	stream, err := s.storeClient.EventStream(ctx, req)
+	stream, err := s.storeClient.EventStream(ctx)
 	if err != nil {
 		return err
 	}
@@ -100,6 +127,20 @@ func (s *streamer) Run(ctx context.Context) error {
 	inner, cancel := context.WithCancel(ctx)
 	go s.watch(inner, stream)
 	s.cancel = cancel
+
+	// send the first event.
+	req := &store.EventStreamRequest{
+		Msg: &store.EventStreamRequest_InitMsg{
+			InitMsg: &store.EventStreamRequest_Init{
+				ServiceName: s.serviceName,
+				EventTypes:  s.eventTypes,
+			},
+		},
+	}
+
+	if err := stream.Send(req); err != nil {
+		return err
+	}
 	return nil
 }
 

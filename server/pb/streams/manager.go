@@ -4,11 +4,13 @@ import (
 	"context"
 	"sync"
 
+	"github.com/contextcloud/eventstore/server/pb/store"
 	"gorm.io/gorm"
 )
 
 type Manager interface {
-	Listen(item *StreamItem) error
+	NewStream(stream store.Store_EventStreamServer) Sender
+	DeleteSender(sender Sender)
 	Stop() error
 }
 
@@ -19,25 +21,22 @@ type manager struct {
 	cancel context.CancelFunc
 	gormDb *gorm.DB
 
-	senders map[string]Sender
+	senders map[Sender]bool
 }
 
-func (m *manager) Listen(item *StreamItem) error {
+func (m *manager) NewStream(stream store.Store_EventStreamServer) Sender {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	sender, ok := m.senders[item.ServiceName]
-	if !ok {
-		sender = NewSender(item.ServiceName)
-		m.senders[item.ServiceName] = sender
-	}
+	sender := NewSender(stream)
+	m.senders[sender] = true
+	return sender
+}
+func (m *manager) DeleteSender(sender Sender) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
 
-	// add the item
-	if err := sender.Add(item); err != nil {
-		return err
-	}
-
-	return nil
+	delete(m.senders, sender)
 }
 
 func (m *manager) Stop() error {
@@ -53,6 +52,6 @@ func NewManager(gormDb *gorm.DB) (Manager, error) {
 		ctx:     ctx,
 		cancel:  cancel,
 		gormDb:  gormDb,
-		senders: make(map[string]Sender),
+		senders: make(map[Sender]bool),
 	}, nil
 }
