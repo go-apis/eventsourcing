@@ -11,6 +11,7 @@ import (
 type Manager interface {
 	NewStream(stream store.Store_EventStreamServer) Sender
 	DeleteSender(sender Sender)
+	Register(serviceName string, eventTypes []string, stream store.Store_EventStreamServer) error
 	Stop() error
 }
 
@@ -24,11 +25,20 @@ type manager struct {
 	senders map[Sender]bool
 }
 
+func (m *manager) loop() {
+	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		}
+	}
+}
+
 func (m *manager) NewStream(stream store.Store_EventStreamServer) Sender {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
-	sender := NewSender(stream)
+	sender := NewSender(m, stream)
 	m.senders[sender] = true
 	return sender
 }
@@ -38,9 +48,15 @@ func (m *manager) DeleteSender(sender Sender) {
 
 	delete(m.senders, sender)
 }
-
+func (m *manager) Register(serviceName string, eventTypes []string, stream store.Store_EventStreamServer) error {
+	return nil
+}
 func (m *manager) Stop() error {
 	m.cancel()
+	return nil
+}
+func (m *manager) Start() error {
+	go m.loop()
 	return nil
 }
 

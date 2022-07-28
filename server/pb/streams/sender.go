@@ -16,11 +16,12 @@ type Sender interface {
 type sender struct {
 	mux sync.RWMutex
 
-	stream store.Store_EventStreamServer
+	manager Manager
+	stream  store.Store_EventStreamServer
 }
 
 func (s *sender) handleInit(req *store.EventStreamRequest_Init) error {
-	return nil
+	return s.manager.Register(req.ServiceName, req.EventTypes, s.stream)
 }
 
 func (s *sender) handleNack(req *store.EventId) error {
@@ -75,8 +76,9 @@ func (s *sender) Run() error {
 	return nil
 }
 
-func NewSender(stream store.Store_EventStreamServer) Sender {
+func NewSender(manager Manager, stream store.Store_EventStreamServer) Sender {
 	return &sender{
-		stream: stream,
+		manager: manager,
+		stream:  stream,
 	}
 }
