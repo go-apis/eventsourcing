@@ -33,6 +33,10 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	return newData(c.storeClient)
 }
 
+func (c *conn) Publish(ctx context.Context, evts ...es.Event) error {
+	return nil
+}
+
 func (c *conn) Close(ctx context.Context) error {
 	var result error
 

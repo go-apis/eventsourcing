@@ -13,12 +13,11 @@ type conn struct {
 	db *gorm.DB
 }
 
-func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
+func (c *conn) Initialize(ctx context.Context, entities ...es.Entity) error {
 	if err := c.db.AutoMigrate(&db.Event{}, &db.Snapshot{}); err != nil {
 		return err
 	}
 
-	entities := cfg.GetEntities()
 	for _, raw := range entities {
 		table := db.TableName(raw.ServiceName, raw.AggregateType)
 		if err := c.db.Table(table).AutoMigrate(&db.Entity{}); err != nil {
@@ -34,6 +33,10 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	db := c.db.WithContext(ctx)
 	return newData(db), nil
+}
+
+func (c *conn) Publish(ctx context.Context, evts ...es.Event) error {
+	return nil
 }
 
 func (c *conn) Close(ctx context.Context) error {

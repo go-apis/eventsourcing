@@ -98,7 +98,8 @@ func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
 	}
 
 	table := db.TableName(raw.ServiceName, raw.AggregateType)
-	out := t.getDb().WithContext(ctx).
+	out := t.getDb().
+		WithContext(ctx).
 		Table(table).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "id"}, {Name: "namespace"}},
@@ -111,7 +112,8 @@ func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
 func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	table := db.TableName(serviceName, aggregateName)
 
-	r := t.getDb().WithContext(ctx).
+	r := t.getDb().
+		WithContext(ctx).
 		Table(table).
 		Where("id = ?", id).
 		Where("namespace = ?", namespace).
@@ -120,7 +122,8 @@ func (t *data) Load(ctx context.Context, serviceName string, aggregateName strin
 }
 func (t *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
 	table := db.TableName(serviceName, aggregateName)
-	q := t.getDb().WithContext(ctx).
+	q := t.getDb().
+		WithContext(ctx).
 		Table(table).
 		Where("namespace = ?", namespace)
 

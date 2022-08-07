@@ -55,9 +55,7 @@ func (q *query[T]) Save(ctx context.Context, entities ...T) error {
 	}
 
 	for _, entity := range entities {
-		id := entity.GetId()
-
-		if err := unit.Save(ctx, q.name, id, entity); err != nil {
+		if err := unit.Save(ctx, q.name, entity); err != nil {
 			return err
 		}
 	}

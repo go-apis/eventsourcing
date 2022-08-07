@@ -23,7 +23,7 @@ type Tx interface {
 type Data interface {
 	Begin(ctx context.Context) (Tx, error)
 
-	LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out SourcedAggregate) error
+	LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out AggregateSourced) error
 	GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]json.RawMessage, error)
 	SaveEvents(ctx context.Context, events []Event) error
 	SaveEntity(ctx context.Context, entity Entity) error

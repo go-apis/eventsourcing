@@ -10,18 +10,16 @@ import (
 )
 
 type GroupSaga struct {
-	es.BaseSaga
 }
 
-func (s *GroupSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.UserAdded) error {
-	s.Handle(ctx, &commands.AddGroup{
+func (s *GroupSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.UserAdded) ([]es.Command, error) {
+	return es.Commands(&commands.AddGroup{
 		BaseCommand: es.BaseCommand{
 			AggregateId: evt.AggregateId,
 		},
 		GroupId: evt.AggregateId,
 		Name:    data.Name,
-	})
-	return nil
+	}), nil
 }
 
 func NewGroupSaga() *GroupSaga {

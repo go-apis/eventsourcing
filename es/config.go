@@ -79,7 +79,7 @@ func (c config) GetEventHandlers() []EventHandlerConfig {
 	return c.eventHandlers
 }
 
-func (c *config) sourced(agg SourcedAggregate) error {
+func (c *config) sourced(agg AggregateSourced) error {
 	t := reflect.TypeOf(agg)
 	handles := NewCommandHandles(t)
 	for t.Kind() == reflect.Ptr {
@@ -117,7 +117,7 @@ func (c *config) sourced(agg SourcedAggregate) error {
 
 func (c *config) saga(s Saga) error {
 	t := reflect.TypeOf(s)
-	handles := NewEventHandles(t)
+	handles := NewSagaHandles(t)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -153,7 +153,7 @@ func (c *config) config(item interface{}) error {
 		return c.eventHandlerConfig(raw)
 	case Saga:
 		return c.saga(raw)
-	case SourcedAggregate:
+	case AggregateSourced:
 		return c.sourced(raw)
 	default:
 		return fmt.Errorf("invalid item type: %T", item)

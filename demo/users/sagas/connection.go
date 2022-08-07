@@ -10,12 +10,11 @@ import (
 )
 
 type ConnectionSaga struct {
-	es.BaseSaga
 }
 
-func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.ConnectionAdded) error {
+func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.ConnectionAdded) ([]es.Command, error) {
 	item := data.Connections.Value
-	s.Handle(ctx, &commands.CreateExternalUser{
+	return es.Commands(&commands.CreateExternalUser{
 		BaseCommand: es.BaseCommand{
 			AggregateId: evt.AggregateId,
 		},
@@ -23,8 +22,7 @@ func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event
 		Name:     item.Name,
 		UserId:   item.UserId,
 		Username: item.Username,
-	})
-	return nil
+	}), nil
 }
 
 func NewConnectionSaga() *ConnectionSaga {

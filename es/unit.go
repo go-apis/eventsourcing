@@ -18,7 +18,7 @@ type Unit interface {
 	Dispatch(ctx context.Context, cmds ...Command) error
 
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
-	Save(ctx context.Context, name string, id uuid.UUID, entity Entity) error
+	Save(ctx context.Context, name string, entity Entity) error
 }
 
 type unit struct {
@@ -103,8 +103,19 @@ func (u *unit) Load(ctx context.Context, name string, id uuid.UUID, dataOptions 
 	dataStore := NewDataStore(u.data, entityOptions)
 	return dataStore.Load(ctx, id, dataOptions...)
 }
-func (u *unit) Save(ctx context.Context, name string, id uuid.UUID, entity Entity) error {
-	return fmt.Errorf("not implemented")
+func (u *unit) Save(ctx context.Context, name string, entity Entity) error {
+	entityOptions, err := u.cli.GetEntityOptions(name)
+	if err != nil {
+		return err
+	}
+
+	dataStore := NewDataStore(u.data, entityOptions)
+	events, err := dataStore.Save(ctx, entity)
+	if err != nil {
+		return err
+	}
+	u.events = append(u.events, events...)
+	return u.cli.HandleEvents(ctx, events...)
 }
 
 func newUnit(cli Client, data Data) (Unit, error) {

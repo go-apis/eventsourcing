@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/contextgg/pkg/events"
-	"github.com/contextgg/pkg/ns"
 	"github.com/google/uuid"
 )
 
-func applyEvents(ctx context.Context, aggregate AggregateSourced, originalEvents []events.Event) error {
+func applyEvents(ctx context.Context, aggregate AggregateSourced, originalEvents []Event) error {
 	aggregateType := aggregate.GetTypeName()
 
 	for _, event := range originalEvents {
@@ -31,7 +29,7 @@ func applyEvents(ctx context.Context, aggregate AggregateSourced, originalEvents
 
 type DataStore interface {
 	Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error)
-	Save(ctx context.Context, aggregate Entity) ([]events.Event, error)
+	Save(ctx context.Context, aggregate Entity) ([]Event, error)
 }
 
 type store struct {
@@ -40,7 +38,7 @@ type store struct {
 }
 
 func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, forced bool) (Entity, error) {
-	namespace := ns.FromContext(ctx)
+	namespace := NamespaceFromContext(ctx)
 
 	// load up the aggregate
 	if s.opts.MinVersionDiff >= 0 && !forced {
@@ -59,22 +57,22 @@ func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, for
 	return aggregate, nil
 }
 func (s *store) loadEntity(ctx context.Context, entity Entity) (Entity, error) {
-	namespace := ns.FromContext(ctx)
+	namespace := NamespaceFromContext(ctx)
 
 	if err := s.data.LoadEntity(ctx, namespace, entity); err != nil && !errors.Is(err, ErrNoRows) {
 		return nil, err
 	}
 	return entity, nil
 }
-func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]events.Event, error) {
-	namespace := ns.FromContext(ctx)
+func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]Event, error) {
+	namespace := NamespaceFromContext(ctx)
 
 	originalVersion := aggregate.GetVersion()
 
 	// now save it!.
-	events := aggregate.Events()
+	events := aggregate.GetEvents()
 	if len(events) > 0 {
-		if err := s.data.SaveEvents(ctx, namespace, events...); err != nil {
+		if err := s.data.SaveEvents(ctx, events); err != nil {
 			return nil, err
 		}
 		aggregate.ClearEvents()
@@ -105,8 +103,8 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 
 	return events, nil
 }
-func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHolder) ([]events.Event, error) {
-	namespace := ns.FromContext(ctx)
+func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHolder) ([]Event, error) {
+	namespace := NamespaceFromContext(ctx)
 
 	if err := s.data.SaveEntity(ctx, namespace, aggregate); err != nil {
 		return nil, err
@@ -116,7 +114,7 @@ func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHold
 	aggregate.ClearEvents()
 	return events, nil
 }
-func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]events.Event, error) {
+func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]Event, error) {
 	namespace := ns.FromContext(ctx)
 	return nil, s.data.SaveEntity(ctx, namespace, aggregate)
 }
@@ -140,7 +138,7 @@ func (s *store) Load(ctx context.Context, id string, opts ...DataLoadOption) (En
 		return s.loadEntity(ctx, agg)
 	}
 }
-func (s *store) Save(ctx context.Context, entity Entity) ([]events.Event, error) {
+func (s *store) Save(ctx context.Context, entity Entity) ([]Event, error) {
 	switch agg := entity.(type) {
 	case AggregateSourced:
 		return s.saveSourced(ctx, agg)

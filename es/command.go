@@ -2,6 +2,10 @@ package es
 
 import "github.com/google/uuid"
 
+func Commands(cmds ...Command) []Command {
+	return cmds
+}
+
 type Command interface {
 	GetAggregateId() uuid.UUID
 }

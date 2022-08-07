@@ -1,6 +1,8 @@
 package es
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
 // EntityFunc for creating an entity
 type EntityFunc func() (Entity, error)

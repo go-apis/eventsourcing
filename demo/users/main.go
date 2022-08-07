@@ -49,15 +49,10 @@ func handle[T es.Command](cli es.Client) http.HandlerFunc {
 func userQueryFunc(cli es.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		unit, err := es.GetUnit(ctx)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
 
 		filter := filters.Filter{}
 
-		q := es.NewQuery[aggregates.User](unit)
+		q := es.NewQuery[*aggregates.User]()
 		out, err := q.Find(ctx, filter)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

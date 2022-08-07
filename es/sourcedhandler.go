@@ -25,7 +25,7 @@ func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
 		}
 	}
 
-	if err := unit.Save(ctx, b.name, aggregateId, agg); err != nil {
+	if err := unit.Save(ctx, b.name, agg); err != nil {
 		return err
 	}
 	return nil
