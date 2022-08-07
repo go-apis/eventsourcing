@@ -23,7 +23,7 @@ func Test_Pb(t *testing.T) {
 	ctx := context.Background()
 
 	// the event store should know the aggregates and the commands.
-	unit, err := cli.NewUnit(ctx)
+	unit, err := cli.Unit(ctx)
 	if err != nil {
 		t.Error(err)
 		return
@@ -35,7 +35,7 @@ func Test_Pb(t *testing.T) {
 	}
 
 	for i := 0; i < 1000; i++ {
-		if err := QueryUsers(ctx, unit); err != nil {
+		if err := QueryUsers(ctx); err != nil {
 			t.Error(err)
 			return
 		}

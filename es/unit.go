@@ -3,69 +3,32 @@ package es
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"sync"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
-
-	"github.com/neilotoole/errgroup"
 )
 
 var ErrHandlerNotFound = fmt.Errorf("handler not found")
 var ErrNotCommandHandler = fmt.Errorf("not a command handler")
 
 type Unit interface {
-	DispatchAsync(ctx context.Context, cmds ...Command) error
-	Dispatch(ctx context.Context, cmds ...Command) error
-
 	GetData() Data
 	NewTx(ctx context.Context) (Tx, error)
-	Load(ctx context.Context, id uuid.UUID, aggregateName string, out interface{}) error
-	Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error
-	Count(ctx context.Context, aggregateName string, filter filters.Filter) (int, error)
+
+	Dispatch(ctx context.Context, cmds ...Command) error
+
+	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
+	Save(ctx context.Context, name string, id uuid.UUID, entity Entity) error
 }
 
 type unit struct {
-	data            Data
-	serviceName     string
-	commandHandlers map[reflect.Type]CommandHandler
-}
+	sync.RWMutex
 
-func (u *unit) DispatchAsync(ctx context.Context, cmds ...Command) error {
-	numG, qSize := 8, 4
-	ctx = SetUnit(ctx, u)
-	g, ctx := errgroup.WithContextN(ctx, numG, qSize)
+	cli  Client
+	data Data
+	tx   Tx
 
-	for _, cmd := range cmds {
-		in := cmd
-
-		g.Go(func() error {
-			t := reflect.TypeOf(in)
-			h, ok := u.commandHandlers[t]
-			if !ok {
-				return ErrHandlerNotFound
-			}
-			return h.Handle(ctx, in)
-		})
-	}
-
-	return g.Wait()
-}
-
-func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
-	ctx = SetUnit(ctx, u)
-
-	for _, cmd := range cmds {
-		t := reflect.TypeOf(cmd)
-		h, ok := u.commandHandlers[t]
-		if !ok {
-			return ErrHandlerNotFound
-		}
-		if err := h.Handle(ctx, cmd); err != nil {
-			return err
-		}
-	}
-	return nil
+	events []Event
 }
 
 func (u *unit) GetData() Data {
@@ -73,27 +36,80 @@ func (u *unit) GetData() Data {
 }
 
 func (u *unit) NewTx(ctx context.Context) (Tx, error) {
-	return u.data.Begin(ctx)
+	u.Lock()
+	defer u.Unlock()
+
+	if u.tx != nil {
+		return u, nil
+	}
+
+	tx, err := u.data.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	u.tx = tx
+	return u, nil
 }
 
-func (u *unit) Load(ctx context.Context, id uuid.UUID, aggregateName string, out interface{}) error {
-	namespace := NamespaceFromContext(ctx)
-	return u.data.Load(ctx, u.serviceName, aggregateName, namespace, id, out)
-}
-func (u *unit) Find(ctx context.Context, aggregateName string, filter filters.Filter, out interface{}) error {
-	namespace := NamespaceFromContext(ctx)
-	return u.data.Find(ctx, u.serviceName, aggregateName, namespace, filter, out)
+func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
+	ctx = SetUnit(ctx, u)
+	return u.cli.HandleCommands(ctx, cmds...)
 }
 
-func (u *unit) Count(ctx context.Context, aggregateName string, filter filters.Filter) (int, error) {
-	namespace := NamespaceFromContext(ctx)
-	return u.data.Count(ctx, u.serviceName, aggregateName, namespace, filter)
+func (u *unit) Commit(ctx context.Context) (int, error) {
+	u.Lock()
+	defer u.Unlock()
+
+	if u.tx == nil {
+		return 0, nil
+	}
+	out, err := u.tx.Commit(ctx)
+	if err != nil {
+		return out, err
+	}
+	u.tx = nil
+
+	// send over the
+	if err := u.cli.PublishEvents(ctx, u.events...); err != nil {
+		// TODO log this!!!
+		return 0, err
+	}
+	u.events = nil
+	return out, nil
 }
 
-func newUnit(cfg Config, data Data) (Unit, error) {
+func (u *unit) Rollback(ctx context.Context) error {
+	u.Lock()
+	defer u.Unlock()
+
+	if u.tx == nil {
+		return nil
+	}
+	err := u.tx.Rollback(ctx)
+	if err != nil {
+		return err
+	}
+	u.tx = nil
+	return nil
+}
+
+func (u *unit) Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error) {
+	entityOptions, err := u.cli.GetEntityOptions(name)
+	if err != nil {
+		return nil, err
+	}
+
+	dataStore := NewDataStore(u.data, entityOptions)
+	return dataStore.Load(ctx, id, dataOptions...)
+}
+func (u *unit) Save(ctx context.Context, name string, id uuid.UUID, entity Entity) error {
+	return fmt.Errorf("not implemented")
+}
+
+func newUnit(cli Client, data Data) (Unit, error) {
 	return &unit{
-		data:            data,
-		serviceName:     cfg.GetServiceName(),
-		commandHandlers: cfg.GetCommandHandlers(),
+		cli:  cli,
+		data: data,
 	}, nil
 }

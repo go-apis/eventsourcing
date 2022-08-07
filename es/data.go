@@ -11,6 +11,7 @@ import (
 type Conn interface {
 	Initialize(ctx context.Context, cfg Config) error
 	NewData(ctx context.Context) (Data, error)
+	Publish(ctx context.Context, evts ...Event) error
 	Close(ctx context.Context) error
 }
 

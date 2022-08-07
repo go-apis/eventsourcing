@@ -10,7 +10,7 @@ import (
 )
 
 type ExternalUser struct {
-	es.BaseAggregate
+	es.BaseAggregate `es:"external_user,snapshot=3"`
 
 	Name     string
 	UserId   string

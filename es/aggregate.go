@@ -30,6 +30,10 @@ type BaseAggregate struct {
 	events  []interface{}
 }
 
+func (a *BaseAggregate) GetId() uuid.UUID {
+	return a.Id
+}
+
 func (a *BaseAggregate) SetId(id uuid.UUID, namespace string) {
 	a.Id = id
 	a.Namespace = namespace

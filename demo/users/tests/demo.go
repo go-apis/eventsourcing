@@ -36,8 +36,8 @@ func PbConn() (es.Conn, error) {
 	return pb.NewConn(dsn)
 }
 
-func QueryUsers(ctx context.Context, unit es.Unit) error {
-	userQuery := es.NewQuery[aggregates.User](unit)
+func QueryUsers(ctx context.Context) error {
+	userQuery := es.NewQuery[*aggregates.User]()
 	user, err := userQuery.Load(ctx, uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"))
 	if err != nil {
 		return err

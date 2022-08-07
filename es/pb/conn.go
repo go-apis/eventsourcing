@@ -22,10 +22,10 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 	// todo send schemas to server
 
 	// subscribe to events
-	c.streamer = NewStreamer(c.storeClient, cfg)
-	if err := c.streamer.Run(ctx); err != nil {
-		return err
-	}
+	// c.streamer = NewStreamer(c.storeClient, cfg)
+	// if err := c.streamer.Run(ctx); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 

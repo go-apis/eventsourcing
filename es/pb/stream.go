@@ -151,24 +151,24 @@ func (s *streamer) Close(ctx context.Context) error {
 	return nil
 }
 
-func NewStreamer(storeClient store.StoreClient, cfg es.Config) Streamer {
-	handlers := cfg.GetEventHandlers()
-	serviceName := cfg.GetServiceName()
+// func NewStreamer(storeClient store.StoreClient, cfg es.Config) Streamer {
+// 	handlers := cfg.GetEventHandlers()
+// 	serviceName := cfg.GetServiceName()
 
-	publisher := es.NewPublisher(handlers)
-	eventTypes := []string{}
-	eventMap := map[string]reflect.Type{}
+// 	publisher := es.NewPublisher(handlers)
+// 	eventTypes := []string{}
+// 	eventMap := map[string]reflect.Type{}
 
-	for t := range handlers {
-		eventTypes = append(eventTypes, t.String())
-		eventMap[t.String()] = t
-	}
+// 	for t := range handlers {
+// 		eventTypes = append(eventTypes, t.String())
+// 		eventMap[t.String()] = t
+// 	}
 
-	return &streamer{
-		storeClient: storeClient,
-		publisher:   publisher,
-		eventTypes:  eventTypes,
-		eventMap:    eventMap,
-		serviceName: serviceName,
-	}
-}
+// 	return &streamer{
+// 		storeClient: storeClient,
+// 		publisher:   publisher,
+// 		eventTypes:  eventTypes,
+// 		eventMap:    eventMap,
+// 		serviceName: serviceName,
+// 	}
+// }

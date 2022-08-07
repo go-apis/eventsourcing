@@ -3,54 +3,36 @@ package es
 import "context"
 
 type Saga interface {
-	Handle(ctx context.Context, cmd Command) error
-	GetCommands() []Command
-}
-
-type SagaFactory func() (Saga, error)
-
-type BaseSaga struct {
-	commands []Command
-}
-
-func (a *BaseSaga) GetCommands() []Command {
-	return a.commands
-}
-
-func (a *BaseSaga) Handle(ctx context.Context, cmd Command) error {
-	a.commands = append(a.commands, cmd)
-	return nil
+	Run(ctx context.Context, cmd Command) ([]Command, error)
 }
 
 type sagaEventHandler struct {
-	handle  *EventHandle
-	factory SagaFactory
+	handles EventHandles
+	saga    Saga
 }
 
 func (b *sagaEventHandler) Handle(ctx context.Context, evt Event, data interface{}) error {
-	unit := UnitFromContext(ctx)
+	// unit, err := GetUnit(ctx)
+	// if err != nil {
+	// 	return err
+	// }
 
-	saga, err := b.factory()
-	if err != nil {
-		return err
-	}
+	// if err := b.handles.Handle(b.s, ctx, evt, data); err != nil {
+	// 	return err
+	// }
 
-	if err := b.handle.Handle(saga, ctx, evt, data); err != nil {
-		return err
-	}
-
-	// dispatch.
-	cmds := saga.GetCommands()
-	if err := unit.Dispatch(ctx, cmds...); err != nil {
-		return err
-	}
+	// // dispatch.
+	// cmds := sag()
+	// if err := unit.Dispatch(ctx, cmds...); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
-func NewSagaEventHandler(handle *EventHandle, factory SagaFactory) EventHandler {
+func NewSagaEventHandler(handles EventHandles, saga Saga) EventHandler {
 	return &sagaEventHandler{
-		handle:  handle,
-		factory: factory,
+		handles: handles,
+		saga:    saga,
 	}
 }

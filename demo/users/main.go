@@ -17,10 +17,25 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+func CreateUnit(cli es.Client) func(http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			unit, err := cli.Unit(ctx)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			ctx = es.SetUnit(ctx, unit)
+			h.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 func handle[T es.Command](cli es.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		unit, err := cli.NewUnit(ctx)
+		unit, err := es.GetUnit(ctx)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -34,7 +49,7 @@ func handle[T es.Command](cli es.Client) http.HandlerFunc {
 func userQueryFunc(cli es.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		unit, err := cli.NewUnit(ctx)
+		unit, err := es.GetUnit(ctx)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -81,6 +96,7 @@ func main() {
 	}
 
 	r := chi.NewRouter()
+	r.Use(CreateUnit(cli))
 	r.Use(middleware.Logger)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("welcome"))
