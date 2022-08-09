@@ -2,7 +2,6 @@ package pb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
@@ -29,10 +28,15 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 
 	return newTransaction(d.storeClient, *d.transactionId), nil
 }
-func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out es.SourcedAggregate) error {
+
+func (d *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
 	return nil
 }
-func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]json.RawMessage, error) {
+func (d *data) SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
+	return nil
+}
+
+func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]*es.EventData, error) {
 	f := int64(fromVersion)
 	idStr := id.String()
 
@@ -49,45 +53,24 @@ func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateN
 		return nil, err
 	}
 
-	var datas []json.RawMessage
+	var datas []*es.EventData
 	for _, event := range resp.Events {
-		datas = append(datas, event.Data)
+		datas = append(datas, &es.EventData{
+			Type:    event.Type,
+			Data:    event.Data,
+			Version: int(event.Version),
+		})
 	}
 	return datas, nil
 }
-func (d *data) SaveEvents(ctx context.Context, events []es.Event) error {
+func (d *data) SaveEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, datas []*es.EventData) error {
 	if d.transactionId == nil {
 		return fmt.Errorf("transaction not started")
 	}
 
-	evts := make([]*store.Event, len(events))
-	for i, event := range events {
-		// TODO what about a codec or something?
-		data, err := json.Marshal(event.Data)
-		if err != nil {
-			return err
-		}
-
-		evts[i] = &store.Event{
-			ServiceName:   event.ServiceName,
-			AggregateType: event.AggregateType,
-			AggregateId:   event.AggregateId.String(),
-			Namespace:     event.Namespace,
-			Version:       int64(event.Version),
-			Data:          data,
-		}
-	}
-
-	req := &store.SaveEventsRequest{
-		TransactionId: *d.transactionId,
-		Events:        evts,
-	}
-	if _, err := d.storeClient.SaveEvents(ctx, req); err != nil {
-		return err
-	}
 	return nil
 }
-func (d *data) SaveEntity(ctx context.Context, entity es.Entity) error {
+func (d *data) SaveEntity(ctx context.Context, serviceName string, aggregateName string, entity es.Entity) error {
 	return nil
 }
 

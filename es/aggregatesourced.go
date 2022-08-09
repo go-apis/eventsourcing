@@ -7,6 +7,8 @@ import (
 )
 
 type AggregateSourced interface {
+	Entity
+
 	GetEvents() []interface{}
 	GetVersion() int
 	IncrementVersion()

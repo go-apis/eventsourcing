@@ -11,7 +11,7 @@ import (
 )
 
 type Group struct {
-	es.BaseAggregate
+	es.BaseAggregateSourced
 
 	Name     string
 	ParentId *uuid.UUID

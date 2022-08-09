@@ -13,17 +13,22 @@ type conn struct {
 	db *gorm.DB
 }
 
-func (c *conn) Initialize(ctx context.Context, entities ...es.Entity) error {
+func (c *conn) Initialize(ctx context.Context, serviceName string, opts ...es.EntityOptions) error {
 	if err := c.db.AutoMigrate(&db.Event{}, &db.Snapshot{}); err != nil {
 		return err
 	}
 
-	for _, raw := range entities {
-		table := db.TableName(raw.ServiceName, raw.AggregateType)
+	for _, opt := range opts {
+		obj, err := opt.Factory()
+		if err != nil {
+			return err
+		}
+
+		table := db.TableName(serviceName, opt.Name)
 		if err := c.db.Table(table).AutoMigrate(&db.Entity{}); err != nil {
 			return err
 		}
-		if err := c.db.Table(table).AutoMigrate(raw.Data); err != nil {
+		if err := c.db.Table(table).AutoMigrate(obj); err != nil {
 			return err
 		}
 	}

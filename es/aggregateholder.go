@@ -8,9 +8,6 @@ type AggregateHolder interface {
 
 	// EventsToPublish returns events that need to be published
 	EventsToPublish() []Event
-
-	// ClearEvents clears all uncommitted events after saving.
-	ClearEvents()
 }
 
 // BaseAggregateHolder to make our commands smaller
@@ -18,8 +15,7 @@ type BaseAggregateHolder struct {
 	Id        uuid.UUID `json:"id"`
 	Namespace string    `json:"namespace"`
 
-	typeName string
-	events   []Event
+	events []Event
 }
 
 // GetId of the aggregate
@@ -42,9 +38,4 @@ func (a *BaseAggregateHolder) PublishEvent(e Event) {
 // Events returns all uncommitted events that are not yet saved.
 func (a *BaseAggregateHolder) EventsToPublish() []Event {
 	return a.events
-}
-
-// ClearEvents clears all uncommitted events after saving.
-func (a *BaseAggregateHolder) ClearEvents() {
-	a.events = nil
 }

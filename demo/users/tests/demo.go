@@ -71,7 +71,7 @@ func QueryUsers(ctx context.Context) error {
 	return err
 }
 
-func UserCommands(ctx context.Context, unit es.Unit) error {
+func UserCommands(ctx context.Context) error {
 	cmds := []es.Command{
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
@@ -107,6 +107,11 @@ func UserCommands(ctx context.Context, unit es.Unit) error {
 			Username: "calvin.harris",
 			Password: "12345678",
 		},
+	}
+
+	unit, err := es.GetUnit(ctx)
+	if err != nil {
+		return err
 	}
 
 	tx, err := unit.NewTx(ctx)

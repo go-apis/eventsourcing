@@ -4,12 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-
-	"github.com/contextcloud/eventstore/es/utils"
-)
-
-var (
-	cmdsType = reflect.TypeOf(([]Command)(nil)).Elem()
 )
 
 type SagaHandle struct {
@@ -47,7 +41,7 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 		return nil, false
 	}
 	numOut := m.Type.NumOut()
-	if numOut != 1 {
+	if numOut != 2 {
 		return nil, false
 	}
 
@@ -60,11 +54,11 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 		return nil, false
 	}
 	in4 := m.Type.In(3)
-	out1 := m.Type.Out(1)
-	if !out1.ConvertibleTo(cmdsType) {
+	out1 := m.Type.Out(0)
+	if out1.Kind() != reflect.Slice || !out1.Elem().ConvertibleTo(cmdType) {
 		return nil, false
 	}
-	out2 := m.Type.Out(2)
+	out2 := m.Type.Out(1)
 	if !out2.ConvertibleTo(errType) {
 		return nil, false
 	}
@@ -79,7 +73,7 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 type SagaHandles map[reflect.Type]*SagaHandle
 
 func (h SagaHandles) Handle(agg interface{}, ctx context.Context, evt Event) ([]Command, error) {
-	t := utils.GetElemType(evt.Data)
+	t := reflect.TypeOf(evt.Data)
 	handle, ok := h[t]
 	if !ok {
 		return nil, fmt.Errorf("unknown event: %s", t)

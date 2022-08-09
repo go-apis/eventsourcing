@@ -13,7 +13,7 @@ import (
 )
 
 type User struct {
-	es.BaseAggregate
+	es.BaseAggregateSourced
 
 	Username    string
 	Password    string

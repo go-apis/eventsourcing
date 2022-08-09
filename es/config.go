@@ -7,6 +7,27 @@ import (
 	"github.com/jinzhu/copier"
 )
 
+type EntityConfig interface {
+	IsEntityConfig()
+	GetOptions() EntityOptions
+	GetType() reflect.Type
+}
+type entityConfig struct {
+	options    EntityOptions
+	entityType reflect.Type
+}
+
+func (cfg entityConfig) IsEntityConfig() {}
+func (cfg entityConfig) GetOptions() EntityOptions {
+	return cfg.options
+}
+func (cfg entityConfig) GetType() reflect.Type {
+	return cfg.entityType
+}
+func NewEntityConfig() EntityConfig {
+	return &entityConfig{}
+}
+
 type EventHandlerConfig interface {
 	IsEventHandlerConfig()
 	GetHandler() EventHandler
@@ -30,20 +51,15 @@ func NewEventHandlerConfig() EventHandlerConfig {
 
 type CommandHandlerConfig interface {
 	IsCommandHandlerConfig()
-	GetEntityOptions() EntityOptions
 	GetHandler() CommandHandler
 	GetCommands() []reflect.Type
 }
 type commandHandlerConfig struct {
-	options  EntityOptions
 	handler  CommandHandler
 	commands []reflect.Type
 }
 
 func (cfg commandHandlerConfig) IsCommandHandlerConfig() {}
-func (cfg commandHandlerConfig) GetEntityOptions() EntityOptions {
-	return cfg.options
-}
 func (cfg commandHandlerConfig) GetHandler() CommandHandler {
 	return cfg.handler
 }
@@ -56,6 +72,7 @@ func NewCommandHandlerConfig() CommandHandlerConfig {
 
 type Config interface {
 	GetServiceName() string
+	GetEntities() []EntityConfig
 	GetCommandHandlers() []CommandHandlerConfig
 	GetEventHandlers() []EventHandlerConfig
 }
@@ -63,6 +80,7 @@ type Config interface {
 type config struct {
 	serviceName string
 
+	entities        []EntityConfig
 	commandHandlers []CommandHandlerConfig
 	eventHandlers   []EventHandlerConfig
 }
@@ -71,6 +89,9 @@ func (c config) GetServiceName() string {
 	return c.serviceName
 }
 
+func (c config) GetEntities() []EntityConfig {
+	return c.entities
+}
 func (c config) GetCommandHandlers() []CommandHandlerConfig {
 	return c.commandHandlers
 }
@@ -100,6 +121,10 @@ func (c *config) sourced(agg AggregateSourced) error {
 		EntityName(name),
 		EntityFactory(factory),
 	}
+	c.entities = append(c.entities, &entityConfig{
+		options:    NewEntityOptions(opts),
+		entityType: t,
+	})
 
 	commands := []reflect.Type{}
 	for t := range handles {
@@ -110,12 +135,11 @@ func (c *config) sourced(agg AggregateSourced) error {
 	c.commandHandlers = append(c.commandHandlers, &commandHandlerConfig{
 		handler:  h,
 		commands: commands,
-		options:  NewEntityOptions(opts),
 	})
 	return nil
 }
 
-func (c *config) saga(s Saga) error {
+func (c *config) saga(s IsSaga) error {
 	t := reflect.TypeOf(s)
 	handles := NewSagaHandles(t)
 	for t.Kind() == reflect.Ptr {
@@ -151,7 +175,7 @@ func (c *config) config(item interface{}) error {
 		return c.commandHandlerConfig(raw)
 	case EventHandlerConfig:
 		return c.eventHandlerConfig(raw)
-	case Saga:
+	case IsSaga:
 		return c.saga(raw)
 	case AggregateSourced:
 		return c.sourced(raw)

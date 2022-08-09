@@ -1,11 +1,19 @@
 package es
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type EventData struct {
+	Version   int             `json:"version"`
+	Type      string          `json:"type"`
+	Data      json.RawMessage `json:"data"`
+	Timestamp time.Time       `json:"timestamp"`
+}
 
 // Metadata is a simple map to store event's metadata
 type Metadata = map[string]interface{}

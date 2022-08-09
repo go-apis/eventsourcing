@@ -3,9 +3,10 @@ package es
 import (
 	"context"
 	"fmt"
-	"reflect"
+	"math"
 
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/es/utils"
 	"github.com/google/uuid"
 )
 
@@ -63,16 +64,25 @@ func (q *query[T]) Save(ctx context.Context, entities ...T) error {
 }
 
 func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error) {
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var items []T
-	// if err := q.unit.Find(ctx, q.aggregateName, filter, &items); err != nil {
-	// 	return nil, err
-	// }
-	return items, fmt.Errorf("not implemented")
+	if err := unit.Find(ctx, q.name, filter, &items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error) {
-	// return q.unit.Count(ctx, q.aggregateName, filter)
-	return 0, fmt.Errorf("not implemented")
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return unit.Count(ctx, q.name, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
@@ -83,31 +93,34 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, fmt.Errorf("Offset required for pagination")
 	}
 
-	return nil, fmt.Errorf("not implemented")
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	// totalItems, err := q.unit.Count(ctx, q.aggregateName, filter)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	totalItems, err := unit.Count(ctx, q.name, filter)
+	if err != nil {
+		return nil, err
+	}
 
-	// var items []T
-	// if err := q.unit.Find(ctx, q.aggregateName, filter, &items); err != nil {
-	// 	return nil, err
-	// }
+	var items []T
+	if err := unit.Find(ctx, q.name, filter, &items); err != nil {
+		return nil, err
+	}
 
-	// totalPages := int(math.Ceil(float64(totalItems) / float64(*filter.Limit)))
-	// return &Pagination[T]{
-	// 	Limit:      *filter.Limit,
-	// 	Page:       *filter.Offset + 1,
-	// 	TotalItems: totalItems,
-	// 	TotalPages: totalPages,
-	// 	Items:      items,
-	// }, nil
+	totalPages := int(math.Ceil(float64(totalItems) / float64(*filter.Limit)))
+	return &Pagination[T]{
+		Limit:      *filter.Limit,
+		Page:       *filter.Offset + 1,
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+		Items:      items,
+	}, nil
 }
 
 func NewQuery[T Entity]() Query[T] {
 	var item T
-	typeOf := reflect.TypeOf(item)
+	typeOf := utils.GetElemType(item)
 
 	return &query[T]{
 		name: typeOf.String(),

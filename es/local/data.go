@@ -2,7 +2,6 @@ package local
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
@@ -48,56 +47,62 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	return newTransaction(d), nil
 }
 
-func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out es.SourcedAggregate) error {
+func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
 	return nil
 }
-func (t *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]json.RawMessage, error) {
-	var datas []json.RawMessage
-	out := t.getDb().WithContext(ctx).
+func (d *data) SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
+	return nil
+}
+
+func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]*es.EventData, error) {
+	var datas []*es.EventData
+	out := d.getDb().
+		WithContext(ctx).
 		Where("service_name = ?", serviceName).
 		Where("namespace = ?", namespace).
 		Where("aggregate_type = ?", aggregateName).
 		Where("aggregate_id = ?", id).
 		Where("version > ?", fromVersion).
 		Order("version").
-		Model(&db.Event{}).
-		Pluck("data", &datas)
+		Table("events").
+		Scan(&datas)
+
 	return datas, out.Error
 }
-func (t *data) SaveEvents(ctx context.Context, events []es.Event) error {
-	if !t.inTransaction() {
+func (d *data) SaveEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, datas []*es.EventData) error {
+	if !d.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	if len(events) == 0 {
+	if len(datas) == 0 {
 		return nil // nothing to save
 	}
 
-	data := make([]*db.Event, len(events))
-	for i, evt := range events {
-		data[i] = &db.Event{
-			ServiceName:   evt.ServiceName,
-			Namespace:     evt.Namespace,
-			AggregateId:   evt.AggregateId,
-			AggregateType: evt.AggregateType,
-			Type:          evt.Type,
-			Version:       evt.Version,
-			Timestamp:     evt.Timestamp,
-			Data:          evt.Data,
-			Metadata:      evt.Metadata,
+	evts := make([]*db.Event, len(datas))
+	for i, d := range datas {
+		evts[i] = &db.Event{
+			ServiceName:   serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: aggregateName,
+			Type:          d.Type,
+			Version:       d.Version,
+			Timestamp:     d.Timestamp,
+			Data:          d.Data,
 		}
 	}
 
-	out := t.getDb().WithContext(ctx).
-		Create(&data)
+	out := d.getDb().
+		WithContext(ctx).
+		Create(&evts)
 	return out.Error
 }
-func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
+func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName string, raw es.Entity) error {
 	if !t.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := db.TableName(raw.ServiceName, raw.AggregateType)
+	table := db.TableName(serviceName, aggregateName)
 	out := t.getDb().
 		WithContext(ctx).
 		Table(table).
@@ -105,8 +110,9 @@ func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
 			Columns:   []clause.Column{{Name: "id"}, {Name: "namespace"}},
 			UpdateAll: true,
 		}).
-		Create(raw.Data)
+		Create(raw)
 	return out.Error
+	return nil
 }
 
 func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {

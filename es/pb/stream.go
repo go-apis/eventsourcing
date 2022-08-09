@@ -19,7 +19,6 @@ type Streamer interface {
 
 type streamer struct {
 	storeClient store.StoreClient
-	publisher   es.Publisher
 	eventTypes  []string
 	eventMap    map[string]reflect.Type
 	serviceName string
@@ -50,9 +49,9 @@ func (s *streamer) handle(ctx context.Context, evt *store.Event) error {
 		}
 	}
 
-	if err := s.publisher.PublishAsync(ctx, event); err != nil {
-		return err
-	}
+	// if err := s.publisher.PublishAsync(ctx, event); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 

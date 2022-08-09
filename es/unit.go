@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 )
 
@@ -19,6 +20,9 @@ type Unit interface {
 
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, entity Entity) error
+
+	Find(ctx context.Context, name string, filter filters.Filter, out interface{}) error
+	Count(ctx context.Context, name string, filter filters.Filter) (int, error)
 }
 
 type unit struct {
@@ -99,8 +103,9 @@ func (u *unit) Load(ctx context.Context, name string, id uuid.UUID, dataOptions 
 	if err != nil {
 		return nil, err
 	}
+	serviceName := u.cli.GetServiceName()
 
-	dataStore := NewDataStore(u.data, entityOptions)
+	dataStore := NewDataStore(serviceName, u.data, entityOptions)
 	return dataStore.Load(ctx, id, dataOptions...)
 }
 func (u *unit) Save(ctx context.Context, name string, entity Entity) error {
@@ -108,14 +113,26 @@ func (u *unit) Save(ctx context.Context, name string, entity Entity) error {
 	if err != nil {
 		return err
 	}
+	serviceName := u.cli.GetServiceName()
 
-	dataStore := NewDataStore(u.data, entityOptions)
+	dataStore := NewDataStore(serviceName, u.data, entityOptions)
 	events, err := dataStore.Save(ctx, entity)
 	if err != nil {
 		return err
 	}
 	u.events = append(u.events, events...)
 	return u.cli.HandleEvents(ctx, events...)
+}
+
+func (u *unit) Find(ctx context.Context, name string, filter filters.Filter, out interface{}) error {
+	namespace := NamespaceFromContext(ctx)
+	serviceName := u.cli.GetServiceName()
+	return u.data.Find(ctx, serviceName, name, namespace, filter, out)
+}
+func (u *unit) Count(ctx context.Context, name string, filter filters.Filter) (int, error) {
+	namespace := NamespaceFromContext(ctx)
+	serviceName := u.cli.GetServiceName()
+	return u.data.Count(ctx, serviceName, name, namespace, filter)
 }
 
 func newUnit(cli Client, data Data) (Unit, error) {

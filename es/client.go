@@ -57,29 +57,32 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 func (c *client) Initialize(ctx context.Context) error {
 	eventHandlers := c.cfg.GetEventHandlers()
 	for _, eh := range eventHandlers {
-		h := eh.GetHandler()
+		handler := eh.GetHandler()
 		for _, evt := range eh.GetEvents() {
-			t := utils.GetElemType(evt)
-			c.eventHandlers[t] = append(c.eventHandlers[t], h)
+			c.eventHandlers[evt] = append(c.eventHandlers[evt], handler)
 		}
+	}
+
+	var allOpts []EntityOptions
+
+	entities := c.cfg.GetEntities()
+	for _, e := range entities {
+		opts := e.GetOptions()
+		allOpts = append(allOpts, opts)
+		c.entityOptions[opts.Name] = &opts
 	}
 
 	commandHandlers := c.cfg.GetCommandHandlers()
 	for _, ch := range commandHandlers {
-		// ent := ch.Factory()
-		// t := utils.GetElemType(ent)
-
-		// c.entities = append(c.entities, ent)
-		// c.entityOptions[t] = &agg.EntityOptions
-
-		opts := ch.GetEntityOptions()
-		c.entityOptions[opts.Name] = &opts
-
 		handler := ch.GetHandler()
 		for _, cmd := range ch.GetCommands() {
-			t := utils.GetElemType(cmd)
-			c.commandHandlers[t] = handler
+			c.commandHandlers[cmd] = handler
 		}
+	}
+
+	serviceName := c.cfg.GetServiceName()
+	if err := c.conn.Initialize(ctx, serviceName, allOpts...); err != nil {
+		return err
 	}
 
 	return nil
@@ -87,7 +90,7 @@ func (c *client) Initialize(ctx context.Context) error {
 
 func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
 	for _, cmd := range cmds {
-		t := utils.GetElemType(cmd)
+		t := reflect.TypeOf(cmd)
 		h, ok := c.commandHandlers[t]
 		if !ok {
 			return fmt.Errorf("command handler not found: %v", t)

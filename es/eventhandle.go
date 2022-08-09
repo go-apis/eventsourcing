@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-
-	"github.com/contextcloud/eventstore/es/utils"
 )
 
 var (
@@ -77,7 +75,7 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 type EventHandles map[reflect.Type]*EventHandle
 
 func (h EventHandles) Handle(agg interface{}, ctx context.Context, evt Event) error {
-	t := utils.GetElemType(evt.Data)
+	t := reflect.TypeOf(evt.Data)
 	handle, ok := h[t]
 	if !ok {
 		return fmt.Errorf("unknown event: %s", t)

@@ -10,6 +10,7 @@ import (
 )
 
 type ConnectionSaga struct {
+	es.BaseSaga
 }
 
 func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.ConnectionAdded) ([]es.Command, error) {

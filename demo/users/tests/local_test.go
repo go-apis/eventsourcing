@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/contextcloud/eventstore/demo/users/config"
+	"github.com/contextcloud/eventstore/es"
 )
 
 func Test_Local(t *testing.T) {
@@ -28,8 +29,9 @@ func Test_Local(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	ctx = es.SetUnit(ctx, unit)
 
-	if err := UserCommands(ctx, unit); err != nil {
+	if err := UserCommands(ctx); err != nil {
 		t.Error(err)
 		return
 	}

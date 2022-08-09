@@ -18,7 +18,7 @@ type conn struct {
 	streamer    Streamer
 }
 
-func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
+func (c *conn) Initialize(ctx context.Context, serviceName string, opts ...es.EntityOptions) error {
 	// todo send schemas to server
 
 	// subscribe to events
