@@ -72,13 +72,15 @@ func NewCommandHandlerConfig() CommandHandlerConfig {
 
 type Config interface {
 	GetServiceName() string
+	GetServiceVersion() string
 	GetEntities() []EntityConfig
 	GetCommandHandlers() []CommandHandlerConfig
 	GetEventHandlers() []EventHandlerConfig
 }
 
 type config struct {
-	serviceName string
+	serviceName    string
+	serviceVersion string
 
 	entities        []EntityConfig
 	commandHandlers []CommandHandlerConfig
@@ -87,6 +89,9 @@ type config struct {
 
 func (c config) GetServiceName() string {
 	return c.serviceName
+}
+func (c config) GetServiceVersion() string {
+	return c.serviceVersion
 }
 
 func (c config) GetEntities() []EntityConfig {
@@ -184,9 +189,10 @@ func (c *config) config(item interface{}) error {
 	}
 }
 
-func NewConfig(serviceName string, items ...interface{}) (Config, error) {
+func NewConfig(serviceName string, serviceVersion string, items ...interface{}) (Config, error) {
 	cfg := &config{
-		serviceName: serviceName,
+		serviceName:    serviceName,
+		serviceVersion: serviceVersion,
 	}
 
 	for _, item := range items {

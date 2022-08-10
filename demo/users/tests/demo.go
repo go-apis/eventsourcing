@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/contextcloud/eventstore/demo/users/aggregates"
 	"github.com/contextcloud/eventstore/demo/users/commands"
@@ -12,7 +13,37 @@ import (
 	"github.com/contextcloud/eventstore/es/pb"
 	"github.com/contextcloud/eventstore/pkg/db"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/zipkin"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 )
+
+var logger = log.New(os.Stderr, "zipkin-example", log.Ldate|log.Ltime|log.Llongfile)
+
+type Shutdown = func(context.Context) error
+
+func Zipkin() (Shutdown, error) {
+	url := "http://localhost:9411/api/v2/spans"
+	exporter, err := zipkin.New(
+		url,
+		zipkin.WithLogger(logger),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(exporter),
+		trace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("tests"),
+		)),
+	)
+	otel.SetTracerProvider(tp)
+	return tp.Shutdown, nil
+}
 
 func LocalConn() (es.Conn, error) {
 	// dsn := "postgresql://inflow:kU1tvu@pg.data:5432/inflow-assets?sslmode=disable"

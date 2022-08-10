@@ -6,9 +6,15 @@ import (
 
 	"github.com/contextcloud/eventstore/demo/users/config"
 	"github.com/contextcloud/eventstore/es"
+	"go.opentelemetry.io/otel"
 )
 
 func Test_Local(t *testing.T) {
+	shutdown, err := Zipkin()
+	if err != nil {
+		t.Error(err)
+	}
+
 	conn, err := LocalConn()
 	if err != nil {
 		t.Error(err)
@@ -22,26 +28,30 @@ func Test_Local(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	pctx, pspan := otel.Tracer("test").Start(ctx, "Local")
+	defer pspan.End()
 
 	// the event store should know the aggregates and the commands.
-	unit, err := cli.Unit(ctx)
+	unit, err := cli.Unit(pctx)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	ctx = es.SetUnit(ctx, unit)
+	pctx = es.SetUnit(pctx, unit)
 
-	if err := UserCommands(ctx); err != nil {
+	if err := UserCommands(pctx); err != nil {
 		t.Error(err)
 		return
 	}
 
 	for i := 0; i < 1000; i++ {
-		if err := QueryUsers(ctx); err != nil {
+		if err := QueryUsers(pctx); err != nil {
 			t.Error(err)
 			return
 		}
 
 		t.Logf("index: %d", i)
 	}
+
+	shutdown(pctx)
 }

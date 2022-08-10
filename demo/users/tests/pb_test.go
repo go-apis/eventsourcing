@@ -9,6 +9,11 @@ import (
 )
 
 func Test_Pb(t *testing.T) {
+	shutdown, err := Zipkin()
+	if err != nil {
+		t.Error(err)
+	}
+
 	conn, err := PbConn()
 	if err != nil {
 		t.Error(err)
@@ -44,4 +49,6 @@ func Test_Pb(t *testing.T) {
 
 		t.Logf("index: %d", i)
 	}
+
+	shutdown(ctx)
 }

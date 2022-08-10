@@ -9,6 +9,7 @@ import (
 func SetupClient(conn es.Conn) (es.Client, error) {
 	cfg, err := es.NewConfig(
 		"example",
+		"v0.1.0",
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),

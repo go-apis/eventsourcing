@@ -2,37 +2,42 @@ package es
 
 import (
 	"context"
+
+	"go.opentelemetry.io/otel"
 )
 
-type aggregateHandler struct {
+type sourcedAggregateHandler struct {
 	name    string
 	handles CommandHandles
 }
 
-func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
-	unit := UnitFromContext(ctx)
+func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error {
+	pctx, pspan := otel.Tracer("SourcedAggregateHandler").Start(ctx, "Handle")
+	defer pspan.End()
+
+	unit := UnitFromContext(pctx)
 	aggregateId := cmd.GetAggregateId()
 	replay := IsReplayCommand(cmd)
 
-	agg, err := unit.Load(ctx, b.name, aggregateId)
+	agg, err := unit.Load(pctx, b.name, aggregateId)
 	if err != nil {
 		return err
 	}
 
 	if !replay {
-		if err := b.handles.Handle(agg, ctx, cmd); err != nil {
+		if err := b.handles.Handle(agg, pctx, cmd); err != nil {
 			return err
 		}
 	}
 
-	if err := unit.Save(ctx, b.name, agg); err != nil {
+	if err := unit.Save(pctx, b.name, agg); err != nil {
 		return err
 	}
 	return nil
 }
 
 func NewSourcedAggregateHandler(name string, handles CommandHandles) CommandHandler {
-	return &aggregateHandler{
+	return &sourcedAggregateHandler{
 		name:    name,
 		handles: handles,
 	}

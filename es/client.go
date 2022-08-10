@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/contextcloud/eventstore/es/utils"
+	"go.opentelemetry.io/otel"
 )
 
 type Client interface {
@@ -55,6 +56,8 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 }
 
 func (c *client) Initialize(ctx context.Context) error {
+	serviceName := c.cfg.GetServiceName()
+
 	eventHandlers := c.cfg.GetEventHandlers()
 	for _, eh := range eventHandlers {
 		handler := eh.GetHandler()
@@ -80,7 +83,6 @@ func (c *client) Initialize(ctx context.Context) error {
 		}
 	}
 
-	serviceName := c.cfg.GetServiceName()
 	if err := c.conn.Initialize(ctx, serviceName, allOpts...); err != nil {
 		return err
 	}
@@ -88,32 +90,68 @@ func (c *client) Initialize(ctx context.Context) error {
 	return nil
 }
 
+func (c *client) handleCommand(ctx context.Context, cmd Command) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleCommand")
+	defer pspan.End()
+
+	t := reflect.TypeOf(cmd)
+	h, ok := c.commandHandlers[t]
+	if !ok {
+		return fmt.Errorf("command handler not found: %v", t)
+	}
+	if err := h.Handle(pctx, cmd); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleCommands")
+	defer pspan.End()
+
 	for _, cmd := range cmds {
-		t := reflect.TypeOf(cmd)
-		h, ok := c.commandHandlers[t]
-		if !ok {
-			return fmt.Errorf("command handler not found: %v", t)
-		}
-		if err := h.Handle(ctx, cmd); err != nil {
+		if err := c.handleCommand(pctx, cmd); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *client) HandleEvents(ctx context.Context, evts ...Event) error {
-	for _, evt := range evts {
-		t := utils.GetElemType(evt.Data)
-		all, ok := c.eventHandlers[t]
-		if !ok {
-			continue
-		}
+func (c *client) handleEvent(ctx context.Context, evt Event) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvent")
+	defer pspan.End()
 
-		for _, h := range all {
-			if err := h.Handle(ctx, evt); err != nil {
-				return err
-			}
+	t := utils.GetElemType(evt.Data)
+	all, ok := c.eventHandlers[t]
+	if !ok {
+		return nil
+	}
+
+	for _, h := range all {
+		if err := c.eventHandlerHandleEvent(pctx, h, evt); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, evt Event) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "EventHandlerHandleEvent")
+	defer pspan.End()
+
+	if err := h.Handle(pctx, evt); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) HandleEvents(ctx context.Context, evts ...Event) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvents")
+	defer pspan.End()
+
+	for _, evt := range evts {
+		if err := c.handleEvent(pctx, evt); err != nil {
+			return err
 		}
 	}
 	return nil

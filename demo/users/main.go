@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/contextcloud/eventstore/demo/users/aggregates"
 	"github.com/contextcloud/eventstore/demo/users/commands"
@@ -10,6 +13,11 @@ import (
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/pkg/db"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/zipkin"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 
 	"github.com/contextcloud/eventstore/es"
 
@@ -66,7 +74,28 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 	}
 }
 
+var logger = log.New(os.Stderr, "zipkin-example", log.Ldate|log.Ltime|log.Llongfile)
+
 func main() {
+	url := "http://localhost:9411/api/v2/spans"
+	exporter, err := zipkin.New(
+		url,
+		zipkin.WithLogger(logger),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(exporter),
+		trace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("zipkin-test"),
+		)),
+	)
+	otel.SetTracerProvider(tp)
+	defer tp.Shutdown(context.Background())
+
 	conn, err := local.NewConn(
 		db.WithDbUser("es"),
 		db.WithDbPassword("es"),
@@ -78,6 +107,7 @@ func main() {
 
 	cfg, err := es.NewConfig(
 		"example",
+		"v1.0.0",
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
