@@ -74,6 +74,15 @@ func NewCommandHandle(m reflect.Method) (*CommandHandle, bool) {
 
 type CommandHandles map[reflect.Type]*CommandHandle
 
+func (h CommandHandles) Handle(agg interface{}, ctx context.Context, cmd Command) error {
+	t := reflect.TypeOf(cmd)
+	handle, ok := h[t]
+	if !ok {
+		return fmt.Errorf("unknown command: %s", t)
+	}
+	return handle.Handle(agg, ctx, cmd)
+}
+
 func NewCommandHandles(t reflect.Type) CommandHandles {
 	handles := make(CommandHandles)
 	for i := 0; i < t.NumMethod(); i++ {

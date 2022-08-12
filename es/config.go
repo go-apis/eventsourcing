@@ -7,102 +7,192 @@ import (
 	"github.com/jinzhu/copier"
 )
 
+type EntityConfig interface {
+	IsEntityConfig()
+	GetOptions() EntityOptions
+	GetType() reflect.Type
+}
+type entityConfig struct {
+	options    EntityOptions
+	entityType reflect.Type
+}
+
+func (cfg entityConfig) IsEntityConfig() {}
+func (cfg entityConfig) GetOptions() EntityOptions {
+	return cfg.options
+}
+func (cfg entityConfig) GetType() reflect.Type {
+	return cfg.entityType
+}
+func NewEntityConfig() EntityConfig {
+	return &entityConfig{}
+}
+
+type EventHandlerConfig interface {
+	IsEventHandlerConfig()
+	GetHandler() EventHandler
+	GetEvents() []reflect.Type
+}
+type eventHandlerConfig struct {
+	handler EventHandler
+	events  []reflect.Type
+}
+
+func (cfg eventHandlerConfig) IsEventHandlerConfig() {}
+func (cfg eventHandlerConfig) GetHandler() EventHandler {
+	return cfg.handler
+}
+func (cfg eventHandlerConfig) GetEvents() []reflect.Type {
+	return cfg.events
+}
+func NewEventHandlerConfig() EventHandlerConfig {
+	return &eventHandlerConfig{}
+}
+
+type CommandHandlerConfig interface {
+	IsCommandHandlerConfig()
+	GetHandler() CommandHandler
+	GetCommands() []reflect.Type
+}
+type commandHandlerConfig struct {
+	handler  CommandHandler
+	commands []reflect.Type
+}
+
+func (cfg commandHandlerConfig) IsCommandHandlerConfig() {}
+func (cfg commandHandlerConfig) GetHandler() CommandHandler {
+	return cfg.handler
+}
+func (cfg commandHandlerConfig) GetCommands() []reflect.Type {
+	return cfg.commands
+}
+func NewCommandHandlerConfig() CommandHandlerConfig {
+	return &commandHandlerConfig{}
+}
+
 type Config interface {
 	GetServiceName() string
-	GetEntities() map[reflect.Type]*Entity
-	GetCommandHandlers() map[reflect.Type]CommandHandler
+	GetServiceVersion() string
+	GetEntities() []EntityConfig
+	GetCommandHandlers() []CommandHandlerConfig
+	GetEventHandlers() []EventHandlerConfig
 }
 
 type config struct {
-	serviceName string
+	serviceName    string
+	serviceVersion string
 
-	entities        map[reflect.Type]*Entity
-	commandHandlers map[reflect.Type]CommandHandler
-	eventHandlers   map[reflect.Type][]EventHandler
+	entities        []EntityConfig
+	commandHandlers []CommandHandlerConfig
+	eventHandlers   []EventHandlerConfig
 }
 
-func (c *config) GetServiceName() string {
+func (c config) GetServiceName() string {
 	return c.serviceName
 }
-func (c *config) GetEntities() map[reflect.Type]*Entity {
+func (c config) GetServiceVersion() string {
+	return c.serviceVersion
+}
+
+func (c config) GetEntities() []EntityConfig {
 	return c.entities
 }
-func (c *config) GetCommandHandlers() map[reflect.Type]CommandHandler {
+func (c config) GetCommandHandlers() []CommandHandlerConfig {
 	return c.commandHandlers
 }
 
-func (c *config) sourced(agg SourcedAggregate) error {
+func (c config) GetEventHandlers() []EventHandlerConfig {
+	return c.eventHandlers
+}
+
+func (c *config) sourced(agg AggregateSourced) error {
 	t := reflect.TypeOf(agg)
 	handles := NewCommandHandles(t)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 
+	// TODO read tags from field here!
+
 	name := t.String()
-	factory := func() (SourcedAggregate, error) {
-		out := reflect.New(t).Interface().(SourcedAggregate)
+	factory := func() (Entity, error) {
+		out := reflect.New(t).Interface().(Entity)
 		if err := copier.Copy(out, agg); err != nil {
 			return nil, err
 		}
 		return out, nil
 	}
-
-	pub := NewPublisher(c.eventHandlers)
-	store := NewSourcedStore(pub, c.serviceName, name)
-
-	for t, handle := range handles {
-		h := NewSourcedAggregateHandler(handle, factory, store)
-		c.commandHandlers[t] = h
+	opts := []EntityOption{
+		EntityName(name),
+		EntityFactory(factory),
 	}
+	c.entities = append(c.entities, &entityConfig{
+		options:    NewEntityOptions(opts),
+		entityType: t,
+	})
 
-	c.entities[t] = &Entity{
-		ServiceName:   c.serviceName,
-		AggregateType: name,
-		Data:          agg,
+	commands := []reflect.Type{}
+	for t := range handles {
+		commands = append(commands, t)
 	}
+	h := NewSourcedAggregateHandler(name, handles)
+
+	c.commandHandlers = append(c.commandHandlers, &commandHandlerConfig{
+		handler:  h,
+		commands: commands,
+	})
 	return nil
 }
 
-func (c *config) saga(s Saga) error {
+func (c *config) saga(s IsSaga) error {
 	t := reflect.TypeOf(s)
-	handles := NewEventHandles(t)
+	handles := NewSagaHandles(t)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
-	// name := t.String()
-	factory := func() (Saga, error) {
-		out := reflect.New(t).Interface().(Saga)
-		if err := copier.Copy(out, s); err != nil {
-			return nil, err
-		}
-		return out, nil
+
+	events := []reflect.Type{}
+	for t := range handles {
+		events = append(events, t)
 	}
 
-	for t, handle := range handles {
-		h := NewSagaEventHandler(handle, factory)
-		c.eventHandlers[t] = append(c.eventHandlers[t], h)
-	}
+	h := NewSagaEventHandler(handles, s)
+	c.eventHandlers = append(c.eventHandlers, &eventHandlerConfig{
+		handler: h,
+		events:  events,
+	})
+	return nil
+}
 
+func (c *config) commandHandlerConfig(a CommandHandlerConfig) error {
+	c.commandHandlers = append(c.commandHandlers, a)
+	return nil
+}
+
+func (c *config) eventHandlerConfig(a EventHandlerConfig) error {
+	c.eventHandlers = append(c.eventHandlers, a)
 	return nil
 }
 
 func (c *config) config(item interface{}) error {
 	switch raw := item.(type) {
-	case Saga:
+	case CommandHandlerConfig:
+		return c.commandHandlerConfig(raw)
+	case EventHandlerConfig:
+		return c.eventHandlerConfig(raw)
+	case IsSaga:
 		return c.saga(raw)
-	case SourcedAggregate:
+	case AggregateSourced:
 		return c.sourced(raw)
 	default:
-		return fmt.Errorf("Invalid item type: %T", item)
+		return fmt.Errorf("invalid item type: %T", item)
 	}
 }
 
-func NewConfig(serviceName string, items ...interface{}) (Config, error) {
+func NewConfig(serviceName string, serviceVersion string, items ...interface{}) (Config, error) {
 	cfg := &config{
-		serviceName:     serviceName,
-		entities:        make(map[reflect.Type]*Entity),
-		commandHandlers: map[reflect.Type]CommandHandler{},
-		eventHandlers:   map[reflect.Type][]EventHandler{},
+		serviceName:    serviceName,
+		serviceVersion: serviceVersion,
 	}
 
 	for _, item := range items {

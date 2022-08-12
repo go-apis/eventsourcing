@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"reflect"
 
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/es/utils"
+	"github.com/google/uuid"
 )
 
 type Pagination[T any] struct {
@@ -17,36 +18,71 @@ type Pagination[T any] struct {
 	Items      []T `json:"items"`
 }
 
-type Query[T any] interface {
-	Load(ctx context.Context, id string) (*T, error)
+type Query[T Entity] interface {
+	Load(ctx context.Context, id uuid.UUID) (T, error)
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	Count(ctx context.Context, filter filters.Filter) (int, error)
 	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
 }
 
-type query[T any] struct {
-	unit          Unit
-	aggregateName string
+type query[T Entity] struct {
+	name string
 }
 
-func (q *query[T]) Load(ctx context.Context, id string) (*T, error) {
+func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (T, error) {
 	var item T
-	if err := q.unit.Load(ctx, id, q.aggregateName, &item); err != nil {
-		return nil, err
+
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return item, err
 	}
-	return &item, nil
+
+	out, err := unit.Load(ctx, q.name, id)
+	if err != nil {
+		return item, err
+	}
+
+	result, ok := out.(T)
+	if !ok {
+		return item, fmt.Errorf("unexpected type: %T", out)
+	}
+	return result, nil
+}
+
+func (q *query[T]) Save(ctx context.Context, entities ...T) error {
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, entity := range entities {
+		if err := unit.Save(ctx, q.name, entity); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error) {
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var items []T
-	if err := q.unit.Find(ctx, q.aggregateName, filter, &items); err != nil {
+	if err := unit.Find(ctx, q.name, filter, &items); err != nil {
 		return nil, err
 	}
 	return items, nil
 }
 
 func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error) {
-	return q.unit.Count(ctx, q.aggregateName, filter)
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	return unit.Count(ctx, q.name, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
@@ -57,13 +93,18 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, fmt.Errorf("Offset required for pagination")
 	}
 
-	totalItems, err := q.unit.Count(ctx, q.aggregateName, filter)
+	unit, err := GetUnit(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	totalItems, err := unit.Count(ctx, q.name, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []T
-	if err := q.unit.Find(ctx, q.aggregateName, filter, &items); err != nil {
+	if err := unit.Find(ctx, q.name, filter, &items); err != nil {
 		return nil, err
 	}
 
@@ -77,12 +118,11 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 	}, nil
 }
 
-func NewQuery[T any](unit Unit) Query[T] {
+func NewQuery[T Entity]() Query[T] {
 	var item T
-	typeOf := reflect.TypeOf(item)
+	typeOf := utils.GetElemType(item)
 
 	return &query[T]{
-		unit:          unit,
-		aggregateName: typeOf.String(),
+		name: typeOf.String(),
 	}
 }

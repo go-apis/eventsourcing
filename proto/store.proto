@@ -4,20 +4,106 @@ option go_package = "pb/store";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 service Store {	
+	rpc Initialize(InitializeRequest) returns (InitializeResponse) {}
 	rpc NewTx (NewTxRequest) returns (NewTxResponse){};
-	rpc Commit (google.protobuf.Empty) returns (CommitResponse){};
-	rpc Rollback (google.protobuf.Empty) returns (google.protobuf.Empty){};
+	rpc Commit (Tx) returns (CommitResponse){};
+	rpc Rollback (Tx) returns (google.protobuf.Empty){};
+	rpc Events (EventsRequest) returns (EventsResponse){};
+	rpc SaveEvents (SaveEventsRequest) returns (google.protobuf.Empty){};
+	rpc EventStream(stream EventStreamRequest) returns (stream EventStreamResponse);
+}
+
+message InitializeRequest {
+}
+
+message InitializeResponse {
 }
 
 message NewTxRequest {
 }
 
 message NewTxResponse {
-	string transactionID = 1;
+	string transactionId = 1;
+}
+
+message Tx {
+	string transactionId = 1;
 }
 
 message CommitResponse {
-	uint32 updatedRows = 1;
+	int32 updatedRows = 1;
+}
+
+message SaveEventsRequest {
+	string transactionId = 1;
+	repeated Event events = 2;
+}
+
+message EventsRequest {
+	optional string transactionId = 1;
+	optional string serviceName = 2;
+	optional string namespace = 3;
+	optional string aggregateType = 4;
+	optional string aggregateId = 5;
+	optional int64 fromVersion = 6;
+}
+message EventsResponse {
+	repeated Event events = 1;
+}
+
+message EventStreamRequest {
+	message Init {
+		string serviceName = 1;
+		repeated string eventTypes = 2;
+	}
+
+	oneof msg {
+		Init init_msg = 1;
+		EventId ack_msg = 2;
+		EventId nack_msg = 3;
+	}
+}
+
+message EventStreamResponse {
+	Event event = 1;
+}
+
+message EventId {
+	string serviceName = 1;
+	string namespace = 2;
+	string aggregateType = 3;
+	string aggregateId = 4;
+	int64 version = 5;
+	string type = 6;
+}
+
+message Event {
+	string serviceName = 1;
+	string namespace = 2;
+	string aggregateType = 3;
+	string aggregateId = 4;
+	int64 version = 5;
+	string type = 6;
+	// @gotags: gorm:"serializer:timestamppb;type:time"
+	google.protobuf.Timestamp timestamp = 7;
+	// @gotags: gorm:"type:jsonb"
+	bytes data = 8;
+	// @gotags: gorm:"serializer:json;type:jsonb"
+	google.protobuf.Struct Metadata = 9;
+}
+
+message ErrorInfo {
+	string code = 1;
+	string cause = 2;
+}
+
+message DebugInfo {
+	string stack = 1;
+}
+
+message RetryInfo {
+	int32 retry_delay = 1;
 }

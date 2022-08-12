@@ -16,12 +16,12 @@ type EventHandle struct {
 	fn         reflect.Value
 }
 
-func (h *EventHandle) Handle(agg interface{}, ctx context.Context, evt Event, data interface{}) error {
+func (h *EventHandle) Handle(agg interface{}, ctx context.Context, evt Event) error {
 	values := []reflect.Value{
 		reflect.ValueOf(agg),
 		reflect.ValueOf(ctx),
 		reflect.ValueOf(evt),
-		reflect.ValueOf(data),
+		reflect.ValueOf(evt.Data),
 	}
 	out := h.fn.Call(values)
 	if len(out) != 1 {
@@ -73,6 +73,15 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 }
 
 type EventHandles map[reflect.Type]*EventHandle
+
+func (h EventHandles) Handle(agg interface{}, ctx context.Context, evt Event) error {
+	t := reflect.TypeOf(evt.Data)
+	handle, ok := h[t]
+	if !ok {
+		return fmt.Errorf("unknown event: %s", t)
+	}
+	return handle.Handle(agg, ctx, evt)
+}
 
 func NewEventHandles(t reflect.Type) EventHandles {
 	handles := make(EventHandles)

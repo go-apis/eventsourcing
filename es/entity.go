@@ -1,9 +1,20 @@
 package es
 
-type Entity struct {
-	ServiceName   string      `json:"service_name"`
-	Namespace     string      `json:"namespace"`
-	AggregateId   string      `json:"aggregate_id"`
-	AggregateType string      `json:"aggregate_type"`
-	Data          interface{} `json:"data"`
+import (
+	"github.com/google/uuid"
+)
+
+// EntityFunc for creating an entity
+type EntityFunc func() (Entity, error)
+
+type Entity interface {
+	GetId() uuid.UUID
 }
+
+// type Entity struct {
+// 	ServiceName   string      `json:"service_name"`
+// 	Namespace     string      `json:"namespace"`
+// 	AggregateId   uuid.UUID   `json:"aggregate_id"`
+// 	AggregateType string      `json:"aggregate_type"`
+// 	Data          interface{} `json:"data"`
+// }

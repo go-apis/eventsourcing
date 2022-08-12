@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	"fmt"
 )
 
 type Key int
@@ -13,6 +14,8 @@ const (
 )
 
 const defaultNamespace = "default"
+
+var ErrUnitNotFound = fmt.Errorf("unit not found")
 
 func SetNamespace(ctx context.Context, namespace string) context.Context {
 	return context.WithValue(ctx, NamespaceKey, namespace)
@@ -35,6 +38,13 @@ func UnitFromContext(ctx context.Context) Unit {
 		return unit
 	}
 	return nil
+}
+func GetUnit(ctx context.Context) (Unit, error) {
+	unit, ok := ctx.Value(UnitKey).(Unit)
+	if ok {
+		return unit, nil
+	}
+	return nil, ErrUnitNotFound
 }
 
 func MetadataFromContext(ctx context.Context) map[string]interface{} {

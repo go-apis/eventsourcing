@@ -2,11 +2,12 @@ package local
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/google/uuid"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -30,79 +31,95 @@ func (d *data) inTransaction() bool {
 	return d.tx != nil && !d.isCommitted
 }
 
-func (d *data) NewTx(ctx context.Context) (es.Tx, error) {
-	tx := d.db.Begin()
-	if tx.Error != nil {
-		return nil, tx.Error
+func (d *data) Begin(ctx context.Context) (es.Tx, error) {
+	if d.isCommitted {
+		return nil, fmt.Errorf("cannot begin transaction after commit")
 	}
-	d.tx = tx
+
+	if d.tx == nil {
+		tx := d.db.Begin()
+		if tx.Error != nil {
+			return nil, tx.Error
+		}
+		d.tx = tx
+	}
+
 	return newTransaction(d), nil
 }
 
-func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out es.SourcedAggregate) error {
+func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
 	return nil
 }
-func (t *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, fromVersion int) ([]json.RawMessage, error) {
-	var datas []json.RawMessage
-	out := t.getDb().WithContext(ctx).
+func (d *data) SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
+	return nil
+}
+
+func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]*es.EventData, error) {
+	var datas []*es.EventData
+	out := d.getDb().
+		WithContext(ctx).
 		Where("service_name = ?", serviceName).
 		Where("namespace = ?", namespace).
 		Where("aggregate_type = ?", aggregateName).
 		Where("aggregate_id = ?", id).
 		Where("version > ?", fromVersion).
 		Order("version").
-		Model(&event{}).
-		Pluck("data", &datas)
+		Table("events").
+		Scan(&datas)
+
 	return datas, out.Error
 }
-func (t *data) SaveEvents(ctx context.Context, events []es.Event) error {
-	if !t.inTransaction() {
+func (d *data) SaveEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, datas []*es.EventData) error {
+	if !d.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	if len(events) == 0 {
+	if len(datas) == 0 {
 		return nil // nothing to save
 	}
 
-	data := make([]*event, len(events))
-	for i, evt := range events {
-		data[i] = &event{
-			ServiceName:   evt.ServiceName,
-			Namespace:     evt.Namespace,
-			AggregateId:   evt.AggregateId,
-			AggregateType: evt.AggregateType,
-			Type:          evt.Type,
-			Version:       evt.Version,
-			Timestamp:     evt.Timestamp,
-			Data:          evt.Data,
-			Metadata:      evt.Metadata,
+	evts := make([]*db.Event, len(datas))
+	for i, d := range datas {
+		evts[i] = &db.Event{
+			ServiceName:   serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: aggregateName,
+			Type:          d.Type,
+			Version:       d.Version,
+			Timestamp:     d.Timestamp,
+			Data:          d.Data,
 		}
 	}
 
-	out := t.getDb().WithContext(ctx).
-		Create(&data)
+	out := d.getDb().
+		WithContext(ctx).
+		Create(&evts)
 	return out.Error
 }
-func (t *data) SaveEntity(ctx context.Context, raw es.Entity) error {
+func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName string, raw es.Entity) error {
 	if !t.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := tableName(raw.ServiceName, raw.AggregateType)
-	out := t.getDb().WithContext(ctx).
+	table := db.TableName(serviceName, aggregateName)
+	out := t.getDb().
+		WithContext(ctx).
 		Table(table).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "id"}, {Name: "namespace"}},
 			UpdateAll: true,
 		}).
-		Create(raw.Data)
+		Create(raw)
 	return out.Error
+	return nil
 }
 
-func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id string, out interface{}) error {
-	table := tableName(serviceName, aggregateName)
+func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
+	table := db.TableName(serviceName, aggregateName)
 
-	r := t.getDb().WithContext(ctx).
+	r := t.getDb().
+		WithContext(ctx).
 		Table(table).
 		Where("id = ?", id).
 		Where("namespace = ?", namespace).
@@ -110,8 +127,9 @@ func (t *data) Load(ctx context.Context, serviceName string, aggregateName strin
 	return r.Error
 }
 func (t *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
-	table := tableName(serviceName, aggregateName)
-	q := t.getDb().WithContext(ctx).
+	table := db.TableName(serviceName, aggregateName)
+	q := t.getDb().
+		WithContext(ctx).
 		Table(table).
 		Where("namespace = ?", namespace)
 
@@ -140,7 +158,7 @@ func (t *data) Find(ctx context.Context, serviceName string, aggregateName strin
 func (t *data) Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int, error) {
 	var totalRows int64
 
-	table := tableName(serviceName, aggregateName)
+	table := db.TableName(serviceName, aggregateName)
 	q := t.getDb().WithContext(ctx).
 		Table(table).
 		Where("namespace = ?", namespace)

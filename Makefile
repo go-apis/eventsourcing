@@ -1,6 +1,8 @@
 gen:
 	protoc --proto_path=proto proto/*.proto --go_out=server --go-grpc_out=server
 	protoc --proto_path=proto proto/*.proto --go_out=es --go-grpc_out=es
+	protoc-go-inject-tag -input="es/pb/store/*.pb.go"
+	protoc-go-inject-tag -input="server/pb/store/*.pb.go"
 
 clean:
 	rm -rf server/pb/
