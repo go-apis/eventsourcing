@@ -8,6 +8,7 @@ import (
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/utils"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
 )
 
 type Pagination[T any] struct {
@@ -30,14 +31,17 @@ type query[T Entity] struct {
 }
 
 func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (T, error) {
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Load")
+	defer pspan.End()
+
 	var item T
 
-	unit, err := GetUnit(ctx)
+	unit, err := GetUnit(pctx)
 	if err != nil {
 		return item, err
 	}
 
-	out, err := unit.Load(ctx, q.name, id)
+	out, err := unit.Load(pctx, q.name, id)
 	if err != nil {
 		return item, err
 	}
@@ -50,13 +54,16 @@ func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (T, error) {
 }
 
 func (q *query[T]) Save(ctx context.Context, entities ...T) error {
-	unit, err := GetUnit(ctx)
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Save")
+	defer pspan.End()
+
+	unit, err := GetUnit(pctx)
 	if err != nil {
 		return err
 	}
 
 	for _, entity := range entities {
-		if err := unit.Save(ctx, q.name, entity); err != nil {
+		if err := unit.Save(pctx, q.name, entity); err != nil {
 			return err
 		}
 	}
@@ -64,28 +71,37 @@ func (q *query[T]) Save(ctx context.Context, entities ...T) error {
 }
 
 func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error) {
-	unit, err := GetUnit(ctx)
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Find")
+	defer pspan.End()
+
+	unit, err := GetUnit(pctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []T
-	if err := unit.Find(ctx, q.name, filter, &items); err != nil {
+	if err := unit.Find(pctx, q.name, filter, &items); err != nil {
 		return nil, err
 	}
 	return items, nil
 }
 
 func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error) {
-	unit, err := GetUnit(ctx)
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Count")
+	defer pspan.End()
+
+	unit, err := GetUnit(pctx)
 	if err != nil {
 		return 0, err
 	}
 
-	return unit.Count(ctx, q.name, filter)
+	return unit.Count(pctx, q.name, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Pagination")
+	defer pspan.End()
+
 	if filter.Limit == nil {
 		return nil, fmt.Errorf("Limit required for pagination")
 	}
@@ -93,18 +109,18 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, fmt.Errorf("Offset required for pagination")
 	}
 
-	unit, err := GetUnit(ctx)
+	unit, err := GetUnit(pctx)
 	if err != nil {
 		return nil, err
 	}
 
-	totalItems, err := unit.Count(ctx, q.name, filter)
+	totalItems, err := unit.Count(pctx, q.name, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []T
-	if err := unit.Find(ctx, q.name, filter, &items); err != nil {
+	if err := unit.Find(pctx, q.name, filter, &items); err != nil {
 		return nil, err
 	}
 

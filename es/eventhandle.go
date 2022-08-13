@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -75,12 +77,15 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 type EventHandles map[reflect.Type]*EventHandle
 
 func (h EventHandles) Handle(agg interface{}, ctx context.Context, evt Event) error {
+	pctx, pspan := otel.Tracer("EventHandles").Start(ctx, "Handle")
+	defer pspan.End()
+
 	t := reflect.TypeOf(evt.Data)
 	handle, ok := h[t]
 	if !ok {
 		return fmt.Errorf("unknown event: %s", t)
 	}
-	return handle.Handle(agg, ctx, evt)
+	return handle.Handle(agg, pctx, evt)
 }
 
 func NewEventHandles(t reflect.Type) EventHandles {

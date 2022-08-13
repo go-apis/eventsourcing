@@ -2,6 +2,8 @@ package es
 
 import (
 	"context"
+
+	"go.opentelemetry.io/otel"
 )
 
 type EventHandler interface {
@@ -15,7 +17,10 @@ type eventHandler struct {
 }
 
 func (h *eventHandler) Handle(ctx context.Context, evt Event) error {
-	return h.handles.Handle(h.h, ctx, evt)
+	pctx, pspan := otel.Tracer("EventHandler").Start(ctx, "Handle")
+	defer pspan.End()
+
+	return h.handles.Handle(h.h, pctx, evt)
 }
 
 func NewEventHandler(name string, h interface{}, handles EventHandles) EventHandler {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"go.opentelemetry.io/otel"
 )
 
 type SagaHandle struct {
@@ -73,12 +75,15 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 type SagaHandles map[reflect.Type]*SagaHandle
 
 func (h SagaHandles) Handle(agg interface{}, ctx context.Context, evt Event) ([]Command, error) {
+	pctx, pspan := otel.Tracer("SagaHandles").Start(ctx, "Handle")
+	defer pspan.End()
+
 	t := reflect.TypeOf(evt.Data)
 	handle, ok := h[t]
 	if !ok {
 		return nil, fmt.Errorf("unknown event: %s", t)
 	}
-	return handle.Handle(agg, ctx, evt)
+	return handle.Handle(agg, pctx, evt)
 }
 
 func NewSagaHandles(t reflect.Type) SagaHandles {
