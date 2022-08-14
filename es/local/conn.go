@@ -13,26 +13,30 @@ type conn struct {
 	db *gorm.DB
 }
 
-func (c *conn) Initialize(ctx context.Context, serviceName string, opts ...es.EntityOptions) error {
+func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) (*es.Stream, error) {
 	if err := c.db.AutoMigrate(&db.Event{}, &db.Snapshot{}); err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, opt := range opts {
+	for _, opt := range initOpts.EntityOptions {
 		obj, err := opt.Factory()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		table := db.TableName(serviceName, opt.Name)
+		table := db.TableName(initOpts.ServiceName, opt.Name)
 		if err := c.db.Table(table).AutoMigrate(&db.Entity{}); err != nil {
-			return err
+			return nil, err
 		}
 		if err := c.db.Table(table).AutoMigrate(obj); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+
+	// todo create a stream
+	stream := &es.Stream{}
+
+	return stream, nil
 }
 
 func (c *conn) NewData(ctx context.Context) (es.Data, error) {

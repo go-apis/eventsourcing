@@ -18,7 +18,7 @@ type conn struct {
 	streamer    Streamer
 }
 
-func (c *conn) Initialize(ctx context.Context, serviceName string, opts ...es.EntityOptions) error {
+func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) (*es.Stream, error) {
 	// todo send schemas to server
 
 	// subscribe to events
@@ -26,7 +26,10 @@ func (c *conn) Initialize(ctx context.Context, serviceName string, opts ...es.En
 	// if err := c.streamer.Run(ctx); err != nil {
 	// 	return err
 	// }
-	return nil
+	// todo create a stream
+	stream := &es.Stream{}
+
+	return stream, nil
 }
 
 func (c *conn) NewData(ctx context.Context) (es.Data, error) {

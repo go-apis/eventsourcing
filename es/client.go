@@ -24,7 +24,6 @@ type client struct {
 	cfg  Config
 	conn Conn
 
-	entities        []*Entity
 	entityOptions   map[string]*EntityOptions
 	commandHandlers map[reflect.Type]CommandHandler
 	eventHandlers   map[reflect.Type][]EventHandler
@@ -58,20 +57,21 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 func (c *client) Initialize(ctx context.Context) error {
 	serviceName := c.cfg.GetServiceName()
 
+	events := make(map[reflect.Type]bool)
 	eventHandlers := c.cfg.GetEventHandlers()
 	for _, eh := range eventHandlers {
 		handler := eh.GetHandler()
 		for _, evt := range eh.GetEvents() {
+			events[evt] = true
 			c.eventHandlers[evt] = append(c.eventHandlers[evt], handler)
 		}
 	}
 
-	var allOpts []EntityOptions
-
+	var allEntityOpts []EntityOptions
 	entities := c.cfg.GetEntities()
 	for _, e := range entities {
 		opts := e.GetOptions()
-		allOpts = append(allOpts, opts)
+		allEntityOpts = append(allEntityOpts, opts)
 		c.entityOptions[opts.Name] = &opts
 	}
 
@@ -83,11 +83,33 @@ func (c *client) Initialize(ctx context.Context) error {
 		}
 	}
 
-	if err := c.conn.Initialize(ctx, serviceName, allOpts...); err != nil {
-		return err
+	var allEventOpts []EventOptions
+	for t := range events {
+		name := t.String()
+		allEventOpts = append(allEventOpts, EventOptions{
+			Name: name,
+			Type: t,
+		})
 	}
 
+	initOpts := InitializeOptions{
+		ServiceName:   serviceName,
+		EntityOptions: allEntityOpts,
+		EventOptions:  allEventOpts,
+	}
+
+	stream, err := c.conn.Initialize(ctx, initOpts)
+	if err != nil {
+		return err
+	}
+	go c.handleStream(ctx, stream)
+
 	return nil
+}
+
+func (c *client) handleStream(ctx context.Context, stream *Stream) {
+	// TODO: handle stream
+
 }
 
 func (c *client) handleCommand(ctx context.Context, cmd Command) error {

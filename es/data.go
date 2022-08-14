@@ -7,8 +7,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type InitializeOptions struct {
+	ServiceName   string
+	EventOptions  []EventOptions
+	EntityOptions []EntityOptions
+}
+
+type Stream struct {
+	// for getting events published to us
+}
+
 type Conn interface {
-	Initialize(ctx context.Context, serviceName string, opts ...EntityOptions) error
+	Initialize(ctx context.Context, opts InitializeOptions) (*Stream, error)
 	NewData(ctx context.Context) (Data, error)
 	Publish(ctx context.Context, evts ...Event) error
 	Close(ctx context.Context) error
