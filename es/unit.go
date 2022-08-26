@@ -32,7 +32,7 @@ type unit struct {
 	data Data
 	tx   Tx
 
-	events []Event
+	events []*Event
 }
 
 func (u *unit) GetData() Data {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/contextcloud/eventstore/es/utils"
 	"go.opentelemetry.io/otel"
 )
 
@@ -16,15 +15,15 @@ type Client interface {
 	Unit(ctx context.Context) (Unit, error)
 
 	HandleCommands(ctx context.Context, cmds ...Command) error
-	HandleEvents(ctx context.Context, events ...Event) error
-	PublishEvents(ctx context.Context, events ...Event) error
+	HandleEvents(ctx context.Context, events ...*Event) error
+	PublishEvents(ctx context.Context, events ...*Event) error
 }
 
 type client struct {
-	cfg  Config
-	conn Conn
+	cfg      Config
+	conn     Conn
+	streamer Streamer
 
-	entities        []*Entity
 	entityOptions   map[string]*EntityOptions
 	commandHandlers map[reflect.Type]CommandHandler
 	eventHandlers   map[reflect.Type][]EventHandler
@@ -43,11 +42,14 @@ func (c *client) GetEntityOptions(name string) (*EntityOptions, error) {
 }
 
 func (c *client) Unit(ctx context.Context) (Unit, error) {
-	if unit := UnitFromContext(ctx); unit != nil {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "Unit")
+	defer pspan.End()
+
+	if unit, err := GetUnit(pctx); err == nil {
 		return unit, nil
 	}
 
-	data, err := c.conn.NewData(ctx)
+	data, err := c.conn.NewData(pctx)
 	if err != nil {
 		return nil, err
 	}
@@ -56,22 +58,26 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 }
 
 func (c *client) Initialize(ctx context.Context) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "Initialize")
+	defer pspan.End()
+
 	serviceName := c.cfg.GetServiceName()
 
+	events := make(map[reflect.Type]bool)
 	eventHandlers := c.cfg.GetEventHandlers()
 	for _, eh := range eventHandlers {
 		handler := eh.GetHandler()
 		for _, evt := range eh.GetEvents() {
+			events[evt] = true
 			c.eventHandlers[evt] = append(c.eventHandlers[evt], handler)
 		}
 	}
 
-	var allOpts []EntityOptions
-
+	var allEntityOpts []EntityOptions
 	entities := c.cfg.GetEntities()
 	for _, e := range entities {
 		opts := e.GetOptions()
-		allOpts = append(allOpts, opts)
+		allEntityOpts = append(allEntityOpts, opts)
 		c.entityOptions[opts.Name] = &opts
 	}
 
@@ -83,7 +89,72 @@ func (c *client) Initialize(ctx context.Context) error {
 		}
 	}
 
-	if err := c.conn.Initialize(ctx, serviceName, allOpts...); err != nil {
+	var allEventOpts []EventOptions
+	for t := range events {
+		name := t.String()
+		allEventOpts = append(allEventOpts, EventOptions{
+			Name: name,
+			Type: t,
+		})
+	}
+
+	// get the service name.
+	eventDataBuilder := make(map[string]TypeBuilder)
+	for _, opt := range allEventOpts {
+		t := opt.Type
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+
+		factory := func() (interface{}, error) {
+			out := reflect.New(t).Interface()
+			return out, nil
+		}
+		eventDataBuilder[opt.Name] = factory
+	}
+
+	initOpts := InitializeOptions{
+		ServiceName:      serviceName,
+		EntityOptions:    allEntityOpts,
+		EventOptions:     allEventOpts,
+		EventDataBuilder: eventDataBuilder,
+	}
+
+	if err := c.conn.Initialize(pctx, initOpts); err != nil {
+		return err
+	}
+
+	if c.streamer != nil {
+		if err := c.streamer.Start(pctx, initOpts, c.handleStreamEvent); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+func (c *client) handleStreamEvent(ctx context.Context, evt *Event) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleStreamEvent")
+	defer pspan.End()
+
+	unit, err := c.Unit(pctx)
+	if err != nil {
+		return err
+	}
+	pctx = SetUnit(pctx, unit)
+	pctx = SetNamespace(pctx, evt.Namespace)
+
+	// create the transaction!
+	tx, err := unit.NewTx(pctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(pctx)
+
+	if err := c.handleEvent(pctx, evt); err != nil {
+		return err
+	}
+
+	if _, err := tx.Commit(pctx); err != nil {
 		return err
 	}
 
@@ -117,11 +188,11 @@ func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
 	return nil
 }
 
-func (c *client) handleEvent(ctx context.Context, evt Event) error {
+func (c *client) handleEvent(ctx context.Context, evt *Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvent")
 	defer pspan.End()
 
-	t := utils.GetElemType(evt.Data)
+	t := reflect.TypeOf(evt.Data)
 	all, ok := c.eventHandlers[t]
 	if !ok {
 		return nil
@@ -135,7 +206,7 @@ func (c *client) handleEvent(ctx context.Context, evt Event) error {
 
 	return nil
 }
-func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, evt Event) error {
+func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, evt *Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "EventHandlerHandleEvent")
 	defer pspan.End()
 
@@ -145,7 +216,7 @@ func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, ev
 	return nil
 }
 
-func (c *client) HandleEvents(ctx context.Context, evts ...Event) error {
+func (c *client) HandleEvents(ctx context.Context, evts ...*Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvents")
 	defer pspan.End()
 
@@ -157,22 +228,25 @@ func (c *client) HandleEvents(ctx context.Context, evts ...Event) error {
 	return nil
 }
 
-func (c *client) PublishEvents(ctx context.Context, evts ...Event) error {
-	return c.conn.Publish(ctx, evts...)
+func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "PublishEvents")
+	defer pspan.End()
+
+	if c.streamer == nil {
+		return nil
+	}
+
+	return c.streamer.Publish(pctx, evts...)
 }
 
-func NewClient(cfg Config, conn Conn) (Client, error) {
+func NewClient(cfg Config, conn Conn, streamer Streamer) (Client, error) {
 	cli := &client{
 		cfg:             cfg,
 		conn:            conn,
+		streamer:        streamer,
 		entityOptions:   map[string]*EntityOptions{},
 		commandHandlers: map[reflect.Type]CommandHandler{},
 		eventHandlers:   map[reflect.Type][]EventHandler{},
-	}
-
-	ctx := context.Background()
-	if err := cli.Initialize(ctx); err != nil {
-		return nil, err
 	}
 
 	return cli, nil

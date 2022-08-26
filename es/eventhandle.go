@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -16,7 +18,7 @@ type EventHandle struct {
 	fn         reflect.Value
 }
 
-func (h *EventHandle) Handle(agg interface{}, ctx context.Context, evt Event) error {
+func (h *EventHandle) Handle(agg interface{}, ctx context.Context, evt *Event) error {
 	values := []reflect.Value{
 		reflect.ValueOf(agg),
 		reflect.ValueOf(ctx),
@@ -35,9 +37,6 @@ func (h *EventHandle) Handle(agg interface{}, ctx context.Context, evt Event) er
 }
 
 func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
-	if m.Name == "Apply" {
-		return nil, false
-	}
 	if !m.IsExported() {
 		return nil, false
 	}
@@ -56,7 +55,7 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 		return nil, false
 	}
 	in3 := m.Type.In(2)
-	if !in3.ConvertibleTo(eventType) {
+	if in3.Kind() != reflect.Ptr || !in3.Elem().ConvertibleTo(eventType) {
 		return nil, false
 	}
 	in4 := m.Type.In(3)
@@ -74,13 +73,16 @@ func NewEventHandle(m reflect.Method) (*EventHandle, bool) {
 
 type EventHandles map[reflect.Type]*EventHandle
 
-func (h EventHandles) Handle(agg interface{}, ctx context.Context, evt Event) error {
+func (h EventHandles) Handle(agg interface{}, ctx context.Context, evt *Event) error {
+	pctx, pspan := otel.Tracer("EventHandles").Start(ctx, "Handle")
+	defer pspan.End()
+
 	t := reflect.TypeOf(evt.Data)
 	handle, ok := h[t]
 	if !ok {
 		return fmt.Errorf("unknown event: %s", t)
 	}
-	return handle.Handle(agg, ctx, evt)
+	return handle.Handle(agg, pctx, evt)
 }
 
 func NewEventHandles(t reflect.Type) EventHandles {

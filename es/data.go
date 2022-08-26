@@ -7,10 +7,17 @@ import (
 	"github.com/google/uuid"
 )
 
+type InitializeOptions struct {
+	ServiceName      string
+	Revision         string
+	EventOptions     []EventOptions
+	EntityOptions    []EntityOptions
+	EventDataBuilder map[string]TypeBuilder
+}
+
 type Conn interface {
-	Initialize(ctx context.Context, serviceName string, opts ...EntityOptions) error
+	Initialize(ctx context.Context, opts InitializeOptions) error
 	NewData(ctx context.Context) (Data, error)
-	Publish(ctx context.Context, evts ...Event) error
 	Close(ctx context.Context) error
 }
 

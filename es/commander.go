@@ -3,44 +3,47 @@ package es
 import (
 	"encoding/json"
 	"net/http"
+
+	"go.opentelemetry.io/otel"
 )
 
-type Commander[T Command] interface {
-	Handle(w http.ResponseWriter, r *http.Request)
-}
+func NewCommander[T Command]() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
-type commander[T Command] struct {
-	unit Unit
-}
+		pctx, span := otel.Tracer("es").Start(ctx, "NewCommander")
+		defer span.End()
 
-func (c *commander[T]) Handle(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
+		unit, err := GetUnit(pctx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	var cmd T
-	if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		var cmd T
+		if err := json.NewDecoder(r.Body).Decode(&cmd); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+
+		tx, err := unit.NewTx(pctx)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback(pctx)
+
+		if err := unit.Dispatch(pctx, cmd); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if _, err := tx.Commit(pctx); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
 	}
-
-	ctx := r.Context()
-	tx, err := c.unit.NewTx(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback(ctx)
-
-	if err := c.unit.Dispatch(ctx, cmd); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if _, err := tx.Commit(ctx); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-}
-
-func NewCommander[T Command](unit Unit) Commander[T] {
-	return &commander[T]{unit: unit}
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"go.opentelemetry.io/otel"
 )
 
 type SagaHandle struct {
@@ -12,7 +14,7 @@ type SagaHandle struct {
 	fn         reflect.Value
 }
 
-func (h *SagaHandle) Handle(agg interface{}, ctx context.Context, evt Event) ([]Command, error) {
+func (h *SagaHandle) Handle(agg interface{}, ctx context.Context, evt *Event) ([]Command, error) {
 	values := []reflect.Value{
 		reflect.ValueOf(agg),
 		reflect.ValueOf(ctx),
@@ -35,6 +37,9 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 	if !m.IsExported() {
 		return nil, false
 	}
+	if m.Name == "Run" {
+		return nil, false
+	}
 
 	numIn := m.Type.NumIn()
 	if numIn != 4 {
@@ -50,7 +55,7 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 		return nil, false
 	}
 	in3 := m.Type.In(2)
-	if !in3.ConvertibleTo(eventType) {
+	if in3.Kind() != reflect.Ptr || !in3.Elem().ConvertibleTo(eventType) {
 		return nil, false
 	}
 	in4 := m.Type.In(3)
@@ -72,16 +77,20 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 
 type SagaHandles map[reflect.Type]*SagaHandle
 
-func (h SagaHandles) Handle(agg interface{}, ctx context.Context, evt Event) ([]Command, error) {
+func (h SagaHandles) Handle(agg interface{}, ctx context.Context, evt *Event) ([]Command, error) {
+	pctx, pspan := otel.Tracer("SagaHandles").Start(ctx, "Handle")
+	defer pspan.End()
+
 	t := reflect.TypeOf(evt.Data)
 	handle, ok := h[t]
 	if !ok {
 		return nil, fmt.Errorf("unknown event: %s", t)
 	}
-	return handle.Handle(agg, ctx, evt)
+	return handle.Handle(agg, pctx, evt)
 }
 
-func NewSagaHandles(t reflect.Type) SagaHandles {
+func NewSagaHandles(s IsSaga) SagaHandles {
+	t := reflect.TypeOf(s)
 	handles := make(SagaHandles)
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)

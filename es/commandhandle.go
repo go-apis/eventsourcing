@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
+	"go.opentelemetry.io/otel"
 )
 
 var (
@@ -75,12 +77,15 @@ func NewCommandHandle(m reflect.Method) (*CommandHandle, bool) {
 type CommandHandles map[reflect.Type]*CommandHandle
 
 func (h CommandHandles) Handle(agg interface{}, ctx context.Context, cmd Command) error {
+	pctx, pspan := otel.Tracer("CommandHandles").Start(ctx, "Handle")
+	defer pspan.End()
+
 	t := reflect.TypeOf(cmd)
 	handle, ok := h[t]
 	if !ok {
 		return fmt.Errorf("unknown command: %s", t)
 	}
-	return handle.Handle(agg, ctx, cmd)
+	return handle.Handle(agg, pctx, cmd)
 }
 
 func NewCommandHandles(t reflect.Type) CommandHandles {

@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"time"
 
+	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
+	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -49,6 +51,13 @@ func Open(opts ...OptionFunc) (*gorm.DB, error) {
 		SkipDefaultTransaction: true,
 	})
 	if err != nil {
+		return nil, err
+	}
+
+	if err := db.Use(otelgorm.NewPlugin()); err != nil {
+		return nil, err
+	}
+	if err := db.Use(extraClausePlugin.New()); err != nil {
 		return nil, err
 	}
 	return db, nil

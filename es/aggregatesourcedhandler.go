@@ -15,7 +15,10 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 	pctx, pspan := otel.Tracer("SourcedAggregateHandler").Start(ctx, "Handle")
 	defer pspan.End()
 
-	unit := UnitFromContext(pctx)
+	unit, err := GetUnit(pctx)
+	if err != nil {
+		return err
+	}
 	aggregateId := cmd.GetAggregateId()
 	replay := IsReplayCommand(cmd)
 
