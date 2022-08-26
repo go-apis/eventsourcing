@@ -6,7 +6,7 @@ import (
 	"github.com/contextcloud/eventstore/examples/users/sagas"
 )
 
-func SetupClient(conn es.Conn) (es.Client, error) {
+func EventStoreConfig() (es.Config, error) {
 	cfg, err := es.NewConfig(
 		"users",
 		"v0.1.0",
@@ -17,5 +17,5 @@ func SetupClient(conn es.Conn) (es.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return es.NewClient(cfg, conn)
+	return cfg, nil
 }

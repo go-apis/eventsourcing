@@ -35,6 +35,5 @@ type UpdateConnection struct {
 type AddGroup struct {
 	es.BaseCommand
 
-	GroupId uuid.UUID
-	Name    string
+	GroupId uuid.UUID `json:"group_id"`
 }

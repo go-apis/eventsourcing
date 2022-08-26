@@ -11,7 +11,7 @@ type sagaEventHandler struct {
 	saga    IsSaga
 }
 
-func (b *sagaEventHandler) Handle(ctx context.Context, evt Event) error {
+func (b *sagaEventHandler) Handle(ctx context.Context, evt *Event) error {
 	pctx, pspan := otel.Tracer("SagaEventHandler").Start(ctx, "Handle")
 	defer pspan.End()
 

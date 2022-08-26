@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/pkg/db"
 	"github.com/contextcloud/eventstore/server/pb/store"
 	"github.com/contextcloud/eventstore/server/pb/streams"
@@ -22,8 +21,8 @@ type dbEvent struct {
 	Version       int    `gorm:"primaryKey"`
 	Type          string `gorm:"primaryKey"`
 	Timestamp     time.Time
-	Data          json.RawMessage `gorm:"serializer:json;type:jsonb"`
-	Metadata      es.Metadata     `gorm:"type:jsonb"`
+	Data          json.RawMessage        `gorm:"serializer:json;type:jsonb"`
+	Metadata      map[string]interface{} `gorm:"type:jsonb"`
 }
 
 type server struct {

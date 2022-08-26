@@ -7,11 +7,12 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/es/gstream"
 	"github.com/contextcloud/eventstore/es/local"
-	"github.com/contextcloud/eventstore/es/pb"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/contextcloud/eventstore/pkg/pub"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/zipkin"
@@ -59,14 +60,20 @@ func LocalConn() (es.Conn, error) {
 	return local.NewConn(opts...)
 }
 
-func PbConn() (es.Conn, error) {
-	dsn := "localhost:3332"
-	return pb.NewConn(dsn)
+func PubSubStreamer() (es.Streamer, error) {
+	pubOpts := []pub.OptionFunc{
+		pub.WithProjectId("nordic-gaming"),
+		pub.WithTopicId("test_topic"),
+	}
+	if err := pub.Reset(pubOpts...); err != nil {
+		return nil, err
+	}
+	return gstream.NewStreamer(pubOpts...)
 }
 
-func QueryUsers(ctx context.Context) error {
+func QueryUsers(ctx context.Context, userId uuid.UUID) error {
 	userQuery := es.NewQuery[*aggregates.User]()
-	user, err := userQuery.Load(ctx, uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"))
+	user, err := userQuery.Load(ctx, userId)
 	if err != nil {
 		return err
 	}
@@ -99,24 +106,27 @@ func QueryUsers(ctx context.Context) error {
 	return err
 }
 
-func UserCommands(ctx context.Context) error {
+func UserCommands(ctx context.Context) (uuid.UUID, uuid.UUID, error) {
+	userId1 := uuid.New()
+	userId2 := uuid.New()
+
 	cmds := []es.Command{
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
-				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
+				AggregateId: userId1,
 			},
 			Username: "chris.kolenko",
 			Password: "12345678",
 		},
 		&commands.AddEmail{
 			BaseCommand: es.BaseCommand{
-				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
+				AggregateId: userId1,
 			},
 			Email: "chris@context.gg",
 		},
 		&commands.AddConnection{
 			BaseCommand: es.BaseCommand{
-				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
+				AggregateId: userId1,
 			},
 			Name:     "Smashgg",
 			UserId:   "demo1",
@@ -124,13 +134,13 @@ func UserCommands(ctx context.Context) error {
 		},
 		&commands.UpdateConnection{
 			BaseCommand: es.BaseCommand{
-				AggregateId: uuid.MustParse("98f1f7d3-f312-4d57-8847-5b9ac8d5797d"),
+				AggregateId: userId1,
 			},
 			Username: "aaaaaaaaaa",
 		},
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
-				AggregateId: uuid.MustParse("2ca16492-ea7a-4d96-8599-b256c26e89b5"),
+				AggregateId: userId2,
 			},
 			Username: "calvin.harris",
 			Password: "12345678",
@@ -139,24 +149,24 @@ func UserCommands(ctx context.Context) error {
 
 	unit, err := es.GetUnit(ctx)
 	if err != nil {
-		return err
+		return userId1, userId2, err
 	}
 
 	tx, err := unit.NewTx(ctx)
 	if err != nil {
-		return err
+		return userId1, userId2, err
 	}
 	defer tx.Rollback(ctx)
 
 	// send a commands to store.
 	if err := unit.Dispatch(ctx, cmds...); err != nil {
-		return err
+		return userId1, userId2, err
 	}
 
 	// commit the tx.
 	if _, err := tx.Commit(ctx); err != nil {
-		return err
+		return userId1, userId2, err
 	}
 
-	return nil
+	return userId1, userId2, nil
 }

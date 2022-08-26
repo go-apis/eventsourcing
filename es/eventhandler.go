@@ -7,7 +7,7 @@ import (
 )
 
 type EventHandler interface {
-	Handle(ctx context.Context, evt Event) error
+	Handle(ctx context.Context, evt *Event) error
 }
 
 type eventHandler struct {
@@ -16,7 +16,7 @@ type eventHandler struct {
 	handles EventHandles
 }
 
-func (h *eventHandler) Handle(ctx context.Context, evt Event) error {
+func (h *eventHandler) Handle(ctx context.Context, evt *Event) error {
 	pctx, pspan := otel.Tracer("EventHandler").Start(ctx, "Handle")
 	defer pspan.End()
 

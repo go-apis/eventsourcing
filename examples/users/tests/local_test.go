@@ -15,13 +15,25 @@ func Test_Local(t *testing.T) {
 		t.Error(err)
 	}
 
+	cfg, err := config.EventStoreConfig()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	conn, err := LocalConn()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	cli, err := config.SetupClient(conn)
+	streamer, err := PubSubStreamer()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	cli, err := es.NewClient(cfg, conn, streamer)
 	if err != nil {
 		t.Error(err)
 		return
@@ -31,6 +43,11 @@ func Test_Local(t *testing.T) {
 	pctx, pspan := otel.Tracer("test").Start(ctx, "Local")
 	defer pspan.End()
 
+	if err := cli.Initialize(pctx); err != nil {
+		t.Error(err)
+		return
+	}
+
 	// the event store should know the aggregates and the commands.
 	unit, err := cli.Unit(pctx)
 	if err != nil {
@@ -39,13 +56,14 @@ func Test_Local(t *testing.T) {
 	}
 	pctx = es.SetUnit(pctx, unit)
 
-	if err := UserCommands(pctx); err != nil {
+	userId, _, err := UserCommands(pctx)
+	if err != nil {
 		t.Error(err)
 		return
 	}
 
 	for i := 0; i < 1000; i++ {
-		if err := QueryUsers(pctx); err != nil {
+		if err := QueryUsers(pctx, userId); err != nil {
 			t.Error(err)
 			return
 		}
@@ -54,4 +72,44 @@ func Test_Local(t *testing.T) {
 	}
 
 	shutdown(pctx)
+}
+
+func Benchmark_CreateUsers(b *testing.B) {
+	cfg, err := config.EventStoreConfig()
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	conn, err := LocalConn()
+	if err != nil {
+		b.Error(err)
+		return
+	}
+
+	cli, err := es.NewClient(cfg, conn, nil)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+
+	pctx := context.Background()
+	if err := cli.Initialize(pctx); err != nil {
+		b.Error(err)
+		return
+	}
+
+	for i := 0; i < b.N; i++ {
+		ctx := context.Background()
+		// the event store should know the aggregates and the commands.
+		unit, err := cli.Unit(ctx)
+		if err != nil {
+			b.Error(err)
+			return
+		}
+		ctx = es.SetUnit(ctx, unit)
+		if _, _, err := UserCommands(ctx); err != nil {
+			b.Error(err)
+			return
+		}
+	}
 }

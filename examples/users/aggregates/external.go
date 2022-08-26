@@ -18,7 +18,7 @@ type ExternalUser struct {
 }
 
 func (u *ExternalUser) HandleCreate(ctx context.Context, cmd *commands.CreateExternalUser) error {
-	return u.Apply(ctx, events.ExternalUserCreated{
+	return u.Apply(ctx, &events.ExternalUserCreated{
 		Name:     cmd.Name,
 		UserId:   cmd.UserId,
 		Username: cmd.Username,

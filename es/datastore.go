@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
@@ -23,7 +24,7 @@ func applyEvents(ctx context.Context, aggregate AggregateSourced, datas []*Event
 
 type DataStore interface {
 	Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error)
-	Save(ctx context.Context, aggregate Entity) ([]Event, error)
+	Save(ctx context.Context, aggregate Entity) ([]*Event, error)
 }
 
 type store struct {
@@ -70,7 +71,7 @@ func (s *store) loadEntity(ctx context.Context, entity Entity) (Entity, error) {
 	}
 	return entity, nil
 }
-func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]Event, error) {
+func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveSourced")
 	defer pspan.End()
 
@@ -78,31 +79,50 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 	version := aggregate.GetVersion()
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
-	if len(raw) > 0 {
-		datas := make([]*EventData, len(raw))
-		for i, data := range raw {
-			name := fmt.Sprintf("%T", data)
-			v := version + i + 1
-			d, err := json.Marshal(data)
-			if err != nil {
-				return nil, err
-			}
+	timestamp := time.Now()
 
-			datas[i] = &EventData{
-				Type:    name,
-				Version: v,
-				Data:    d,
-			}
-		}
+	events := make([]*Event, len(raw))
+	datas := make([]*EventData, len(raw))
 
-		if err := s.data.SaveEventDatas(pctx, s.serviceName, s.opts.Name, namespace, id, datas); err != nil {
+	for i, data := range raw {
+		name := fmt.Sprintf("%T", data)
+		v := version + i + 1
+		d, err := json.Marshal(data)
+		if err != nil {
 			return nil, err
 		}
 
-		// Apply the events so we can save the aggregate
-		if err := applyEvents(pctx, aggregate, datas); err != nil {
-			return nil, err
+		// metadata!.
+		metadata := MetadataFromContext(pctx)
+
+		datas[i] = &EventData{
+			Type:      name,
+			Version:   v,
+			Timestamp: timestamp,
+			Data:      d,
+			Metadata:  metadata,
 		}
+
+		events[i] = &Event{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: s.opts.Name,
+			Type:          name,
+			Version:       v,
+			Data:          data,
+			Timestamp:     timestamp,
+			Metadata:      metadata,
+		}
+	}
+
+	if err := s.data.SaveEventDatas(pctx, s.serviceName, s.opts.Name, namespace, id, datas); err != nil {
+		return nil, err
+	}
+
+	// Apply the events so we can save the aggregate
+	if err := applyEvents(pctx, aggregate, datas); err != nil {
+		return nil, err
 	}
 
 	// save the snapshot!
@@ -123,9 +143,9 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 		}
 	}
 
-	return nil, nil
+	return events, nil
 }
-func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHolder) ([]Event, error) {
+func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHolder) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveAggregateHolder")
 	defer pspan.End()
 
@@ -136,7 +156,7 @@ func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHold
 	events := aggregate.EventsToPublish()
 	return events, nil
 }
-func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]Event, error) {
+func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveEntity")
 	defer pspan.End()
 
@@ -171,7 +191,7 @@ func (s *store) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) 
 		return s.loadEntity(pctx, agg)
 	}
 }
-func (s *store) Save(ctx context.Context, entity Entity) ([]Event, error) {
+func (s *store) Save(ctx context.Context, entity Entity) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "Save")
 	defer pspan.End()
 

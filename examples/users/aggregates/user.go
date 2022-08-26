@@ -23,19 +23,19 @@ type User struct {
 }
 
 func (u *User) HandleCreate(ctx context.Context, cmd *commands.CreateUser) error {
-	return u.Apply(ctx, events.UserCreated{
+	return u.Apply(ctx, &events.UserCreated{
 		Username: cmd.Username,
 		Password: cmd.Password,
 	})
 }
 func (u *User) HandleAddEmail(ctx context.Context, cmd *commands.AddEmail) error {
-	return u.Apply(ctx, events.EmailAdded{
+	return u.Apply(ctx, &events.EmailAdded{
 		Email: cmd.Email,
 	})
 }
 
 func (u *User) HandleAddConnection(ctx context.Context, cmd *commands.AddConnection) error {
-	return u.Apply(ctx, events.ConnectionAdded{
+	return u.Apply(ctx, &events.ConnectionAdded{
 		Connections: types.SliceItem[models.Connection]{
 			Index: len(u.Connections),
 			Value: models.Connection{
@@ -48,12 +48,11 @@ func (u *User) HandleAddConnection(ctx context.Context, cmd *commands.AddConnect
 }
 
 func (u *User) HandleAddGroup(ctx context.Context, cmd *commands.AddGroup) error {
-	return u.Apply(ctx, events.GroupAdded{
+	return u.Apply(ctx, &events.GroupAdded{
 		Groups: types.SliceItem[models.Group]{
 			Index: len(u.Groups),
 			Value: models.Group{
-				Id:   cmd.GroupId,
-				Name: cmd.Name,
+				Id: cmd.GroupId,
 			},
 		},
 	})
@@ -64,7 +63,7 @@ func (u *User) HandleUpdateConnection(ctx context.Context, cmd *commands.UpdateC
 		return fmt.Errorf("Can't update connection")
 	}
 
-	return u.Apply(ctx, events.ConnectionUpdated{
+	return u.Apply(ctx, &events.ConnectionUpdated{
 		Connections: types.SliceItem[models.ConnectionUpdate]{
 			Index: 0,
 			Value: models.ConnectionUpdate{

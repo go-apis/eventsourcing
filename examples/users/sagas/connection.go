@@ -13,7 +13,7 @@ type ConnectionSaga struct {
 	es.BaseSaga
 }
 
-func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt es.Event, data events.ConnectionAdded) ([]es.Command, error) {
+func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt *es.Event, data *events.ConnectionAdded) ([]es.Command, error) {
 	item := data.Connections.Value
 	return es.Commands(&commands.CreateExternalUser{
 		BaseCommand: es.BaseCommand{

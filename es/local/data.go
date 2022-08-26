@@ -8,6 +8,7 @@ import (
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/pkg/db"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -32,6 +33,9 @@ func (d *data) inTransaction() bool {
 }
 
 func (d *data) Begin(ctx context.Context) (es.Tx, error) {
+	_, span := otel.Tracer("local").Start(ctx, "Begin")
+	defer span.End()
+
 	if d.isCommitted {
 		return nil, fmt.Errorf("cannot begin transaction after commit")
 	}
@@ -55,21 +59,27 @@ func (d *data) SaveSnapshot(ctx context.Context, serviceName string, aggregateNa
 }
 
 func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]*es.EventData, error) {
+	pctx, span := otel.Tracer("local").Start(ctx, "GetEventDatas")
+	defer span.End()
+
 	var datas []*es.EventData
 	out := d.getDb().
-		WithContext(ctx).
+		WithContext(pctx).
+		Model(&db.Event{}).
 		Where("service_name = ?", serviceName).
 		Where("namespace = ?", namespace).
 		Where("aggregate_type = ?", aggregateName).
 		Where("aggregate_id = ?", id).
 		Where("version > ?", fromVersion).
 		Order("version").
-		Table("events").
 		Scan(&datas)
 
 	return datas, out.Error
 }
 func (d *data) SaveEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, datas []*es.EventData) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveEventDatas")
+	defer span.End()
+
 	if !d.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
@@ -89,22 +99,26 @@ func (d *data) SaveEventDatas(ctx context.Context, serviceName string, aggregate
 			Version:       d.Version,
 			Timestamp:     d.Timestamp,
 			Data:          d.Data,
+			Metadata:      d.Metadata,
 		}
 	}
 
 	out := d.getDb().
-		WithContext(ctx).
+		WithContext(pctx).
 		Create(&evts)
 	return out.Error
 }
 func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName string, raw es.Entity) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveEntity")
+	defer span.End()
+
 	if !t.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
 	table := db.TableName(serviceName, aggregateName)
 	out := t.getDb().
-		WithContext(ctx).
+		WithContext(pctx).
 		Table(table).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "id"}, {Name: "namespace"}},
@@ -112,14 +126,16 @@ func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName
 		}).
 		Create(raw)
 	return out.Error
-	return nil
 }
 
 func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "Load")
+	defer span.End()
+
 	table := db.TableName(serviceName, aggregateName)
 
 	r := t.getDb().
-		WithContext(ctx).
+		WithContext(pctx).
 		Table(table).
 		Where("id = ?", id).
 		Where("namespace = ?", namespace).
@@ -127,9 +143,12 @@ func (t *data) Load(ctx context.Context, serviceName string, aggregateName strin
 	return r.Error
 }
 func (t *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "Find")
+	defer span.End()
+
 	table := db.TableName(serviceName, aggregateName)
 	q := t.getDb().
-		WithContext(ctx).
+		WithContext(pctx).
 		Table(table).
 		Where("namespace = ?", namespace)
 
@@ -156,10 +175,14 @@ func (t *data) Find(ctx context.Context, serviceName string, aggregateName strin
 	return r.Error
 }
 func (t *data) Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int, error) {
+	pctx, span := otel.Tracer("local").Start(ctx, "Count")
+	defer span.End()
+
 	var totalRows int64
 
 	table := db.TableName(serviceName, aggregateName)
-	q := t.getDb().WithContext(ctx).
+	q := t.getDb().
+		WithContext(pctx).
 		Table(table).
 		Where("namespace = ?", namespace)
 

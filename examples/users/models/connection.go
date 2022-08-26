@@ -13,6 +13,5 @@ type ConnectionUpdate struct {
 }
 
 type Group struct {
-	Id   uuid.UUID
-	Name string
+	Id uuid.UUID
 }

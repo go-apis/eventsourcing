@@ -145,11 +145,7 @@ func (c *config) sourced(agg AggregateSourced) error {
 }
 
 func (c *config) saga(s IsSaga) error {
-	t := reflect.TypeOf(s)
-	handles := NewSagaHandles(t)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
+	handles := NewSagaHandles(s)
 
 	events := []reflect.Type{}
 	for t := range handles {
