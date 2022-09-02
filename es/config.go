@@ -7,6 +7,8 @@ import (
 	"github.com/jinzhu/copier"
 )
 
+type Factory func(id string) Entity
+
 type EntityConfig interface {
 	IsEntityConfig()
 	GetOptions() EntityOptions
