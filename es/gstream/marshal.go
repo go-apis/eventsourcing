@@ -22,7 +22,7 @@ func MarshalEvent(ctx context.Context, event *es.Event) ([]byte, error) {
 	return b, nil
 }
 
-func UnmarshalEvent(ctx context.Context, mappers map[string]es.TypeBuilder, b []byte) (*es.Event, error) {
+func UnmarshalEvent(ctx context.Context, mappers map[string]es.EventDataFunc, b []byte) (*es.Event, error) {
 	_, span := otel.Tracer("local").Start(ctx, "UnmarshalEvent")
 	defer span.End()
 

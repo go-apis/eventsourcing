@@ -54,6 +54,5 @@ type Entity struct {
 }
 
 func TableName(serviceName string, aggregateName string) string {
-	split := strings.Split(aggregateName, ".")
-	return strings.ToLower(serviceName + "_" + inflection.Plural(split[1]))
+	return strings.ToLower(serviceName + "_" + inflection.Plural(aggregateName))
 }

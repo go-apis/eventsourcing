@@ -9,6 +9,7 @@ import (
 	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/examples/groups/aggregates"
 	"github.com/contextcloud/eventstore/examples/groups/commands"
+	"github.com/contextcloud/eventstore/examples/groups/events"
 	"github.com/contextcloud/eventstore/examples/groups/sagas"
 	"github.com/contextcloud/eventstore/pkg/db"
 	"github.com/contextcloud/eventstore/pkg/pub"
@@ -43,7 +44,16 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		cfg.Version,
 		&aggregates.Group{},
 		sagas.NewUserSaga(),
-		es.NewCommandHandlerConfig(),
+		es.NewAggregateConfig(
+			&aggregates.Community{},
+			es.EntityEventTypes(
+				&events.CommunityCreated{},
+				&events.CommunityDeleted{},
+				&events.CommunityStaffAdded{},
+			),
+			&commands.CommunityNewCommand{},
+			&commands.CommunityDeleteCommand{},
+		),
 	)
 	if err != nil {
 		return nil, err
@@ -57,7 +67,7 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		db.WithDbName(ourCfg.Db.Name),
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	streamer, err := gstream.NewStreamer(
@@ -65,18 +75,23 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		pub.WithTopicId(ourCfg.Streamer.Topic),
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	cli, err := es.NewClient(esCfg, conn, streamer)
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+
+	if err := cli.Initialize(ctx); err != nil {
+		return nil, err
 	}
 
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware("server", otelchi.WithChiRoutes(r)))
 	r.Use(es.CreateUnit(cli))
 	r.Use(middleware.Logger)
+	r.Post("/commands/newcommunity", es.NewCommander[*commands.CommunityNewCommand]())
 	r.Post("/commands/creategroup", es.NewCommander[*commands.CreateGroup]())
 
 	return r, nil

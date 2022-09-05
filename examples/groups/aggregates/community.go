@@ -3,6 +3,7 @@ package aggregates
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
@@ -51,23 +52,23 @@ type Community struct {
 	CreatedAt time.Time
 	DeletedAt *time.Time
 
-	Staff         []*models.StaffMemberModel
+	Staff         []*models.StaffMemberModel `gorm:"type:jsonb;serializer:json"`
 	PayoutCountry string
 
 	// community settings
-	GeneralSettings  *models.CommunityGeneralSettingsModel
-	AdvancedSettings *models.CommunityAdvancedSettingsModel
+	GeneralSettings  *models.CommunityGeneralSettingsModel  `gorm:"type:jsonb;serializer:json"`
+	AdvancedSettings *models.CommunityAdvancedSettingsModel `gorm:"type:jsonb;serializer:json"`
 }
 
 // HandleCommand create events and validate based on such command
-func (a *Community) HandleCommand(ctx context.Context, cmd es.Command) error {
+func (a *Community) Handle(ctx context.Context, cmd es.Command) error {
 	switch c := cmd.(type) {
 	case *commands.CommunityNewCommand:
 		return a.handleCommunityNewCommand(ctx, c)
 	case *commands.CommunityDeleteCommand:
 		return a.handleCommunityDeleteCommand(ctx, c)
 	}
-	return nil
+	return fmt.Errorf("Unknown command %T", cmd)
 }
 
 func (a *Community) handleCommunityNewCommand(ctx context.Context, cmd *commands.CommunityNewCommand) error {
@@ -105,11 +106,10 @@ func (a *Community) ApplyEvent(ctx context.Context, event *es.Event) error {
 		return a.applyCommunityCreated(ctx, event, e)
 	case *events.CommunityDeleted:
 		return a.applyCommunityDeleted(ctx, event, e)
-
 	case *events.CommunityStaffAdded:
 		return a.applyCommunityStaffAdded(ctx, event, e)
 	}
-	return nil
+	return fmt.Errorf("Unknown event %T", event.Data)
 }
 
 func (a *Community) applyCommunityCreated(ctx context.Context, event *es.Event, data *events.CommunityCreated) error {
@@ -144,11 +144,4 @@ func (a *Community) applyCommunityStaffAdded(ctx context.Context, event *es.Even
 		UpdatedAt: event.Timestamp,
 	})
 	return nil
-}
-
-// NewCommunity factory for creating the aggregate
-func NewCommunity(id string) es.Entity {
-	return &Community{
-		// BaseAggregateSourced: es.NewBaseAggregateSourced(id, "Community"),
-	}
 }

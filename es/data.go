@@ -8,11 +8,18 @@ import (
 )
 
 type InitializeOptions struct {
-	ServiceName      string
-	Revision         string
-	EventOptions     []EventOptions
-	EntityOptions    []EntityOptions
-	EventDataBuilder map[string]TypeBuilder
+	ServiceName   string
+	Revision      string
+	EventConfigs  []*EventConfig
+	EntityConfigs []*EntityConfig
+}
+
+type EventSearch struct {
+	ServiceName   string
+	Namespace     string
+	AggregateType string
+	AggregateId   uuid.UUID
+	FromVersion   int
 }
 
 type Conn interface {
@@ -32,8 +39,8 @@ type Data interface {
 	LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out AggregateSourced) error
 	SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out AggregateSourced) error
 
-	GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]*EventData, error)
-	SaveEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, datas []*EventData) error
+	GetEvents(ctx context.Context, mapper EventDataMapper, search EventSearch) ([]*Event, error)
+	SaveEvents(ctx context.Context, events []*Event) error
 	SaveEntity(ctx context.Context, serviceName string, aggregateName string, entity Entity) error
 
 	Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error

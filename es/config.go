@@ -3,90 +3,69 @@ package es
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/jinzhu/copier"
 )
 
-type Factory func(id string) Entity
-
-type EntityConfig interface {
-	IsEntityConfig()
-	GetOptions() EntityOptions
-	GetType() reflect.Type
-}
-type entityConfig struct {
-	options    EntityOptions
-	entityType reflect.Type
+type AggregateConfig struct {
+	EntityOptions []EntityOption
+	Commands      []reflect.Type
+	Handles       CommandHandles
 }
 
-func (cfg entityConfig) IsEntityConfig() {}
-func (cfg entityConfig) GetOptions() EntityOptions {
-	return cfg.options
-}
-func (cfg entityConfig) GetType() reflect.Type {
-	return cfg.entityType
-}
-func NewEntityConfig() EntityConfig {
-	return &entityConfig{}
+func NewAggregateConfig(aggregate Aggregate, items ...interface{}) *AggregateConfig {
+	entityOptions := NewEntityOptions(aggregate)
+	var commands []reflect.Type
+
+	for _, item := range items {
+		switch raw := item.(type) {
+		case EntityOption:
+			entityOptions = append(entityOptions, raw)
+		case Command:
+			t := reflect.TypeOf(raw)
+			commands = append(commands, t)
+		default:
+			panic(fmt.Sprintf("invalid item type: %T", item))
+		}
+	}
+
+	return &AggregateConfig{
+		EntityOptions: entityOptions,
+		Commands:      commands,
+	}
 }
 
-type EventHandlerConfig interface {
-	IsEventHandlerConfig()
-	GetHandler() EventHandler
-	GetEvents() []reflect.Type
+// EventOptions represents the configuration options
+// for the event.
+type EventConfig struct {
+	Name    string
+	Type    reflect.Type
+	Factory func() (interface{}, error)
 }
-type eventHandlerConfig struct {
+
+type EventHandlerConfig struct {
 	handler EventHandler
 	events  []reflect.Type
 }
 
-func (cfg eventHandlerConfig) IsEventHandlerConfig() {}
-func (cfg eventHandlerConfig) GetHandler() EventHandler {
-	return cfg.handler
-}
-func (cfg eventHandlerConfig) GetEvents() []reflect.Type {
-	return cfg.events
-}
-func NewEventHandlerConfig() EventHandlerConfig {
-	return &eventHandlerConfig{}
-}
-
-type CommandHandlerConfig interface {
-	IsCommandHandlerConfig()
-	GetHandler() CommandHandler
-	GetCommands() []reflect.Type
-}
-type commandHandlerConfig struct {
+type CommandHandlerConfig struct {
 	handler  CommandHandler
 	commands []reflect.Type
-}
-
-func (cfg commandHandlerConfig) IsCommandHandlerConfig() {}
-func (cfg commandHandlerConfig) GetHandler() CommandHandler {
-	return cfg.handler
-}
-func (cfg commandHandlerConfig) GetCommands() []reflect.Type {
-	return cfg.commands
-}
-func NewCommandHandlerConfig() CommandHandlerConfig {
-	return &commandHandlerConfig{}
 }
 
 type Config interface {
 	GetServiceName() string
 	GetServiceVersion() string
-	GetEntities() []EntityConfig
-	GetCommandHandlers() []CommandHandlerConfig
-	GetEventHandlers() []EventHandlerConfig
+	GetEntities() []*EntityConfig
+	GetCommandHandlers() []*CommandHandlerConfig
+	GetEventHandlers() []*EventHandlerConfig
 }
 
 type config struct {
 	serviceName    string
 	serviceVersion string
 
-	entities        []EntityConfig
-	commandHandlers []CommandHandlerConfig
-	eventHandlers   []EventHandlerConfig
+	entities        []*EntityConfig
+	commandHandlers []*CommandHandlerConfig
+	eventHandlers   []*EventHandlerConfig
 }
 
 func (c config) GetServiceName() string {
@@ -95,55 +74,46 @@ func (c config) GetServiceName() string {
 func (c config) GetServiceVersion() string {
 	return c.serviceVersion
 }
-
-func (c config) GetEntities() []EntityConfig {
+func (c config) GetEntities() []*EntityConfig {
 	return c.entities
 }
-func (c config) GetCommandHandlers() []CommandHandlerConfig {
+func (c config) GetCommandHandlers() []*CommandHandlerConfig {
 	return c.commandHandlers
 }
-
-func (c config) GetEventHandlers() []EventHandlerConfig {
+func (c config) GetEventHandlers() []*EventHandlerConfig {
 	return c.eventHandlers
 }
 
-func (c *config) sourced(agg AggregateSourced) error {
-	t := reflect.TypeOf(agg)
-	handles := NewCommandHandles(t)
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+func (c *config) aggregate(cfg *AggregateConfig) error {
+	entityConfig, err := NewEntityConfig(cfg.EntityOptions)
+	if err != nil {
+		return err
 	}
 
-	// TODO read tags from field here!
+	c.entities = append(c.entities, entityConfig)
 
-	name := t.String()
-	factory := func() (Entity, error) {
-		out := reflect.New(t).Interface().(Entity)
-		if err := copier.Copy(out, agg); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-	opts := []EntityOption{
-		EntityName(name),
-		EntityFactory(factory),
-	}
-	c.entities = append(c.entities, &entityConfig{
-		options:    NewEntityOptions(opts),
-		entityType: t,
-	})
-
-	commands := []reflect.Type{}
-	for t := range handles {
-		commands = append(commands, t)
-	}
-	h := NewSourcedAggregateHandler(name, handles)
-
-	c.commandHandlers = append(c.commandHandlers, &commandHandlerConfig{
+	h := NewSourcedAggregateHandler(entityConfig.Name, cfg.Handles)
+	c.commandHandlers = append(c.commandHandlers, &CommandHandlerConfig{
 		handler:  h,
-		commands: commands,
+		commands: cfg.Commands,
 	})
 	return nil
+}
+
+func (c *config) dynamic(agg Aggregate) error {
+	handles := NewCommandHandles(agg)
+	commandTypes := []reflect.Type{}
+	for commandType := range handles {
+		commandTypes = append(commandTypes, commandType)
+	}
+
+	opts := NewEntityOptions(agg)
+	aggregateConfig := &AggregateConfig{
+		EntityOptions: opts,
+		Commands:      commandTypes,
+		Handles:       handles,
+	}
+	return c.aggregate(aggregateConfig)
 }
 
 func (c *config) saga(s IsSaga) error {
@@ -155,33 +125,21 @@ func (c *config) saga(s IsSaga) error {
 	}
 
 	h := NewSagaEventHandler(handles, s)
-	c.eventHandlers = append(c.eventHandlers, &eventHandlerConfig{
+	c.eventHandlers = append(c.eventHandlers, &EventHandlerConfig{
 		handler: h,
 		events:  events,
 	})
 	return nil
 }
 
-func (c *config) commandHandlerConfig(a CommandHandlerConfig) error {
-	c.commandHandlers = append(c.commandHandlers, a)
-	return nil
-}
-
-func (c *config) eventHandlerConfig(a EventHandlerConfig) error {
-	c.eventHandlers = append(c.eventHandlers, a)
-	return nil
-}
-
 func (c *config) config(item interface{}) error {
 	switch raw := item.(type) {
-	case CommandHandlerConfig:
-		return c.commandHandlerConfig(raw)
-	case EventHandlerConfig:
-		return c.eventHandlerConfig(raw)
 	case IsSaga:
 		return c.saga(raw)
-	case AggregateSourced:
-		return c.sourced(raw)
+	case Aggregate:
+		return c.dynamic(raw)
+	case *AggregateConfig:
+		return c.aggregate(raw)
 	default:
 		return fmt.Errorf("invalid item type: %T", item)
 	}
