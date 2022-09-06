@@ -3,6 +3,8 @@ package es
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/jinzhu/copier"
 )
@@ -10,23 +12,67 @@ import (
 // EntityConfig represents the configuration options
 // for the entity.
 type EntityConfig struct {
-	Name           string
-	Type           reflect.Type
-	Factory        EntityFunc
-	Mapper         EventDataMapper
-	Revision       string
-	MinVersionDiff int
-	Project        bool
+	Name             string
+	Type             reflect.Type
+	Factory          EntityFunc
+	Mapper           EventDataMapper
+	SnapshotRevision string
+	SnapshotEvery    int
+	Project          bool
 }
 
 // EntityOption applies an option to the provided configuration.
 type EntityOption func(*EntityConfig)
+
+func NewEntityOptionsFromTag(t reflect.Type) ([]EntityOption, error) {
+	field, ok := t.FieldByName("BaseAggregateSourced")
+	if !ok {
+		return nil, nil
+	}
+	tag := field.Tag.Get("es")
+	if tag == "" {
+		return nil, nil
+	}
+
+	var options []EntityOption
+
+	// parse fields
+	items := strings.Split(tag, ",")
+	for _, item := range items {
+		split := strings.Split(item, "=")
+		if len(split) == 1 {
+			options = append(options, EntityName(split[0]))
+			continue
+		}
+
+		key := split[0]
+		switch key {
+		case "rev":
+			options = append(options, EntitySnapshotRevision(split[1]))
+			continue
+		case "snapshot":
+			i, err := strconv.Atoi(split[1])
+			if err != nil {
+				return nil, err
+			}
+			options = append(options, EntitySnapshotEvery(i))
+			continue
+		case "project":
+			if split[1] == "false" {
+				options = append(options, EntityDisableProject())
+			}
+			continue
+		}
+	}
+	return options, nil
+}
 
 func NewEntityOptions(agg interface{}) []EntityOption {
 	t := reflect.TypeOf(agg)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
+
 	name := t.Name()
 	factory := func() (Entity, error) {
 		out := reflect.New(t).Interface().(Entity)
@@ -35,26 +81,33 @@ func NewEntityOptions(agg interface{}) []EntityOption {
 		}
 		return out, nil
 	}
-	return []EntityOption{
+
+	// read tag.
+	tags, err := NewEntityOptionsFromTag(t)
+	if err != nil {
+		panic(err)
+	}
+
+	return append([]EntityOption{
 		EntityType(t),
 		EntityName(name),
 		EntityFactory(factory),
-	}
+	}, tags...)
 }
 
-func EntityRevision(revision string) EntityOption {
+func EntitySnapshotRevision(snapshotRevision string) EntityOption {
 	return func(o *EntityConfig) {
-		o.Revision = revision
+		o.SnapshotRevision = snapshotRevision
 	}
 }
-func EntityRevisionMin(minVersionDiff int) EntityOption {
+func EntitySnapshotEvery(versions int) EntityOption {
 	return func(o *EntityConfig) {
-		o.MinVersionDiff = minVersionDiff
+		o.SnapshotEvery = versions
 	}
 }
-func EntityDisableRevision() EntityOption {
+func EntityDisableSnapshot() EntityOption {
 	return func(o *EntityConfig) {
-		o.MinVersionDiff = -1
+		o.SnapshotEvery = -1
 	}
 }
 func EntityDisableProject() EntityOption {
@@ -90,10 +143,10 @@ func EntityEventTypes(objs ...interface{}) EntityOption {
 func NewEntityConfig(options []EntityOption) (*EntityConfig, error) {
 	// set defaults.
 	o := &EntityConfig{
-		Revision:       "rev1",
-		Project:        true,
-		MinVersionDiff: 0,
-		Mapper:         make(EventDataMapper),
+		SnapshotRevision: "rev1",
+		Project:          true,
+		SnapshotEvery:    0,
+		Mapper:           make(EventDataMapper),
 	}
 
 	// apply options.

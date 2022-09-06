@@ -46,6 +46,8 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		sagas.NewUserSaga(),
 		es.NewAggregateConfig(
 			&aggregates.Community{},
+			es.EntityDisableProject(),
+			es.EntitySnapshotEvery(1),
 			es.EntityEventTypes(
 				&events.CommunityCreated{},
 				&events.CommunityDeleted{},

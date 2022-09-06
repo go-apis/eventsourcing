@@ -63,21 +63,28 @@ func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, for
 	id := aggregate.GetId()
 
 	// load up the aggregate
-	if s.entityConfig.MinVersionDiff >= 0 && !forced {
-		if err := s.data.LoadSnapshot(pctx, s.serviceName, s.entityConfig.Name, namespace, s.entityConfig.Revision, id, aggregate); err != nil {
+	if s.entityConfig.SnapshotEvery >= 0 && !forced {
+		snapshotSearch := SnapshotSearch{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: s.entityConfig.Name,
+			Revision:      s.entityConfig.SnapshotRevision,
+		}
+		if err := s.data.LoadSnapshot(pctx, snapshotSearch, aggregate); err != nil {
 			return nil, err
 		}
 	}
 
 	// load up the events from the DB.
-	search := EventSearch{
+	eventSearch := EventSearch{
 		ServiceName:   s.serviceName,
 		Namespace:     namespace,
 		AggregateId:   id,
 		AggregateType: s.entityConfig.Name,
 		FromVersion:   aggregate.GetVersion(),
 	}
-	originalEvents, err := s.data.GetEvents(pctx, s.entityConfig.Mapper, search)
+	originalEvents, err := s.data.GetEvents(pctx, s.entityConfig.Mapper, eventSearch)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +117,7 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
 	timestamp := time.Now()
+	_, hasApplyEvent := aggregate.(IsApplyEvent)
 
 	events := make([]*Event, len(raw))
 
@@ -121,6 +129,13 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 		name := t.Name()
 		v := version + i + 1
 		metadata := MetadataFromContext(pctx)
+
+		// validate if we have a way to build the event with our mapper.
+		if hasApplyEvent {
+			if _, ok := s.entityConfig.Mapper[name]; !ok {
+				return nil, fmt.Errorf("no mapper function for event %s", name)
+			}
+		}
 
 		events[i] = &Event{
 			ServiceName:   s.serviceName,
@@ -150,8 +165,16 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 		return nil, fmt.Errorf("version diff is less than 0")
 	}
 
-	if s.entityConfig.MinVersionDiff >= 0 && diff >= s.entityConfig.MinVersionDiff {
-		if err := s.data.SaveSnapshot(pctx, s.serviceName, s.entityConfig.Name, namespace, s.entityConfig.Revision, id, aggregate); err != nil {
+	if s.entityConfig.SnapshotEvery >= 0 && diff >= s.entityConfig.SnapshotEvery {
+		snapshot := &Snapshot{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: s.entityConfig.Name,
+			Revision:      s.entityConfig.SnapshotRevision,
+			Aggregate:     aggregate,
+		}
+		if err := s.data.SaveSnapshot(pctx, snapshot); err != nil {
 			return nil, err
 		}
 	}

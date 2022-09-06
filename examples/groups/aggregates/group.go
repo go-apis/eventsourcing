@@ -13,7 +13,7 @@ import (
 )
 
 type Group struct {
-	es.BaseAggregateSourced
+	es.BaseAggregateSourced `es:"group,snapshot=1,rev=rev3,project=false"`
 
 	Name     string
 	ParentId *uuid.UUID

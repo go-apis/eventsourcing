@@ -52,11 +52,63 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	return newTransaction(d), nil
 }
 
-func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
-	return nil
+func (t *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "LoadSnapshot")
+	defer span.End()
+
+	var snapshot db.Snapshot
+	r := t.getDb().
+		WithContext(pctx).
+		Model(&db.Snapshot{}).
+		Where("service_name = ?", search.ServiceName).
+		Where("namespace = ?", search.Namespace).
+		Where("aggregate_type = ?", search.AggregateType).
+		Where("aggregate_id = ?", search.AggregateId).
+		Where("revision = ?", search.Revision).
+		First(&snapshot)
+	if r.Error != nil {
+		return r.Error
+	}
+
+	if err := json.Unmarshal(snapshot.Aggregate, out); err != nil {
+		return err
+	}
+
+	return r.Error
 }
-func (d *data) SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
-	return nil
+func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveSnapshot")
+	defer span.End()
+
+	if !d.inTransaction() {
+		return fmt.Errorf("must be in transaction")
+	}
+
+	if snapshot == nil {
+		return nil // nothing to save
+	}
+
+	raw, err := json.Marshal(snapshot.Aggregate)
+	if err != nil {
+		return err
+	}
+
+	obj := &db.Snapshot{
+		ServiceName:   snapshot.ServiceName,
+		Namespace:     snapshot.Namespace,
+		AggregateId:   snapshot.AggregateId,
+		AggregateType: snapshot.AggregateType,
+		Revision:      snapshot.Revision,
+		Aggregate:     raw,
+	}
+
+	out := d.getDb().
+		WithContext(pctx).
+		Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).
+		Create(obj)
+	return out.Error
 }
 
 func (d *data) loadData(mappers es.EventDataMapper, evt *db.Event) (interface{}, error) {
@@ -78,7 +130,7 @@ func (d *data) loadData(mappers es.EventDataMapper, evt *db.Event) (interface{},
 }
 
 func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search es.EventSearch) ([]*es.Event, error) {
-	pctx, span := otel.Tracer("local").Start(ctx, "GetEventDatas")
+	pctx, span := otel.Tracer("local").Start(ctx, "GetEvents")
 	defer span.End()
 
 	g := d.getDb().
@@ -128,7 +180,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 	return events, nil
 }
 func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
-	pctx, span := otel.Tracer("local").Start(ctx, "SaveEventDatas")
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveEvents")
 	defer span.End()
 
 	if !d.inTransaction() {

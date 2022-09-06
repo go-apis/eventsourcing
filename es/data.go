@@ -22,6 +22,14 @@ type EventSearch struct {
 	FromVersion   int
 }
 
+type SnapshotSearch struct {
+	ServiceName   string
+	Namespace     string
+	AggregateType string
+	AggregateId   uuid.UUID
+	Revision      string
+}
+
 type Conn interface {
 	Initialize(ctx context.Context, opts InitializeOptions) error
 	NewData(ctx context.Context) (Data, error)
@@ -36,8 +44,8 @@ type Tx interface {
 type Data interface {
 	Begin(ctx context.Context) (Tx, error)
 
-	LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out AggregateSourced) error
-	SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out AggregateSourced) error
+	LoadSnapshot(ctx context.Context, search SnapshotSearch, out AggregateSourced) error
+	SaveSnapshot(ctx context.Context, snapshot *Snapshot) error
 
 	GetEvents(ctx context.Context, mapper EventDataMapper, search EventSearch) ([]*Event, error)
 	SaveEvents(ctx context.Context, events []*Event) error
