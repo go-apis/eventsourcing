@@ -25,6 +25,11 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 		return fmt.Errorf("callback is required")
 	}
 
+	mapper := map[string]es.EventDataFunc{}
+	for _, eventConfigs := range opts.EventConfigs {
+		mapper[eventConfigs.Name] = eventConfigs.Factory
+	}
+
 	sub, err := s.cli.Subscription(pctx, opts.ServiceName)
 	if err != nil {
 		return err
@@ -34,7 +39,7 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 		pctx, span := otel.Tracer("gstream").Start(ctx, "Handle")
 		defer span.End()
 
-		evt, err := UnmarshalEvent(pctx, opts.EventDataBuilder, data)
+		evt, err := UnmarshalEvent(pctx, mapper, data)
 		if err != nil {
 			return err
 		}

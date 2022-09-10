@@ -4,8 +4,6 @@ import (
 	"context"
 )
 
-type TypeBuilder = func() (interface{}, error)
-
 type Callback func(ctx context.Context, evt *Event) error
 
 type Streamer interface {

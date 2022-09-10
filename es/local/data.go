@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
@@ -51,54 +52,161 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	return newTransaction(d), nil
 }
 
-func (t *data) LoadSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
-	return nil
-}
-func (d *data) SaveSnapshot(ctx context.Context, serviceName string, aggregateName string, namespace string, revision string, id uuid.UUID, out es.AggregateSourced) error {
-	return nil
-}
-
-func (d *data) GetEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, fromVersion int) ([]*es.EventData, error) {
-	pctx, span := otel.Tracer("local").Start(ctx, "GetEventDatas")
+func (t *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "LoadSnapshot")
 	defer span.End()
 
-	var datas []*es.EventData
-	out := d.getDb().
+	var snapshot db.Snapshot
+	r := t.getDb().
 		WithContext(pctx).
-		Model(&db.Event{}).
-		Where("service_name = ?", serviceName).
-		Where("namespace = ?", namespace).
-		Where("aggregate_type = ?", aggregateName).
-		Where("aggregate_id = ?", id).
-		Where("version > ?", fromVersion).
-		Order("version").
-		Scan(&datas)
+		Model(&db.Snapshot{}).
+		Where("service_name = ?", search.ServiceName).
+		Where("namespace = ?", search.Namespace).
+		Where("aggregate_type = ?", search.AggregateType).
+		Where("aggregate_id = ?", search.AggregateId).
+		Where("revision = ?", search.Revision).
+		First(&snapshot)
+	if r.Error != nil {
+		return r.Error
+	}
 
-	return datas, out.Error
+	if err := json.Unmarshal(snapshot.Aggregate, out); err != nil {
+		return err
+	}
+
+	return r.Error
 }
-func (d *data) SaveEventDatas(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, datas []*es.EventData) error {
-	pctx, span := otel.Tracer("local").Start(ctx, "SaveEventDatas")
+func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveSnapshot")
 	defer span.End()
 
 	if !d.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	if len(datas) == 0 {
+	if snapshot == nil {
 		return nil // nothing to save
 	}
 
-	evts := make([]*db.Event, len(datas))
-	for i, d := range datas {
+	raw, err := json.Marshal(snapshot.Aggregate)
+	if err != nil {
+		return err
+	}
+
+	obj := &db.Snapshot{
+		ServiceName:   snapshot.ServiceName,
+		Namespace:     snapshot.Namespace,
+		AggregateId:   snapshot.AggregateId,
+		AggregateType: snapshot.AggregateType,
+		Revision:      snapshot.Revision,
+		Aggregate:     raw,
+	}
+
+	out := d.getDb().
+		WithContext(pctx).
+		Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).
+		Create(obj)
+	return out.Error
+}
+
+func (d *data) loadData(mappers es.EventDataMapper, evt *db.Event) (interface{}, error) {
+	mapper, ok := mappers[evt.Type]
+	if !ok {
+		return evt.Data, nil
+	}
+
+	data, err := mapper()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(evt.Data, data); err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search es.EventSearch) ([]*es.Event, error) {
+	pctx, span := otel.Tracer("local").Start(ctx, "GetEvents")
+	defer span.End()
+
+	g := d.getDb().
+		WithContext(pctx)
+
+	rows, err := g.
+		Model(&db.Event{}).
+		Where("service_name = ?", search.ServiceName).
+		Where("namespace = ?", search.Namespace).
+		Where("aggregate_type = ?", search.AggregateType).
+		Where("aggregate_id = ?", search.AggregateId).
+		Where("version > ?", search.FromVersion).
+		Order("version").
+		Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []*es.Event
+	for rows.Next() {
+		var evt db.Event
+		// ScanRows is a method of `gorm.DB`, it can be used to scan a row into a struct
+		if err := g.ScanRows(rows, &evt); err != nil {
+			return nil, err
+		}
+
+		// do something
+		data, err := d.loadData(mappers, &evt)
+		if err != nil {
+			return nil, err
+		}
+
+		events = append(events, &es.Event{
+			ServiceName:   evt.ServiceName,
+			Namespace:     evt.Namespace,
+			AggregateId:   evt.AggregateId,
+			AggregateType: evt.AggregateType,
+			Type:          evt.Type,
+			Version:       evt.Version,
+			Timestamp:     evt.Timestamp,
+			Data:          data,
+			Metadata:      evt.Metadata,
+		})
+	}
+
+	return events, nil
+}
+func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveEvents")
+	defer span.End()
+
+	if !d.inTransaction() {
+		return fmt.Errorf("must be in transaction")
+	}
+
+	if len(events) == 0 {
+		return nil // nothing to save
+	}
+
+	evts := make([]*db.Event, len(events))
+	for i, d := range events {
+		raw, err := json.Marshal(d.Data)
+		if err != nil {
+			return err
+		}
+
 		evts[i] = &db.Event{
-			ServiceName:   serviceName,
-			Namespace:     namespace,
-			AggregateId:   id,
-			AggregateType: aggregateName,
+			ServiceName:   d.ServiceName,
+			Namespace:     d.Namespace,
+			AggregateId:   d.AggregateId,
+			AggregateType: d.AggregateType,
 			Type:          d.Type,
 			Version:       d.Version,
 			Timestamp:     d.Timestamp,
-			Data:          d.Data,
+			Data:          raw,
 			Metadata:      d.Metadata,
 		}
 	}

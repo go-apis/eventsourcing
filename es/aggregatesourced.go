@@ -17,9 +17,9 @@ type AggregateSourced interface {
 type BaseAggregateSourced struct {
 	Id        uuid.UUID `json:"id"`
 	Namespace string    `json:"namespace"`
+	Version   int       `json:"version"`
 
-	version int
-	events  []interface{}
+	events []interface{}
 }
 
 func (a *BaseAggregateSourced) GetId() uuid.UUID {
@@ -36,11 +36,11 @@ func (a *BaseAggregateSourced) GetEvents() []interface{} {
 }
 
 func (a *BaseAggregateSourced) GetVersion() int {
-	return a.version
+	return a.Version
 }
 
 func (a *BaseAggregateSourced) IncrementVersion() {
-	a.version++
+	a.Version++
 }
 
 func (a *BaseAggregateSourced) Apply(ctx context.Context, data interface{}) error {

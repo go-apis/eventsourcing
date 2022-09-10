@@ -10,7 +10,7 @@ import (
 
 type Client interface {
 	GetServiceName() string
-	GetEntityOptions(name string) (*EntityOptions, error)
+	GetEntityConfig(name string) (*EntityConfig, error)
 	Initialize(ctx context.Context) error
 	Unit(ctx context.Context) (Unit, error)
 
@@ -24,7 +24,7 @@ type client struct {
 	conn     Conn
 	streamer Streamer
 
-	entityOptions   map[string]*EntityOptions
+	entityConfigs   map[string]*EntityConfig
 	commandHandlers map[reflect.Type]CommandHandler
 	eventHandlers   map[reflect.Type][]EventHandler
 }
@@ -33,12 +33,12 @@ func (c *client) GetServiceName() string {
 	return c.cfg.GetServiceName()
 }
 
-func (c *client) GetEntityOptions(name string) (*EntityOptions, error) {
-	if opts, ok := c.entityOptions[name]; ok {
+func (c *client) GetEntityConfig(name string) (*EntityConfig, error) {
+	if opts, ok := c.entityConfigs[name]; ok {
 		return opts, nil
 	}
 
-	return nil, fmt.Errorf("entity options not found: %s", name)
+	return nil, fmt.Errorf("entity config not found: %s", name)
 }
 
 func (c *client) Unit(ctx context.Context) (Unit, error) {
@@ -66,58 +66,48 @@ func (c *client) Initialize(ctx context.Context) error {
 	events := make(map[reflect.Type]bool)
 	eventHandlers := c.cfg.GetEventHandlers()
 	for _, eh := range eventHandlers {
-		handler := eh.GetHandler()
-		for _, evt := range eh.GetEvents() {
+		handler := eh.handler
+		for _, evt := range eh.events {
 			events[evt] = true
 			c.eventHandlers[evt] = append(c.eventHandlers[evt], handler)
 		}
 	}
 
-	var allEntityOpts []EntityOptions
 	entities := c.cfg.GetEntities()
-	for _, e := range entities {
-		opts := e.GetOptions()
-		allEntityOpts = append(allEntityOpts, opts)
-		c.entityOptions[opts.Name] = &opts
+	for _, entityConfig := range entities {
+		c.entityConfigs[entityConfig.Name] = entityConfig
 	}
 
 	commandHandlers := c.cfg.GetCommandHandlers()
 	for _, ch := range commandHandlers {
-		handler := ch.GetHandler()
-		for _, cmd := range ch.GetCommands() {
+		handler := ch.handler
+		for _, cmd := range ch.commands {
 			c.commandHandlers[cmd] = handler
 		}
 	}
 
-	var allEventOpts []EventOptions
+	eventConfigs := []*EventConfig{}
 	for t := range events {
-		name := t.String()
-		allEventOpts = append(allEventOpts, EventOptions{
-			Name: name,
-			Type: t,
+		r := t
+		for r.Kind() == reflect.Ptr {
+			r = r.Elem()
+		}
+		name := r.Name()
+		factory := func() (interface{}, error) {
+			out := reflect.New(r).Interface()
+			return out, nil
+		}
+		eventConfigs = append(eventConfigs, &EventConfig{
+			Name:    name,
+			Type:    r,
+			Factory: factory,
 		})
 	}
 
-	// get the service name.
-	eventDataBuilder := make(map[string]TypeBuilder)
-	for _, opt := range allEventOpts {
-		t := opt.Type
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
-
-		factory := func() (interface{}, error) {
-			out := reflect.New(t).Interface()
-			return out, nil
-		}
-		eventDataBuilder[opt.Name] = factory
-	}
-
 	initOpts := InitializeOptions{
-		ServiceName:      serviceName,
-		EntityOptions:    allEntityOpts,
-		EventOptions:     allEventOpts,
-		EventDataBuilder: eventDataBuilder,
+		ServiceName:   serviceName,
+		EntityConfigs: entities,
+		EventConfigs:  eventConfigs,
 	}
 
 	if err := c.conn.Initialize(pctx, initOpts); err != nil {
@@ -244,7 +234,7 @@ func NewClient(cfg Config, conn Conn, streamer Streamer) (Client, error) {
 		cfg:             cfg,
 		conn:            conn,
 		streamer:        streamer,
-		entityOptions:   map[string]*EntityOptions{},
+		entityConfigs:   make(map[string]*EntityConfig),
 		commandHandlers: map[reflect.Type]CommandHandler{},
 		eventHandlers:   map[reflect.Type][]EventHandler{},
 	}

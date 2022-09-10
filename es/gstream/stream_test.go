@@ -46,15 +46,13 @@ func Test_It(t *testing.T) {
 
 	initOpts := es.InitializeOptions{
 		ServiceName: "demo",
-		EventOptions: []es.EventOptions{
+		EventConfigs: []*es.EventConfig{
 			{
 				Name: "MyEvent",
 				Type: reflect.TypeOf(&MyEvent{}),
-			},
-		},
-		EventDataBuilder: map[string]func() (interface{}, error){
-			"MyEvent": func() (interface{}, error) {
-				return &MyEvent{}, nil
+				Factory: func() (interface{}, error) {
+					return &MyEvent{}, nil
+				},
 			},
 		},
 	}

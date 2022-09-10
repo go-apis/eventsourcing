@@ -22,7 +22,7 @@ func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) er
 		return err
 	}
 
-	for _, opt := range initOpts.EntityOptions {
+	for _, opt := range initOpts.EntityConfigs {
 		obj, err := opt.Factory()
 		if err != nil {
 			return err

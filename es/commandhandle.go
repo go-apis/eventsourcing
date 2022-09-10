@@ -88,7 +88,8 @@ func (h CommandHandles) Handle(agg interface{}, ctx context.Context, cmd Command
 	return handle.Handle(agg, pctx, cmd)
 }
 
-func NewCommandHandles(t reflect.Type) CommandHandles {
+func NewCommandHandles(agg interface{}) CommandHandles {
+	t := reflect.TypeOf(agg)
 	handles := make(CommandHandles)
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)

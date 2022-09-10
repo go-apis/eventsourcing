@@ -6,19 +6,41 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 )
 
-func applyEvents(ctx context.Context, aggregate AggregateSourced, datas []*EventData) error {
-	for _, d := range datas {
-		if err := json.Unmarshal(d.Data, aggregate); err != nil {
-			return err
-		}
+type IsApplyEvent interface {
+	ApplyEvent(ctx context.Context, evt *Event) error
+}
+
+func applyEvents(ctx context.Context, aggregate AggregateSourced, events []*Event) error {
+	for _, evt := range events {
 		aggregate.IncrementVersion()
+
+		a, ok := aggregate.(IsApplyEvent)
+		if ok {
+			if err := a.ApplyEvent(ctx, evt); err != nil {
+				return err
+			}
+			continue
+		}
+
+		raw, ok := evt.Data.(json.RawMessage)
+		if ok {
+			if err := json.Unmarshal(raw, aggregate); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// we have an issue
+		return fmt.Errorf("unable to apply event %s", evt.Type)
 	}
+
 	return nil
 }
 
@@ -28,9 +50,9 @@ type DataStore interface {
 }
 
 type store struct {
-	serviceName string
-	data        Data
-	opts        *EntityOptions
+	serviceName  string
+	data         Data
+	entityConfig *EntityConfig
 }
 
 func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, forced bool) (Entity, error) {
@@ -41,13 +63,28 @@ func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, for
 	id := aggregate.GetId()
 
 	// load up the aggregate
-	if s.opts.MinVersionDiff >= 0 && !forced {
-		if err := s.data.LoadSnapshot(pctx, s.serviceName, s.opts.Name, namespace, s.opts.Revision, id, aggregate); err != nil {
+	if s.entityConfig.SnapshotEvery >= 0 && !forced {
+		snapshotSearch := SnapshotSearch{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: s.entityConfig.Name,
+			Revision:      s.entityConfig.SnapshotRevision,
+		}
+		if err := s.data.LoadSnapshot(pctx, snapshotSearch, aggregate); err != nil {
 			return nil, err
 		}
 	}
+
 	// load up the events from the DB.
-	originalEvents, err := s.data.GetEventDatas(pctx, s.serviceName, s.opts.Name, namespace, id, aggregate.GetVersion())
+	eventSearch := EventSearch{
+		ServiceName:   s.serviceName,
+		Namespace:     namespace,
+		AggregateId:   id,
+		AggregateType: s.entityConfig.Name,
+		FromVersion:   aggregate.GetVersion(),
+	}
+	originalEvents, err := s.data.GetEvents(pctx, s.entityConfig.Mapper, eventSearch)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +100,7 @@ func (s *store) loadEntity(ctx context.Context, entity Entity) (Entity, error) {
 	namespace := NamespaceFromContext(pctx)
 
 	id := entity.GetId()
-	if err := s.data.Load(pctx, s.serviceName, s.opts.Name, namespace, id, entity); err != nil {
+	if err := s.data.Load(pctx, s.serviceName, s.entityConfig.Name, namespace, id, entity); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -80,34 +117,31 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
 	timestamp := time.Now()
+	_, hasApplyEvent := aggregate.(IsApplyEvent)
 
 	events := make([]*Event, len(raw))
-	datas := make([]*EventData, len(raw))
 
 	for i, data := range raw {
-		name := fmt.Sprintf("%T", data)
-		v := version + i + 1
-		d, err := json.Marshal(data)
-		if err != nil {
-			return nil, err
+		t := reflect.TypeOf(data)
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
 		}
-
-		// metadata!.
+		name := t.Name()
+		v := version + i + 1
 		metadata := MetadataFromContext(pctx)
 
-		datas[i] = &EventData{
-			Type:      name,
-			Version:   v,
-			Timestamp: timestamp,
-			Data:      d,
-			Metadata:  metadata,
+		// validate if we have a way to build the event with our mapper.
+		if hasApplyEvent {
+			if _, ok := s.entityConfig.Mapper[name]; !ok {
+				return nil, fmt.Errorf("no mapper function for event %s", name)
+			}
 		}
 
 		events[i] = &Event{
 			ServiceName:   s.serviceName,
 			Namespace:     namespace,
 			AggregateId:   id,
-			AggregateType: s.opts.Name,
+			AggregateType: s.entityConfig.Name,
 			Type:          name,
 			Version:       v,
 			Data:          data,
@@ -116,12 +150,12 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 		}
 	}
 
-	if err := s.data.SaveEventDatas(pctx, s.serviceName, s.opts.Name, namespace, id, datas); err != nil {
+	// Apply the events so we can save the aggregate
+	if err := applyEvents(pctx, aggregate, events); err != nil {
 		return nil, err
 	}
 
-	// Apply the events so we can save the aggregate
-	if err := applyEvents(pctx, aggregate, datas); err != nil {
+	if err := s.data.SaveEvents(pctx, events); err != nil {
 		return nil, err
 	}
 
@@ -131,14 +165,22 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 		return nil, fmt.Errorf("version diff is less than 0")
 	}
 
-	if s.opts.MinVersionDiff >= 0 && diff >= s.opts.MinVersionDiff {
-		if err := s.data.SaveSnapshot(pctx, s.serviceName, s.opts.Name, namespace, s.opts.Revision, id, aggregate); err != nil {
+	if s.entityConfig.SnapshotEvery >= 0 && diff >= s.entityConfig.SnapshotEvery {
+		snapshot := &Snapshot{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: s.entityConfig.Name,
+			Revision:      s.entityConfig.SnapshotRevision,
+			Aggregate:     aggregate,
+		}
+		if err := s.data.SaveSnapshot(pctx, snapshot); err != nil {
 			return nil, err
 		}
 	}
 
-	if s.opts.Project {
-		if err := s.data.SaveEntity(pctx, s.serviceName, s.opts.Name, aggregate); err != nil {
+	if s.entityConfig.Project {
+		if err := s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate); err != nil {
 			return nil, err
 		}
 	}
@@ -149,7 +191,7 @@ func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHold
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveAggregateHolder")
 	defer pspan.End()
 
-	if err := s.data.SaveEntity(pctx, s.serviceName, s.opts.Name, aggregate); err != nil {
+	if err := s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate); err != nil {
 		return nil, err
 	}
 
@@ -160,7 +202,7 @@ func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]*Event, err
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveEntity")
 	defer pspan.End()
 
-	return nil, s.data.SaveEntity(pctx, s.serviceName, s.opts.Name, aggregate)
+	return nil, s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate)
 }
 
 func (s *store) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error) {
@@ -174,7 +216,7 @@ func (s *store) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) 
 	namespace := NamespaceFromContext(pctx)
 
 	// make the aggregate
-	entity, err := s.opts.Factory()
+	entity, err := s.entityConfig.Factory()
 	if err != nil {
 		return nil, err
 	}
@@ -206,11 +248,11 @@ func (s *store) Save(ctx context.Context, entity Entity) ([]*Event, error) {
 }
 
 // NewDataStore for creating stores
-func NewDataStore(serviceName string, data Data, opts *EntityOptions) DataStore {
+func NewDataStore(serviceName string, data Data, entityConfig *EntityConfig) DataStore {
 	s := &store{
-		serviceName: serviceName,
-		data:        data,
-		opts:        opts,
+		serviceName:  serviceName,
+		data:         data,
+		entityConfig: entityConfig,
 	}
 	return s
 }

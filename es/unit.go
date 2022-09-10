@@ -99,23 +99,23 @@ func (u *unit) Rollback(ctx context.Context) error {
 }
 
 func (u *unit) Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error) {
-	entityOptions, err := u.cli.GetEntityOptions(name)
+	entityConfig, err := u.cli.GetEntityConfig(name)
 	if err != nil {
 		return nil, err
 	}
 	serviceName := u.cli.GetServiceName()
 
-	dataStore := NewDataStore(serviceName, u.data, entityOptions)
+	dataStore := NewDataStore(serviceName, u.data, entityConfig)
 	return dataStore.Load(ctx, id, dataOptions...)
 }
 func (u *unit) Save(ctx context.Context, name string, entity Entity) error {
-	entityOptions, err := u.cli.GetEntityOptions(name)
+	entityConfig, err := u.cli.GetEntityConfig(name)
 	if err != nil {
 		return err
 	}
 	serviceName := u.cli.GetServiceName()
 
-	dataStore := NewDataStore(serviceName, u.data, entityOptions)
+	dataStore := NewDataStore(serviceName, u.data, entityConfig)
 	events, err := dataStore.Save(ctx, entity)
 	if err != nil {
 		return err

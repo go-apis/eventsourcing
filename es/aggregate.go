@@ -13,3 +13,7 @@ type Aggregate interface {
 type SetId interface {
 	SetId(id uuid.UUID, namespace string)
 }
+
+type SetVersion interface {
+	SetVersion(version int)
+}

@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	"fmt"
 
 	"go.opentelemetry.io/otel"
 )
@@ -9,6 +10,21 @@ import (
 type sourcedAggregateHandler struct {
 	name    string
 	handles CommandHandles
+}
+
+func (b *sourcedAggregateHandler) inner(ctx context.Context, entity Entity, cmd Command) error {
+	switch agg := entity.(type) {
+	case CommandHandler:
+		return agg.Handle(ctx, cmd)
+	}
+
+	if b.handles != nil {
+		if err := b.handles.Handle(entity, ctx, cmd); err != nil {
+			return err
+		}
+	}
+
+	return fmt.Errorf("no handler for command: %T", cmd)
 }
 
 func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error {
@@ -28,7 +44,7 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 	}
 
 	if !replay {
-		if err := b.handles.Handle(agg, pctx, cmd); err != nil {
+		if err := b.inner(pctx, agg, cmd); err != nil {
 			return err
 		}
 	}
