@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	cloud.google.com/go/pubsub v1.24.0
+	github.com/99designs/gqlgen v0.17.19
 	github.com/WinterYukky/gorm-extra-clause-plugin v0.1.3
 	github.com/contextcloud/graceful v0.1.0
 	github.com/go-chi/chi/v5 v5.0.7
@@ -34,8 +35,10 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v0.32.6 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/trace v1.8.6 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.32.6 // indirect
+	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
@@ -73,6 +76,7 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/slok/go-http-metrics v0.10.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -81,6 +85,9 @@ require (
 	github.com/spf13/viper v1.12.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.1.15 // indirect
+	github.com/urfave/cli/v2 v2.8.1 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.1 // indirect
+	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.opentelemetry.io/contrib v1.0.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.9.0 // indirect
@@ -88,11 +95,14 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
 	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/tools v0.1.10 // indirect
+	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220829175752-36a9c930ecbf // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
