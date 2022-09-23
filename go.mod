@@ -15,6 +15,7 @@ require (
 	github.com/riandyrn/otelchi v0.4.0
 	github.com/stretchr/testify v1.8.0
 	github.com/uptrace/opentelemetry-go-extra/otelgorm v0.1.15
+	github.com/vektah/gqlparser/v2 v2.5.1
 	go.opentelemetry.io/otel v1.9.0
 	go.opentelemetry.io/otel/exporters/zipkin v1.9.0
 	go.opentelemetry.io/otel/sdk v1.9.0
@@ -50,8 +51,10 @@ require (
 	github.com/google/go-cmp v0.5.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.5.1 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/heptiolabs/healthcheck v0.0.0-20211123025425-613501dd5deb // indirect
 	github.com/iamolegga/enviper v1.4.0 // indirect
@@ -86,7 +89,6 @@ require (
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.1.15 // indirect
 	github.com/urfave/cli/v2 v2.8.1 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.1 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.opentelemetry.io/contrib v1.0.0 // indirect

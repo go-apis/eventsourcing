@@ -6,12 +6,11 @@ import (
 	"strings"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/pkg/pub"
 	"go.opentelemetry.io/otel"
 )
 
 type streamer struct {
-	cli pub.Client
+	cli Client
 }
 
 func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callback es.Callback) error {
@@ -101,12 +100,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.cli.Close()
 }
 
-func NewStreamer(opts ...pub.OptionFunc) (es.Streamer, error) {
-	cli, err := pub.Open(opts...)
-	if err != nil {
-		return nil, err
-	}
-
+func NewStreamer(cli Client) (es.Streamer, error) {
 	return &streamer{
 		cli: cli,
 	}, nil

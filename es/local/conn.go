@@ -58,15 +58,3 @@ func (c *conn) Close(ctx context.Context) error {
 	}
 	return sqlDB.Close()
 }
-
-func NewConn(opts ...db.OptionFunc) (es.Conn, error) {
-	gormDb, err := db.Open(opts...)
-	if err != nil {
-		return nil, err
-	}
-
-	c := &conn{
-		db: gormDb,
-	}
-	return c, nil
-}

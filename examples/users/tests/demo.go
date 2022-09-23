@@ -12,7 +12,6 @@ import (
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/pkg/db"
-	"github.com/contextcloud/eventstore/pkg/pub"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/zipkin"

@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/config"
+	"github.com/contextcloud/eventstore/examples/users/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/sagas"
 	"go.opentelemetry.io/otel"
 )
 
@@ -15,7 +16,13 @@ func Test_Local(t *testing.T) {
 		t.Error(err)
 	}
 
-	cfg, err := config.EventStoreConfig()
+	cfg, err := es.NewConfig(
+		"users",
+		"v1",
+		&aggregates.User{},
+		&aggregates.ExternalUser{},
+		sagas.NewConnectionSaga(),
+	)
 	if err != nil {
 		t.Error(err)
 		return
@@ -75,7 +82,13 @@ func Test_Local(t *testing.T) {
 }
 
 func Benchmark_CreateUsers(b *testing.B) {
-	cfg, err := config.EventStoreConfig()
+	cfg, err := es.NewConfig(
+		"users",
+		"v1",
+		&aggregates.User{},
+		&aggregates.ExternalUser{},
+		sagas.NewConnectionSaga(),
+	)
 	if err != nil {
 		b.Error(err)
 		return
