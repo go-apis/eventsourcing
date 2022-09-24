@@ -1,4 +1,4 @@
-package local
+package pg
 
 import (
 	"context"
@@ -57,4 +57,8 @@ func (c *conn) Close(ctx context.Context) error {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+func NewConn(db *gorm.DB) (es.Conn, error) {
+	return &conn{db: db}, nil
 }

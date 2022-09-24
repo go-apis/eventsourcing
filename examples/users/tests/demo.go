@@ -12,6 +12,7 @@ import (
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/contextcloud/eventstore/pkg/pub"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/zipkin"
@@ -46,28 +47,39 @@ func Zipkin() (Shutdown, error) {
 }
 
 func LocalConn() (es.Conn, error) {
-	opts := []db.OptionFunc{
-		db.WithDbUser("es"),
-		db.WithDbPassword("es"),
-		db.WithDbName("eventstore"),
+	cfg := &db.Config{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "es",
+		Password: "es",
+		Name:     "eventstore",
 	}
 
-	if err := db.Reset(opts...); err != nil {
+	if err := db.Reset(cfg); err != nil {
 		return nil, err
 	}
 
-	return local.NewConn(opts...)
+	gormDb, err := db.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return local.NewConn(gormDb)
 }
 
 func PubSubStreamer() (es.Streamer, error) {
-	pubOpts := []pub.OptionFunc{
-		pub.WithProjectId("nordic-gaming"),
-		pub.WithTopicId("test_topic"),
+	cfg := &gstream.Config{
+		ProjectId: "nordic-gaming",
+		TopicId:   "test_topic",
 	}
-	if err := pub.Reset(pubOpts...); err != nil {
+	if err := gstream.Reset(cfg); err != nil {
 		return nil, err
 	}
-	return gstream.NewStreamer(pubOpts...)
+	gpub, err := gstream.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return pub.NewStreamer(gpub)
 }
 
 func QueryUsers(ctx context.Context, userId uuid.UUID) error {

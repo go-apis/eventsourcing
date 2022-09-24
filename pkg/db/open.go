@@ -23,16 +23,11 @@ func init() {
 	schema.RegisterSerializer("timestamppb", &TimestampSerializer{})
 }
 
-func Open(opts ...OptionFunc) (*gorm.DB, error) {
-	o := NewOptions()
-	for _, opt := range opts {
-		opt(o)
-	}
-
-	dsn := o.DSN()
+func Open(cfg *Config) (*gorm.DB, error) {
+	dsn := cfg.DSN()
 
 	level := logger.Info
-	if !o.Debug {
+	if !cfg.Debug {
 		level = logger.Error
 	}
 

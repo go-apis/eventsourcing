@@ -7,7 +7,6 @@ import (
 
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/gstream"
-	"github.com/contextcloud/eventstore/es/gstream/f"
 	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
@@ -24,8 +23,8 @@ import (
 )
 
 type Config struct {
-	Db       local.Config
-	Streamer f.Config
+	Db       db.Config
+	Streamer gstream.Config
 }
 
 func userQueryFunc(cli es.Client) http.HandlerFunc {
@@ -55,34 +54,32 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
+	gormDb, err := db.Open(&ourCfg.Db)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := local.NewConn(gormDb)
+	if err != nil {
+		return nil, err
+	}
+
+	gpub, err := gstream.Open(&ourCfg.Streamer)
+	if err != nil {
+		return nil, err
+	}
+
+	streamer, err := pub.NewStreamer(gpub)
+	if err != nil {
+		return nil, err
+	}
+
 	esCfg, err := es.NewConfig(
 		cfg.ServiceName,
 		cfg.Version,
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := local.NewConn(
-		db.WithDbHost(ourCfg.Db.Host),
-		db.WithDbPort(ourCfg.Db.Port),
-		db.WithDbUser(ourCfg.Db.User),
-		db.WithDbPassword(ourCfg.Db.Password),
-		db.WithDbName(ourCfg.Db.Name),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	streamer, err := gstream.NewStreamer(
-		pub.WithProjectId(ourCfg.Streamer.Project),
-		pub.WithTopicId(ourCfg.Streamer.Topic),
 	)
 	if err != nil {
 		return nil, err

@@ -10,12 +10,16 @@ import (
 )
 
 func CreateDb() (*gorm.DB, error) {
-	return db.Open(
-		db.WithDbUser("es"),
-		db.WithDbPassword("es"),
-		db.WithDbName("eventstore"),
-		db.WithDebug(true),
-	)
+	cfg := &db.Config{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "es",
+		Password: "es",
+		Name:     "eventstore",
+		Debug:    true,
+	}
+
+	return db.Open(cfg)
 }
 
 func CreateApiServer() (store.StoreServer, error) {

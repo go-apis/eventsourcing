@@ -17,46 +17,18 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type ServerDbConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Name     string
-	Debug    bool
-}
-
-type ServerConfig struct {
-	Db ServerDbConfig
-}
-
-func NewServerConfig() *ServerConfig {
-	return &ServerConfig{
-		Db: ServerDbConfig{
-			Host:     "localhost",
-			Port:     5432,
-			User:     "es",
-			Password: "es",
-			Name:     "eventstore",
-			Debug:    true,
-		},
-	}
+type Config struct {
+	Db db.Config
+	// Streamer f.Config
 }
 
 func NewServer(ctx context.Context, cfg *config.Config) (srv.Startable, error) {
-	srvCfg := NewServerConfig()
-	if err := cfg.Parse(srvCfg); err != nil {
+	ourCfg := &Config{}
+	if err := cfg.Parse(ourCfg); err != nil {
 		return nil, err
 	}
 
-	gormDb, err := db.Open(
-		db.WithDbHost(srvCfg.Db.Host),
-		db.WithDbPort(srvCfg.Db.Port),
-		db.WithDbUser(srvCfg.Db.User),
-		db.WithDbPassword(srvCfg.Db.Password),
-		db.WithDbName(srvCfg.Db.Name),
-		db.WithDebug(srvCfg.Db.Debug),
-	)
+	gormDb, err := db.Open(&ourCfg.Db)
 	if err != nil {
 		return nil, err
 	}

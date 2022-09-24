@@ -3,6 +3,8 @@ package es
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/contextcloud/eventstore/es/providers"
 )
 
 type AggregateConfig struct {
@@ -145,10 +147,10 @@ func (c *config) config(item interface{}) error {
 	}
 }
 
-func NewConfig(serviceName string, serviceVersion string, items ...interface{}) (Config, error) {
+func NewConfig(pCfg *providers.Config, items ...interface{}) (Config, error) {
 	cfg := &config{
-		serviceName:    serviceName,
-		serviceVersion: serviceVersion,
+		serviceName:    pCfg.ServiceName,
+		serviceVersion: pCfg.Version,
 	}
 
 	for _, item := range items {

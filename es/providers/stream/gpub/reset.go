@@ -1,4 +1,4 @@
-package g
+package gpub
 
 import (
 	"context"
@@ -7,19 +7,14 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-func Reset(opts ...OptionFunc) error {
-	o := NewOptions()
-	for _, opt := range opts {
-		opt(o)
-	}
-
+func Reset(cfg *Config) error {
 	ctx := context.Background()
-	cli, err := pubsub.NewClient(ctx, o.ProjectId)
+	cli, err := pubsub.NewClient(ctx, cfg.ProjectId)
 	if err != nil {
 		return err
 	}
 
-	topic := cli.Topic(o.TopicId)
+	topic := cli.Topic(cfg.TopicId)
 	ok, err := topic.Exists(ctx)
 	if err != nil {
 		return err

@@ -1,20 +1,19 @@
-package g
+package gpub
 
 import (
 	"context"
 	"fmt"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/contextcloud/eventstore/es/gstream"
+	"github.com/contextcloud/eventstore/es"
 )
 
 type client struct {
-	opts  *Options
 	cli   *pubsub.Client
 	topic *pubsub.Topic
 }
 
-func (c *client) Subscription(ctx context.Context, suffix string) (gstream.Subscription, error) {
+func (c *client) Subscription(ctx context.Context, suffix string) (es.Subscription, error) {
 	if c.topic == nil {
 		return nil, fmt.Errorf("topic is nil")
 	}

@@ -1,4 +1,4 @@
-package g
+package tests
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/es/gstream"
+	"github.com/contextcloud/eventstore/es/providers/stream/gpub"
 	"github.com/google/uuid"
 )
 
@@ -29,22 +29,22 @@ func Test_It(t *testing.T) {
 		},
 	}
 
-	pubOpts := []OptionFunc{
-		WithProjectId("nordic-gaming"),
-		WithTopicId("test_topic"),
+	cfg := &gpub.Config{
+		ProjectId: "nordic-gaming",
+		TopicId:   "test_topic",
 	}
-	if err := Reset(pubOpts...); err != nil {
+	if err := gpub.Reset(cfg); err != nil {
 		t.Error(err)
 		return
 	}
 
-	cli, err := Open(pubOpts...)
+	cli, err := gpub.Open(cfg)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	streamer, err := gstream.NewStreamer(cli)
+	streamer, err := es.NewStreamer(cli)
 	if err != nil {
 		t.Error(err)
 		return
