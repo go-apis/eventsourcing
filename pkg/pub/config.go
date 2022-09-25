@@ -1,4 +1,4 @@
-package gpub
+package pub
 
 type Config struct {
 	ProjectId string

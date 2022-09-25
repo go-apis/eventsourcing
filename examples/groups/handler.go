@@ -10,8 +10,6 @@ import (
 	"github.com/contextcloud/eventstore/examples/groups/commands"
 	"github.com/contextcloud/eventstore/examples/groups/events"
 	"github.com/contextcloud/eventstore/examples/groups/sagas"
-	"github.com/contextcloud/eventstore/pkg/db"
-	"github.com/contextcloud/eventstore/pkg/pub"
 	"github.com/contextcloud/graceful/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -21,26 +19,6 @@ import (
 func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 	pCfg := &providers.Config{}
 	if err := cfg.Parse(pCfg); err != nil {
-		return nil, err
-	}
-
-	gormDb, err := db.Open(&ourCfg.Db)
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := local.NewConn(gormDb)
-	if err != nil {
-		return nil, err
-	}
-
-	gpub, err := gstream.Open(&ourCfg.Streamer)
-	if err != nil {
-		return nil, err
-	}
-
-	streamer, err := pub.NewStreamer(gpub)
-	if err != nil {
 		return nil, err
 	}
 
@@ -65,7 +43,7 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	cli, err := es.NewClient(esCfg, conn, streamer)
+	cli, err := es.NewClient(esCfg)
 	if err != nil {
 		return nil, err
 	}

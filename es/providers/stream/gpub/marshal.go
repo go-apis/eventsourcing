@@ -1,14 +1,15 @@
-package es
+package gpub
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/contextcloud/eventstore/es"
 	"go.opentelemetry.io/otel"
 )
 
-func MarshalEvent(ctx context.Context, event *Event) ([]byte, error) {
+func MarshalEvent(ctx context.Context, event *es.Event) ([]byte, error) {
 	_, span := otel.Tracer("local").Start(ctx, "MarshalEvent")
 	defer span.End()
 
@@ -21,12 +22,12 @@ func MarshalEvent(ctx context.Context, event *Event) ([]byte, error) {
 	return b, nil
 }
 
-func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*Event, error) {
+func UnmarshalEvent(ctx context.Context, mappers map[string]es.EventDataFunc, b []byte) (*es.Event, error) {
 	_, span := otel.Tracer("local").Start(ctx, "UnmarshalEvent")
 	defer span.End()
 
 	out := struct {
-		*Event
+		*es.Event
 
 		Data json.RawMessage `json:"data"`
 	}{}
@@ -49,7 +50,7 @@ func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []b
 		return nil, fmt.Errorf("Could not decode event: %w", err)
 	}
 
-	evt := &Event{
+	evt := &es.Event{
 		ServiceName:   out.ServiceName,
 		Namespace:     out.Namespace,
 		AggregateId:   out.AggregateId,

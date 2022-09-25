@@ -1,4 +1,4 @@
-package gpub
+package pub
 
 import (
 	"context"

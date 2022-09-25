@@ -7,8 +7,6 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/es/gstream"
-	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/pkg/db"
@@ -46,40 +44,23 @@ func Zipkin() (Shutdown, error) {
 	return tp.Shutdown, nil
 }
 
-func LocalConn() (es.Conn, error) {
-	cfg := &db.Config{
+func Reset() error {
+	if err := db.Reset(&db.Config{
 		Host:     "localhost",
 		Port:     5432,
 		User:     "es",
 		Password: "es",
 		Name:     "eventstore",
+	}); err != nil {
+		return err
 	}
-
-	if err := db.Reset(cfg); err != nil {
-		return nil, err
-	}
-
-	gormDb, err := db.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return local.NewConn(gormDb)
-}
-
-func PubSubStreamer() (es.Streamer, error) {
-	cfg := &gstream.Config{
+	if err := pub.Reset(&pub.Config{
 		ProjectId: "nordic-gaming",
 		TopicId:   "test_topic",
+	}); err != nil {
+		return err
 	}
-	if err := gstream.Reset(cfg); err != nil {
-		return nil, err
-	}
-	gpub, err := gstream.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return pub.NewStreamer(gpub)
+	return nil
 }
 
 func QueryUsers(ctx context.Context, userId uuid.UUID) error {

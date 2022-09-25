@@ -68,7 +68,7 @@ func (a *Community) Handle(ctx context.Context, cmd es.Command) error {
 	case *commands.CommunityDeleteCommand:
 		return a.handleCommunityDeleteCommand(ctx, c)
 	}
-	return fmt.Errorf("Unknown command %T", cmd)
+	return fmt.Errorf("unknown command %T", cmd)
 }
 
 func (a *Community) handleCommunityNewCommand(ctx context.Context, cmd *commands.CommunityNewCommand) error {

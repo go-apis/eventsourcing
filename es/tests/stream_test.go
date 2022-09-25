@@ -8,6 +8,7 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/providers/stream/gpub"
+	"github.com/contextcloud/eventstore/pkg/pub"
 	"github.com/google/uuid"
 )
 
@@ -29,22 +30,22 @@ func Test_It(t *testing.T) {
 		},
 	}
 
-	cfg := &gpub.Config{
+	cfg := &pub.Config{
 		ProjectId: "nordic-gaming",
 		TopicId:   "test_topic",
 	}
-	if err := gpub.Reset(cfg); err != nil {
+	if err := pub.Reset(cfg); err != nil {
 		t.Error(err)
 		return
 	}
 
-	cli, err := gpub.Open(cfg)
+	cli, err := pub.Open(cfg)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	streamer, err := es.NewStreamer(cli)
+	streamer, err := gpub.NewStreamer(cli)
 	if err != nil {
 		t.Error(err)
 		return

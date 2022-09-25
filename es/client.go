@@ -229,7 +229,10 @@ func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
 	return c.streamer.Publish(pctx, evts...)
 }
 
-func NewClient(cfg Config, conn Conn, streamer Streamer) (Client, error) {
+func NewClient(cfg Config) (Client, error) {
+	var conn Conn
+	var streamer Streamer
+
 	cli := &client{
 		cfg:             cfg,
 		conn:            conn,

@@ -1,8 +1,8 @@
 package stream
 
-import "github.com/contextcloud/eventstore/es/providers/stream/gpub"
+import "github.com/contextcloud/eventstore/pkg/pub"
 
 type Config struct {
 	Type   string
-	Stream *gpub.Config
+	Stream *pub.Config
 }
