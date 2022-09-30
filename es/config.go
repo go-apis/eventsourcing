@@ -4,8 +4,29 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/contextcloud/eventstore/es/providers"
+	"github.com/contextcloud/eventstore/pkg/gcppubsub"
+	"github.com/contextcloud/eventstore/pkg/natspubsub"
+	"github.com/contextcloud/eventstore/pkg/pgdb"
 )
+
+type StreamConfig struct {
+	Type   string
+	PubSub *gcppubsub.Config
+	Nats   *natspubsub.Config
+}
+
+type DataConfig struct {
+	Type string
+	Pg   *pgdb.Config
+}
+
+type ProviderConfig struct {
+	ServiceName string
+	Version     string
+
+	Data   DataConfig
+	Stream StreamConfig
+}
 
 type AggregateConfig struct {
 	EntityOptions []EntityOption
@@ -54,28 +75,23 @@ type CommandHandlerConfig struct {
 }
 
 type Config interface {
-	GetServiceName() string
-	GetServiceVersion() string
+	GetProviderConfig() *ProviderConfig
 	GetEntities() []*EntityConfig
 	GetCommandHandlers() []*CommandHandlerConfig
 	GetEventHandlers() []*EventHandlerConfig
 }
 
 type config struct {
-	serviceName    string
-	serviceVersion string
-
+	providerConfig  *ProviderConfig
 	entities        []*EntityConfig
 	commandHandlers []*CommandHandlerConfig
 	eventHandlers   []*EventHandlerConfig
 }
 
-func (c config) GetServiceName() string {
-	return c.serviceName
+func (c config) GetProviderConfig() *ProviderConfig {
+	return c.providerConfig
 }
-func (c config) GetServiceVersion() string {
-	return c.serviceVersion
-}
+
 func (c config) GetEntities() []*EntityConfig {
 	return c.entities
 }
@@ -147,10 +163,9 @@ func (c *config) config(item interface{}) error {
 	}
 }
 
-func NewConfig(pCfg *providers.Config, items ...interface{}) (Config, error) {
+func NewConfig(pcfg *ProviderConfig, items ...interface{}) (Config, error) {
 	cfg := &config{
-		serviceName:    pCfg.ServiceName,
-		serviceVersion: pCfg.Version,
+		providerConfig: pcfg,
 	}
 
 	for _, item := range items {

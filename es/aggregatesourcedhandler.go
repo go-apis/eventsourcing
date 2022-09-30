@@ -19,9 +19,7 @@ func (b *sourcedAggregateHandler) inner(ctx context.Context, entity Entity, cmd 
 	}
 
 	if b.handles != nil {
-		if err := b.handles.Handle(entity, ctx, cmd); err != nil {
-			return err
-		}
+		return b.handles.Handle(entity, ctx, cmd)
 	}
 
 	return fmt.Errorf("no handler for command: %T", cmd)

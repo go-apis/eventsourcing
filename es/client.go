@@ -30,7 +30,8 @@ type client struct {
 }
 
 func (c *client) GetServiceName() string {
-	return c.cfg.GetServiceName()
+	pcfg := c.cfg.GetProviderConfig()
+	return pcfg.ServiceName
 }
 
 func (c *client) GetEntityConfig(name string) (*EntityConfig, error) {
@@ -61,7 +62,7 @@ func (c *client) Initialize(ctx context.Context) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "Initialize")
 	defer pspan.End()
 
-	serviceName := c.cfg.GetServiceName()
+	pcfg := c.cfg.GetProviderConfig()
 
 	events := make(map[reflect.Type]bool)
 	eventHandlers := c.cfg.GetEventHandlers()
@@ -105,7 +106,7 @@ func (c *client) Initialize(ctx context.Context) error {
 	}
 
 	initOpts := InitializeOptions{
-		ServiceName:   serviceName,
+		ServiceName:   pcfg.ServiceName,
 		EntityConfigs: entities,
 		EventConfigs:  eventConfigs,
 	}
@@ -230,8 +231,20 @@ func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
 }
 
 func NewClient(cfg Config) (Client, error) {
-	var conn Conn
-	var streamer Streamer
+	pcfg := cfg.GetProviderConfig()
+	if pcfg == nil {
+		return nil, fmt.Errorf("provider config not set")
+	}
+
+	conn, err := GetConn(pcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	streamer, err := GetStreamer(pcfg)
+	if err != nil {
+		return nil, err
+	}
 
 	cli := &client{
 		cfg:             cfg,

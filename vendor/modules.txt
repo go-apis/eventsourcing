@@ -210,6 +210,17 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/mitchellh/mapstructure v1.5.0
 ## explicit; go 1.14
 github.com/mitchellh/mapstructure
+# github.com/nats-io/nats.go v1.17.0
+## explicit; go 1.16
+github.com/nats-io/nats.go
+github.com/nats-io/nats.go/encoders/builtin
+github.com/nats-io/nats.go/util
+# github.com/nats-io/nkeys v0.3.0
+## explicit; go 1.16
+github.com/nats-io/nkeys
+# github.com/nats-io/nuid v1.0.1
+## explicit
+github.com/nats-io/nuid
 # github.com/openzipkin/zipkin-go v0.4.0
 ## explicit; go 1.14
 github.com/openzipkin/zipkin-go/model
@@ -380,6 +391,7 @@ go.uber.org/atomic
 go.uber.org/multierr
 # golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 ## explicit; go 1.17
+golang.org/x/crypto/ed25519
 golang.org/x/crypto/pbkdf2
 # golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3
 ## explicit; go 1.17

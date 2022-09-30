@@ -7,7 +7,7 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 
@@ -56,16 +56,19 @@ func (t *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 	pctx, span := otel.Tracer("local").Start(ctx, "LoadSnapshot")
 	defer span.End()
 
-	var snapshot db.Snapshot
+	var snapshot pgdb.Snapshot
 	r := t.getDb().
 		WithContext(pctx).
-		Model(&db.Snapshot{}).
+		Model(&pgdb.Snapshot{}).
 		Where("service_name = ?", search.ServiceName).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
 		Where("aggregate_id = ?", search.AggregateId).
 		Where("revision = ?", search.Revision).
 		First(&snapshot)
+	if r.Error == gorm.ErrRecordNotFound {
+		return nil
+	}
 	if r.Error != nil {
 		return r.Error
 	}
@@ -93,7 +96,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 		return err
 	}
 
-	obj := &db.Snapshot{
+	obj := &pgdb.Snapshot{
 		ServiceName:   snapshot.ServiceName,
 		Namespace:     snapshot.Namespace,
 		AggregateId:   snapshot.AggregateId,
@@ -111,7 +114,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	return out.Error
 }
 
-func (d *data) loadData(mappers es.EventDataMapper, evt *db.Event) (interface{}, error) {
+func (d *data) loadData(mappers es.EventDataMapper, evt *pgdb.Event) (interface{}, error) {
 	mapper, ok := mappers[evt.Type]
 	if !ok {
 		return evt.Data, nil
@@ -137,7 +140,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 		WithContext(pctx)
 
 	rows, err := g.
-		Model(&db.Event{}).
+		Model(&pgdb.Event{}).
 		Where("service_name = ?", search.ServiceName).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
@@ -152,7 +155,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 
 	var events []*es.Event
 	for rows.Next() {
-		var evt db.Event
+		var evt pgdb.Event
 		// ScanRows is a method of `gorm.DB`, it can be used to scan a row into a struct
 		if err := g.ScanRows(rows, &evt); err != nil {
 			return nil, err
@@ -191,14 +194,14 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		return nil // nothing to save
 	}
 
-	evts := make([]*db.Event, len(events))
+	evts := make([]*pgdb.Event, len(events))
 	for i, d := range events {
 		raw, err := json.Marshal(d.Data)
 		if err != nil {
 			return err
 		}
 
-		evts[i] = &db.Event{
+		evts[i] = &pgdb.Event{
 			ServiceName:   d.ServiceName,
 			Namespace:     d.Namespace,
 			AggregateId:   d.AggregateId,
@@ -224,7 +227,7 @@ func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := db.TableName(serviceName, aggregateName)
+	table := pgdb.TableName(serviceName, aggregateName)
 	out := t.getDb().
 		WithContext(pctx).
 		Table(table).
@@ -240,7 +243,7 @@ func (t *data) Load(ctx context.Context, serviceName string, aggregateName strin
 	pctx, span := otel.Tracer("local").Start(ctx, "Load")
 	defer span.End()
 
-	table := db.TableName(serviceName, aggregateName)
+	table := pgdb.TableName(serviceName, aggregateName)
 
 	r := t.getDb().
 		WithContext(pctx).
@@ -254,7 +257,7 @@ func (t *data) Find(ctx context.Context, serviceName string, aggregateName strin
 	pctx, span := otel.Tracer("local").Start(ctx, "Find")
 	defer span.End()
 
-	table := db.TableName(serviceName, aggregateName)
+	table := pgdb.TableName(serviceName, aggregateName)
 	q := t.getDb().
 		WithContext(pctx).
 		Table(table).
@@ -288,7 +291,7 @@ func (t *data) Count(ctx context.Context, serviceName string, aggregateName stri
 
 	var totalRows int64
 
-	table := db.TableName(serviceName, aggregateName)
+	table := pgdb.TableName(serviceName, aggregateName)
 	q := t.getDb().
 		WithContext(pctx).
 		Table(table).

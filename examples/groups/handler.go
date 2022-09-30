@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 
+	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/es/providers"
 	"github.com/contextcloud/eventstore/examples/groups/aggregates"
 	"github.com/contextcloud/eventstore/examples/groups/commands"
 	"github.com/contextcloud/eventstore/examples/groups/events"
@@ -17,7 +20,7 @@ import (
 )
 
 func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
-	pCfg := &providers.Config{}
+	pCfg := &es.ProviderConfig{}
 	if err := cfg.Parse(pCfg); err != nil {
 		return nil, err
 	}

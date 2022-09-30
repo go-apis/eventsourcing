@@ -3,7 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/contextcloud/eventstore/es"
+	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"github.com/contextcloud/eventstore/server/core"
 	"github.com/contextcloud/eventstore/server/pb"
 	"github.com/contextcloud/eventstore/server/pb/store"
@@ -17,18 +18,13 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type Config struct {
-	Db db.Config
-	// Streamer f.Config
-}
-
 func NewServer(ctx context.Context, cfg *config.Config) (srv.Startable, error) {
-	ourCfg := &Config{}
-	if err := cfg.Parse(ourCfg); err != nil {
+	pcfg := &es.ProviderConfig{}
+	if err := cfg.Parse(pcfg); err != nil {
 		return nil, err
 	}
 
-	gormDb, err := db.Open(&ourCfg.Db)
+	gormDb, err := pgdb.Open(pcfg.Data.Pg)
 	if err != nil {
 		return nil, err
 	}

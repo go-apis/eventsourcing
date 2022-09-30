@@ -4,14 +4,13 @@ import (
 	"context"
 	"testing"
 
+	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/es/providers"
-	"github.com/contextcloud/eventstore/es/providers/data"
-	"github.com/contextcloud/eventstore/es/providers/stream"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/sagas"
-	"github.com/contextcloud/eventstore/pkg/db"
-	"github.com/contextcloud/eventstore/pkg/pub"
 	"go.opentelemetry.io/otel"
 )
 
@@ -19,36 +18,17 @@ func Test_Local(t *testing.T) {
 	shutdown, err := Zipkin()
 	if err != nil {
 		t.Error(err)
+		return
 	}
-	if err := Reset(); err != nil {
+
+	pcfg, err := Provider()
+	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	pCfg := &providers.Config{
-		ServiceName: "users",
-		Version:     "v1",
-		Data: data.Config{
-			Type: "pg",
-			Pg: &db.Config{
-				Host:     "localhost",
-				Port:     5432,
-				User:     "es",
-				Password: "es",
-				Name:     "eventstore",
-			},
-		},
-		Stream: stream.Config{
-			Type: "gpub",
-			Stream: &pub.Config{
-				ProjectId: "nordic-gaming",
-				TopicId:   "test_topic",
-			},
-		},
-	}
-
 	cfg, err := es.NewConfig(
-		pCfg,
+		pcfg,
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
@@ -100,35 +80,14 @@ func Test_Local(t *testing.T) {
 }
 
 func Benchmark_CreateUsers(b *testing.B) {
-	if err := Reset(); err != nil {
+	pcfg, err := Provider()
+	if err != nil {
 		b.Error(err)
 		return
 	}
 
-	pCfg := &providers.Config{
-		ServiceName: "users",
-		Version:     "v1",
-		Data: data.Config{
-			Type: "pg",
-			Pg: &db.Config{
-				Host:     "localhost",
-				Port:     5432,
-				User:     "es",
-				Password: "es",
-				Name:     "eventstore",
-			},
-		},
-		Stream: stream.Config{
-			Type: "gpub",
-			Stream: &pub.Config{
-				ProjectId: "nordic-gaming",
-				TopicId:   "test_topic",
-			},
-		},
-	}
-
 	cfg, err := es.NewConfig(
-		pCfg,
+		pcfg,
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),

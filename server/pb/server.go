@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"github.com/contextcloud/eventstore/server/pb/store"
 	"github.com/contextcloud/eventstore/server/pb/streams"
 	"github.com/contextcloud/eventstore/server/pb/transactions"
@@ -86,7 +86,7 @@ func (s server) Events(ctx context.Context, req *store.EventsRequest) (*store.Ev
 	var evts []*store.Event
 
 	q := d.WithContext(ctx).
-		Model(&db.Event{}).
+		Model(&pgdb.Event{}).
 		Order("version").
 		Where("service_name = ?", req.ServiceName)
 

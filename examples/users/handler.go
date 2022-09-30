@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/es/providers"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/examples/users/sagas"
@@ -41,7 +44,7 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 }
 
 func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
-	pCfg := &providers.Config{}
+	pCfg := &es.ProviderConfig{}
 	if err := cfg.Parse(pCfg); err != nil {
 		return nil, err
 	}

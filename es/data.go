@@ -30,6 +30,8 @@ type SnapshotSearch struct {
 	Revision      string
 }
 
+type ConnFactory func(cfg DataConfig) (Conn, error)
+
 type Conn interface {
 	Initialize(ctx context.Context, opts InitializeOptions) error
 	NewData(ctx context.Context) (Data, error)

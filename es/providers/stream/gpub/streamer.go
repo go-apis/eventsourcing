@@ -7,7 +7,7 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/pkg/pub"
+	"github.com/contextcloud/eventstore/pkg/gcppubsub"
 	"go.opentelemetry.io/otel"
 )
 
@@ -22,11 +22,11 @@ func wrapped(callback func(context.Context, []byte) error) func(ctx context.Cont
 }
 
 type streamer struct {
-	p *pub.Pub
+	p *gcppubsub.Pub
 }
 
 func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callback es.EventCallback) error {
-	pctx, span := otel.Tracer("gstream").Start(ctx, "Start")
+	pctx, span := otel.Tracer("gpub").Start(ctx, "Start")
 	defer span.End()
 
 	if len(opts.ServiceName) == 0 {
@@ -47,10 +47,10 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 	}
 
 	handle := func(ctx context.Context, data []byte) error {
-		pctx, span := otel.Tracer("gstream").Start(ctx, "Handle")
+		pctx, span := otel.Tracer("gpub").Start(ctx, "Handle")
 		defer span.End()
 
-		evt, err := UnmarshalEvent(pctx, mapper, data)
+		evt, err := es.UnmarshalEvent(pctx, mapper, data)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 	// is this blocking?
 	go func() {
 		ctx := context.Background()
-		pctx, span := otel.Tracer("gstream").Start(ctx, "Receive")
+		pctx, span := otel.Tracer("gpub").Start(ctx, "Receive")
 		defer span.End()
 
 		if err := sub.Receive(pctx, wrapped(handle)); err != nil {
@@ -82,12 +82,12 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 }
 
 func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
-	pctx, span := otel.Tracer("gstream").Start(ctx, "Publish")
+	pctx, span := otel.Tracer("gpub").Start(ctx, "Publish")
 	defer span.End()
 
 	datums := make([][]byte, len(evt))
 	for i, e := range evt {
-		data, err := MarshalEvent(ctx, e)
+		data, err := es.MarshalEvent(ctx, e)
 		if err != nil {
 			return err
 		}
@@ -106,13 +106,13 @@ func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
 }
 
 func (s *streamer) Close(ctx context.Context) error {
-	_, span := otel.Tracer("gstream").Start(ctx, "Close")
+	_, span := otel.Tracer("gpub").Start(ctx, "Close")
 	defer span.End()
 
 	return s.p.Close()
 }
 
-func NewStreamer(p *pub.Pub) (es.Streamer, error) {
+func NewStreamer(p *gcppubsub.Pub) (es.Streamer, error) {
 	return &streamer{
 		p: p,
 	}, nil
