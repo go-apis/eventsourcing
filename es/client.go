@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 )
@@ -11,7 +12,7 @@ import (
 type Client interface {
 	GetServiceName() string
 	GetEntityConfig(name string) (*EntityConfig, error)
-	Initialize(ctx context.Context) error
+	GetCommandConfig(name string) (*CommandConfig, error)
 	Unit(ctx context.Context) (Unit, error)
 
 	HandleCommands(ctx context.Context, cmds ...Command) error
@@ -25,6 +26,7 @@ type client struct {
 	streamer Streamer
 
 	entityConfigs   map[string]*EntityConfig
+	commandConfigs  map[string]*CommandConfig
 	commandHandlers map[reflect.Type]CommandHandler
 	eventHandlers   map[reflect.Type][]EventHandler
 }
@@ -35,11 +37,19 @@ func (c *client) GetServiceName() string {
 }
 
 func (c *client) GetEntityConfig(name string) (*EntityConfig, error) {
-	if opts, ok := c.entityConfigs[name]; ok {
-		return opts, nil
+	if cfg, ok := c.entityConfigs[strings.ToLower(name)]; ok {
+		return cfg, nil
 	}
 
 	return nil, fmt.Errorf("entity config not found: %s", name)
+}
+
+func (c *client) GetCommandConfig(name string) (*CommandConfig, error) {
+	if cfg, ok := c.commandConfigs[strings.ToLower(name)]; ok {
+		return cfg, nil
+	}
+
+	return nil, fmt.Errorf("command config not found: %s", name)
 }
 
 func (c *client) Unit(ctx context.Context) (Unit, error) {
@@ -58,56 +68,44 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 	return newUnit(c, data)
 }
 
-func (c *client) Initialize(ctx context.Context) error {
+func (c *client) initialize(ctx context.Context) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "Initialize")
 	defer pspan.End()
 
 	pcfg := c.cfg.GetProviderConfig()
 
-	events := make(map[reflect.Type]bool)
 	eventHandlers := c.cfg.GetEventHandlers()
 	for _, eh := range eventHandlers {
 		handler := eh.handler
-		for _, evt := range eh.events {
-			events[evt] = true
-			c.eventHandlers[evt] = append(c.eventHandlers[evt], handler)
+		for _, evt := range eh.eventConfigs {
+			c.eventHandlers[evt.Type] = append(c.eventHandlers[evt.Type], handler)
 		}
-	}
-
-	entities := c.cfg.GetEntities()
-	for _, entityConfig := range entities {
-		c.entityConfigs[entityConfig.Name] = entityConfig
 	}
 
 	commandHandlers := c.cfg.GetCommandHandlers()
+	commandHandlerMiddlewares := c.cfg.GetCommandHandlerMiddlewares()
 	for _, ch := range commandHandlers {
-		handler := ch.handler
-		for _, cmd := range ch.commands {
-			c.commandHandlers[cmd] = handler
+		handler := UseCommandHandlerMiddleware(ch.handler, commandHandlerMiddlewares...)
+		for _, cmd := range ch.commandConfigs {
+			c.commandHandlers[cmd.Type] = handler
 		}
 	}
 
-	eventConfigs := []*EventConfig{}
-	for t := range events {
-		r := t
-		for r.Kind() == reflect.Ptr {
-			r = r.Elem()
-		}
-		name := r.Name()
-		factory := func() (interface{}, error) {
-			out := reflect.New(r).Interface()
-			return out, nil
-		}
-		eventConfigs = append(eventConfigs, &EventConfig{
-			Name:    name,
-			Type:    r,
-			Factory: factory,
-		})
+	entityConfigs := c.cfg.GetEntityConfigs()
+	for _, entityConfig := range entityConfigs {
+		key := strings.ToLower(entityConfig.Name)
+		c.entityConfigs[key] = entityConfig
 	}
+	commandConfigs := c.cfg.GetCommandConfigs()
+	for _, commandConfig := range commandConfigs {
+		key := strings.ToLower(commandConfig.Name)
+		c.commandConfigs[key] = commandConfig
+	}
+	eventConfigs := c.cfg.GetEventConfigs()
 
 	initOpts := InitializeOptions{
 		ServiceName:   pcfg.ServiceName,
-		EntityConfigs: entities,
+		EntityConfigs: entityConfigs,
 		EventConfigs:  eventConfigs,
 	}
 
@@ -157,6 +155,10 @@ func (c *client) handleCommand(ctx context.Context, cmd Command) error {
 	defer pspan.End()
 
 	t := reflect.TypeOf(cmd)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
 	h, ok := c.commandHandlers[t]
 	if !ok {
 		return fmt.Errorf("command handler not found: %v", t)
@@ -230,7 +232,7 @@ func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
 	return c.streamer.Publish(pctx, evts...)
 }
 
-func NewClient(cfg Config) (Client, error) {
+func NewClient(ctx context.Context, cfg Config) (Client, error) {
 	pcfg := cfg.GetProviderConfig()
 	if pcfg == nil {
 		return nil, fmt.Errorf("provider config not set")
@@ -251,8 +253,13 @@ func NewClient(cfg Config) (Client, error) {
 		conn:            conn,
 		streamer:        streamer,
 		entityConfigs:   make(map[string]*EntityConfig),
+		commandConfigs:  make(map[string]*CommandConfig),
 		commandHandlers: map[reflect.Type]CommandHandler{},
 		eventHandlers:   map[reflect.Type][]EventHandler{},
+	}
+
+	if err := cli.initialize(ctx); err != nil {
+		return nil, err
 	}
 
 	return cli, nil

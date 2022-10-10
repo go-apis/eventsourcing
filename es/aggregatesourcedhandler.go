@@ -45,6 +45,9 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 		if err := b.inner(pctx, agg, cmd); err != nil {
 			return err
 		}
+
+		// what about owner
+		// what about parent
 	}
 
 	if err := unit.Save(pctx, b.name, agg); err != nil {

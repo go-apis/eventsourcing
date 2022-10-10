@@ -31,7 +31,6 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		sagas.NewUserSaga(),
 		es.NewAggregateConfig(
 			&aggregates.Community{},
-			es.EntityDisableProject(),
 			es.EntitySnapshotEvery(1),
 			es.EntityEventTypes(
 				&events.CommunityCreated{},
@@ -46,12 +45,8 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	cli, err := es.NewClient(esCfg)
+	cli, err := es.NewClient(ctx, esCfg)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := cli.Initialize(ctx); err != nil {
 		return nil, err
 	}
 
@@ -59,8 +54,7 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 	r.Use(otelchi.Middleware("server", otelchi.WithChiRoutes(r)))
 	r.Use(es.CreateUnit(cli))
 	r.Use(middleware.Logger)
-	r.Post("/commands/newcommunity", es.NewCommander[*commands.CommunityNewCommand]())
-	r.Post("/commands/creategroup", es.NewCommander[*commands.CreateGroup]())
+	r.Post("/commands/{name}", es.NewCommanders(nil))
 
 	return r, nil
 }

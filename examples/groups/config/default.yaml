@@ -3,12 +3,16 @@ tracing:
   enabled: true
   type: zipkin
   url: http://localhost:9411/api/v1/spans
-db:
-  host: localhost
-  port: 5432
-  user: es
-  password: mysecret
-  name: eventstore
-streamer:
-  project: nordic-gaming
-  topic: eventstore-examples
+data:
+  type: pg
+  pg:
+    host: localhost
+    port: 5432
+    user: es
+    password: mysecret
+    name: eventstore
+stream:
+  type: "pubsub"
+  pubsub:
+    projectid: nordic-gaming
+    topicid: eventstore-examples

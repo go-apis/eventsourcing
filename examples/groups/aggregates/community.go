@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
+	"github.com/google/uuid"
 
 	"github.com/contextcloud/eventstore/examples/groups/commands"
 	"github.com/contextcloud/eventstore/examples/groups/events"
@@ -15,16 +16,16 @@ import (
 
 var (
 	// ErrInvalidState protecting the aggregate
-	ErrInvalidState = errors.New("Invalid state")
+	ErrInvalidState = errors.New("invalid state")
 
 	// ErrForbidden when the user doesn't have perms to perform that action
-	ErrForbidden = errors.New("Forbidden")
+	ErrForbidden = errors.New("forbidden")
 
 	// ErrAlreadyAdded you can't add a member who exists right?
-	ErrAlreadyAdded = errors.New("When a member already exists")
+	ErrAlreadyAdded = errors.New("when a member already exists")
 
 	// ErrNotAdded you can't update a member who doesn't exist right?
-	ErrNotAdded = errors.New("When a member doesn't exist")
+	ErrNotAdded = errors.New("when a member doesn't exist")
 )
 
 const (
@@ -33,7 +34,7 @@ const (
 	RoleIdMod       = "mod"
 )
 
-func StaffIndex(staff []*models.StaffMemberModel, id string) int {
+func StaffIndex(staff []*models.StaffMemberModel, id uuid.UUID) int {
 	for i, s := range staff {
 		if s.Id == id {
 			return i

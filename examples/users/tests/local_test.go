@@ -38,17 +38,12 @@ func Test_Local(t *testing.T) {
 		return
 	}
 
-	cli, err := es.NewClient(cfg)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
 	ctx := context.Background()
 	pctx, pspan := otel.Tracer("test").Start(ctx, "Local")
 	defer pspan.End()
 
-	if err := cli.Initialize(pctx); err != nil {
+	cli, err := es.NewClient(pctx, cfg)
+	if err != nil {
 		t.Error(err)
 		return
 	}
@@ -97,14 +92,9 @@ func Benchmark_CreateUsers(b *testing.B) {
 		return
 	}
 
-	cli, err := es.NewClient(cfg)
-	if err != nil {
-		b.Error(err)
-		return
-	}
-
 	pctx := context.Background()
-	if err := cli.Initialize(pctx); err != nil {
+	cli, err := es.NewClient(pctx, cfg)
+	if err != nil {
 		b.Error(err)
 		return
 	}

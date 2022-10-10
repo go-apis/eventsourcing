@@ -10,3 +10,8 @@ func GetElemType(source interface{}) reflect.Type {
 	}
 	return rawType
 }
+
+func GetTypeName(source interface{}) string {
+	raw := GetElemType(source)
+	return raw.Name()
+}

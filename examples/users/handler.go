@@ -59,12 +59,8 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	cli, err := es.NewClient(esCfg)
+	cli, err := es.NewClient(ctx, esCfg)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := cli.Initialize(ctx); err != nil {
 		return nil, err
 	}
 
