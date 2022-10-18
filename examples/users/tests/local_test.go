@@ -4,8 +4,13 @@ import (
 	"context"
 	"testing"
 
+	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/config"
+	"github.com/contextcloud/eventstore/examples/users/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/sagas"
 	"go.opentelemetry.io/otel"
 )
 
@@ -13,27 +18,21 @@ func Test_Local(t *testing.T) {
 	shutdown, err := Zipkin()
 	if err != nil {
 		t.Error(err)
+		return
 	}
 
-	cfg, err := config.EventStoreConfig()
+	pcfg, err := Provider()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	conn, err := LocalConn()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	streamer, err := PubSubStreamer()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	cli, err := es.NewClient(cfg, conn, streamer)
+	cfg, err := es.NewConfig(
+		pcfg,
+		&aggregates.User{},
+		&aggregates.ExternalUser{},
+		sagas.NewConnectionSaga(),
+	)
 	if err != nil {
 		t.Error(err)
 		return
@@ -43,7 +42,8 @@ func Test_Local(t *testing.T) {
 	pctx, pspan := otel.Tracer("test").Start(ctx, "Local")
 	defer pspan.End()
 
-	if err := cli.Initialize(pctx); err != nil {
+	cli, err := es.NewClient(pctx, cfg)
+	if err != nil {
 		t.Error(err)
 		return
 	}
@@ -75,25 +75,26 @@ func Test_Local(t *testing.T) {
 }
 
 func Benchmark_CreateUsers(b *testing.B) {
-	cfg, err := config.EventStoreConfig()
-	if err != nil {
-		b.Error(err)
-		return
-	}
-	conn, err := LocalConn()
+	pcfg, err := Provider()
 	if err != nil {
 		b.Error(err)
 		return
 	}
 
-	cli, err := es.NewClient(cfg, conn, nil)
+	cfg, err := es.NewConfig(
+		pcfg,
+		&aggregates.User{},
+		&aggregates.ExternalUser{},
+		sagas.NewConnectionSaga(),
+	)
 	if err != nil {
 		b.Error(err)
 		return
 	}
 
 	pctx := context.Background()
-	if err := cli.Initialize(pctx); err != nil {
+	cli, err := es.NewClient(pctx, cfg)
+	if err != nil {
 		b.Error(err)
 		return
 	}

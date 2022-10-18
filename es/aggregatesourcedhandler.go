@@ -19,9 +19,7 @@ func (b *sourcedAggregateHandler) inner(ctx context.Context, entity Entity, cmd 
 	}
 
 	if b.handles != nil {
-		if err := b.handles.Handle(entity, ctx, cmd); err != nil {
-			return err
-		}
+		return b.handles.Handle(entity, ctx, cmd)
 	}
 
 	return fmt.Errorf("no handler for command: %T", cmd)
@@ -47,6 +45,9 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 		if err := b.inner(pctx, agg, cmd); err != nil {
 			return err
 		}
+
+		// what about owner
+		// what about parent
 	}
 
 	if err := unit.Save(pctx, b.name, agg); err != nil {

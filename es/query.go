@@ -139,6 +139,6 @@ func NewQuery[T Entity]() Query[T] {
 	typeOf := utils.GetElemType(item)
 
 	return &query[T]{
-		name: typeOf.String(),
+		name: typeOf.Name(),
 	}
 }

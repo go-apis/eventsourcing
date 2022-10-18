@@ -17,6 +17,17 @@ type IsApplyEvent interface {
 	ApplyEvent(ctx context.Context, evt *Event) error
 }
 
+func toJson(data interface{}) (json.RawMessage, error) {
+	switch t := data.(type) {
+	case []byte:
+		return t, nil
+	case json.RawMessage:
+		return t, nil
+	default:
+		return json.Marshal(t)
+	}
+}
+
 func applyEvents(ctx context.Context, aggregate AggregateSourced, events []*Event) error {
 	for _, evt := range events {
 		aggregate.IncrementVersion()
@@ -29,16 +40,13 @@ func applyEvents(ctx context.Context, aggregate AggregateSourced, events []*Even
 			continue
 		}
 
-		raw, ok := evt.Data.(json.RawMessage)
-		if ok {
-			if err := json.Unmarshal(raw, aggregate); err != nil {
-				return err
-			}
-			continue
+		raw, err := toJson(evt.Data)
+		if err != nil {
+			return err
 		}
-
-		// we have an issue
-		return fmt.Errorf("unable to apply event %s", evt.Type)
+		if err := json.Unmarshal(raw, aggregate); err != nil {
+			return err
+		}
 	}
 
 	return nil

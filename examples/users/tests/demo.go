@@ -7,12 +7,11 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/es/gstream"
-	"github.com/contextcloud/eventstore/es/local"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
-	"github.com/contextcloud/eventstore/pkg/db"
-	"github.com/contextcloud/eventstore/pkg/pub"
+	"github.com/contextcloud/eventstore/pkg/gcppubsub"
+	"github.com/contextcloud/eventstore/pkg/natspubsub"
+	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/zipkin"
@@ -46,29 +45,39 @@ func Zipkin() (Shutdown, error) {
 	return tp.Shutdown, nil
 }
 
-func LocalConn() (es.Conn, error) {
-	opts := []db.OptionFunc{
-		db.WithDbUser("es"),
-		db.WithDbPassword("es"),
-		db.WithDbName("eventstore"),
+func Provider() (*es.ProviderConfig, error) {
+	pcfg := &es.ProviderConfig{
+		ServiceName: "users",
+		Version:     "v1",
+		Data: es.DataConfig{
+			Type: "pg",
+			Pg: &pgdb.Config{
+				Host:     "localhost",
+				Port:     5432,
+				User:     "es",
+				Password: "es",
+				Name:     "eventstore",
+			},
+		},
+		Stream: es.StreamConfig{
+			Type: "nats",
+			PubSub: &gcppubsub.Config{
+				ProjectId: "nordic-gaming",
+				TopicId:   "test_topic",
+			},
+			Nats: &natspubsub.Config{
+				Url:     "nats://localhost:4222",
+				Subject: "test",
+			},
+		},
 	}
-
-	if err := db.Reset(opts...); err != nil {
+	if err := pgdb.Reset(pcfg.Data.Pg); err != nil {
 		return nil, err
 	}
-
-	return local.NewConn(opts...)
-}
-
-func PubSubStreamer() (es.Streamer, error) {
-	pubOpts := []pub.OptionFunc{
-		pub.WithProjectId("nordic-gaming"),
-		pub.WithTopicId("test_topic"),
-	}
-	if err := pub.Reset(pubOpts...); err != nil {
-		return nil, err
-	}
-	return gstream.NewStreamer(pubOpts...)
+	// if err := gcppubsub.Reset(pcfg.Stream.PubSub); err != nil {
+	// 	return nil, err
+	// }
+	return pcfg, nil
 }
 
 func QueryUsers(ctx context.Context, userId uuid.UUID) error {

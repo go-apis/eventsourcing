@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"github.com/contextcloud/eventstore/pkg/db"
+	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"github.com/contextcloud/eventstore/server/pb"
 	store "github.com/contextcloud/eventstore/server/pb/store"
 	"github.com/contextcloud/eventstore/server/pb/streams"
@@ -10,12 +10,16 @@ import (
 )
 
 func CreateDb() (*gorm.DB, error) {
-	return db.Open(
-		db.WithDbUser("es"),
-		db.WithDbPassword("es"),
-		db.WithDbName("eventstore"),
-		db.WithDebug(true),
-	)
+	cfg := &pgdb.Config{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "es",
+		Password: "es",
+		Name:     "eventstore",
+		Debug:    true,
+	}
+
+	return pgdb.Open(cfg)
 }
 
 func CreateApiServer() (store.StoreServer, error) {

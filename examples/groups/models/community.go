@@ -1,10 +1,14 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // StaffMemberModel a community staff member
 type StaffMemberModel struct {
-	Id        string
+	Id        uuid.UUID
 	RoleId    string
 	UpdatedAt time.Time
 }

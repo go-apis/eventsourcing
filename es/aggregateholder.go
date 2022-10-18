@@ -1,7 +1,5 @@
 package es
 
-import "github.com/google/uuid"
-
 // AggregateHolder for event stored aggregates
 type AggregateHolder interface {
 	Entity
@@ -12,21 +10,9 @@ type AggregateHolder interface {
 
 // BaseAggregateHolder to make our commands smaller
 type BaseAggregateHolder struct {
-	Id        uuid.UUID `json:"id"`
-	Namespace string    `json:"namespace"`
+	BaseAggregate
 
 	events []Event
-}
-
-// GetId of the aggregate
-func (a *BaseAggregateHolder) GetId() uuid.UUID {
-	return a.Id
-}
-
-// SetId of the aggregate
-func (a *BaseAggregateHolder) SetId(id uuid.UUID, namespace string) {
-	a.Id = id
-	a.Namespace = namespace
 }
 
 // PublishEvent registers an event to be published after the aggregate

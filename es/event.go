@@ -8,6 +8,42 @@ import (
 	"github.com/google/uuid"
 )
 
+// EventOptions represents the configuration options
+// for the event.
+type EventConfig struct {
+	Name    string
+	Type    reflect.Type
+	Factory func() (interface{}, error)
+}
+
+func NewEventConfig(evt interface{}) *EventConfig {
+	var t reflect.Type
+
+	switch raw := evt.(type) {
+	case reflect.Type:
+		t = raw
+		break
+	default:
+		t = reflect.TypeOf(raw)
+		break
+	}
+
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	name := t.Name()
+	factory := func() (interface{}, error) {
+		out := reflect.New(t).Interface()
+		return out, nil
+	}
+
+	return &EventConfig{
+		Name:    name,
+		Type:    t,
+		Factory: factory,
+	}
+}
+
 // EventDataMapper for creating event data from a given event name
 type EventDataMapper map[string]EventDataFunc
 

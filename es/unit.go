@@ -16,6 +16,7 @@ type Unit interface {
 	GetData() Data
 	NewTx(ctx context.Context) (Tx, error)
 
+	CreateCommand(name string) (Command, error)
 	Dispatch(ctx context.Context, cmds ...Command) error
 
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
@@ -54,6 +55,15 @@ func (u *unit) NewTx(ctx context.Context) (Tx, error) {
 
 	u.tx = tx
 	return u, nil
+}
+
+func (u *unit) CreateCommand(name string) (Command, error) {
+	// create the command.
+	cfg, err := u.cli.GetCommandConfig(name)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.Factory()
 }
 
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
