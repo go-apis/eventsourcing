@@ -12,7 +12,7 @@ data:
     password: mysecret
     name: eventstore
 stream:
-  type: "pubsub"
+  type: pubsub
   pubsub:
     projectid: nordic-gaming
     topicid: eventstore-examples

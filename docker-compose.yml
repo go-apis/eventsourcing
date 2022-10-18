@@ -9,6 +9,8 @@ services:
   db:
     image: postgres
     restart: always
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: es_user
       POSTGRES_PASSWORD: es_pass
@@ -18,6 +20,8 @@ services:
   nats:
     image: nats
     restart: always
+    ports:
+      - "4222:4222"
     networks:
       - es
 

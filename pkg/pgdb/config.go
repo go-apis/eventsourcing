@@ -2,6 +2,7 @@ package pgdb
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -11,7 +12,10 @@ type Config struct {
 	User     string
 	Password string
 	Name     string
-	Debug    bool
+	SslMode  string
+	Options  string
+
+	Debug bool
 }
 
 func (o *Config) DSN() string {
@@ -37,9 +41,42 @@ func (o *Config) DSN() string {
 		parts = append(parts, fmt.Sprintf("password=%s", o.Password))
 	}
 
-	parts = append(parts, "sslmode=disable")
+	if o.SslMode != "" {
+		parts = append(parts, fmt.Sprintf("sslmode=%s", o.SslMode))
+	} else {
+		parts = append(parts, "sslmode=disable")
+	}
+
+	if o.Options != "" {
+		parts = append(parts, fmt.Sprintf("options=%s", o.Options))
+	}
 
 	return strings.Join(parts, " ")
+}
+
+func (o *Config) URL() string {
+	sslmode := "disable"
+	if o.SslMode != "" {
+		sslmode = o.SslMode
+	}
+
+	query := url.Values{
+		"sslmode": []string{sslmode},
+	}
+
+	if o.Options != "" {
+		query["options"] = []string{o.Options}
+	}
+
+	out := url.URL{
+		Scheme:   "postgresql",
+		Host:     fmt.Sprintf("%s:%d", o.Host, o.Port),
+		Path:     o.Name,
+		User:     url.UserPassword(o.User, o.Password),
+		RawQuery: query.Encode(),
+	}
+
+	return out.String()
 }
 
 func NewConfig() *Config {

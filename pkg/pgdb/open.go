@@ -24,7 +24,8 @@ func init() {
 }
 
 func Open(cfg *Config) (*gorm.DB, error) {
-	dsn := cfg.DSN()
+	// dsn := cfg.DSN()
+	url := cfg.URL()
 
 	level := logger.Info
 	if !cfg.Debug {
@@ -41,7 +42,7 @@ func Open(cfg *Config) (*gorm.DB, error) {
 		},
 	)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(url), &gorm.Config{
 		Logger:                 newLogger,
 		SkipDefaultTransaction: true,
 	})
