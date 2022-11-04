@@ -35,13 +35,13 @@ func NewCommanders(extractor CommandNameExtractor) func(w http.ResponseWriter, r
 		pctx, span := otel.Tracer("es").Start(ctx, "NewCommanders")
 		defer span.End()
 
-		unit, err := GetUnit(pctx)
+		name, err := ext(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		name, err := ext(r)
+		unit, err := GetUnit(pctx)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -59,19 +59,7 @@ func NewCommanders(extractor CommandNameExtractor) func(w http.ResponseWriter, r
 		}
 		defer r.Body.Close()
 
-		tx, err := unit.NewTx(pctx)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer tx.Rollback(pctx)
-
-		if err := unit.Dispatch(pctx, cmd); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		if _, err := tx.Commit(pctx); err != nil {
+		if err := Dispatch(pctx, cmd); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
