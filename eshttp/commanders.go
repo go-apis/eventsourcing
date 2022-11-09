@@ -1,4 +1,4 @@
-package es
+package eshttp
 
 import (
 	"encoding/json"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/contextcloud/eventstore/es"
 	"go.opentelemetry.io/otel"
 )
 
@@ -41,7 +42,7 @@ func NewCommanders(extractor CommandNameExtractor) func(w http.ResponseWriter, r
 			return
 		}
 
-		unit, err := GetUnit(pctx)
+		unit, err := es.GetUnit(pctx)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -59,7 +60,7 @@ func NewCommanders(extractor CommandNameExtractor) func(w http.ResponseWriter, r
 		}
 		defer r.Body.Close()
 
-		if err := Dispatch(pctx, cmd); err != nil {
+		if err := es.Dispatch(pctx, cmd); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

@@ -8,6 +8,7 @@ import (
 	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+	"github.com/contextcloud/eventstore/eshttp"
 
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
@@ -68,8 +69,8 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 	r.Use(otelchi.Middleware(cfg.ServiceName, otelchi.WithChiRoutes(r)))
 	r.Use(es.CreateUnit(cli))
 	r.Use(middleware.Logger)
-	r.Post("/commands/createuser", es.NewCommander[*commands.CreateUser]())
-	r.Post("/commands/addgroup", es.NewCommander[*commands.AddGroup]())
+	r.Post("/commands/createuser", eshttp.NewCommander[*commands.CreateUser]())
+	r.Post("/commands/addgroup", eshttp.NewCommander[*commands.AddGroup]())
 	r.Get("/users", userQueryFunc(cli))
 
 	return r, nil

@@ -1,13 +1,14 @@
-package es
+package eshttp
 
 import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/contextcloud/eventstore/es"
 	"go.opentelemetry.io/otel"
 )
 
-func NewCommander[T Command]() func(w http.ResponseWriter, r *http.Request) {
+func NewCommander[T es.Command]() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -21,7 +22,7 @@ func NewCommander[T Command]() func(w http.ResponseWriter, r *http.Request) {
 		}
 		defer r.Body.Close()
 
-		if err := Dispatch(pctx, cmd); err != nil {
+		if err := es.Dispatch(pctx, cmd); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

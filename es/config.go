@@ -124,8 +124,7 @@ func (c *config) aggregate(cfg *AggregateConfig) error {
 	return nil
 }
 
-// don't modify the object
-func (c config) dynamic(agg Aggregate) error {
+func (c *config) dynamic(agg Aggregate) error {
 	handles := NewCommandHandles(agg)
 	var commandConfigs []*CommandConfig
 	for t := range handles {
