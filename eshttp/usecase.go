@@ -11,7 +11,7 @@ import (
 )
 
 type Return struct {
-	Id uuid.UUID `json:"id"`
+	Id uuid.UUID `json:"id" format:"uuid" required:"true"`
 }
 
 func NewUsecaseInteractor[T es.Command]() usecase.Interactor {

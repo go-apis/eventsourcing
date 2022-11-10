@@ -23,8 +23,8 @@ type SetVersion interface {
 }
 
 type BaseAggregate struct {
-	Id        uuid.UUID        `json:"id"`
-	Namespace string           `json:"namespace"`
+	Id        uuid.UUID        `json:"id" format:"uuid" required:"true"`
+	Namespace string           `json:"namespace" required:"true"`
 	Parent    *AggregateParent `json:"parent" gorm:"type:jsonb"`
 }
 

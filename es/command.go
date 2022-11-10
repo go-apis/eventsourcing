@@ -16,7 +16,7 @@ type CommandPerms interface {
 
 // BaseCommand to make it easier to get the ID
 type BaseCommand struct {
-	AggregateId uuid.UUID `json:"aggregate_id"`
+	AggregateId uuid.UUID `json:"aggregate_id" format:"uuid" required:"true"`
 }
 
 // GetAggregateId return the aggregate id
