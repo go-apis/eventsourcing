@@ -3,6 +3,7 @@ package eshttp
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/google/uuid"
@@ -45,7 +46,13 @@ func NewUsecaseInteractor[T es.Command]() usecase.Interactor {
 		return nil
 	})
 
-	u.SetTitle(fmt.Sprintf("Command %T", cmd))
+	t := reflect.TypeOf(cmd)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	u.SetTitle(fmt.Sprintf("Command %s", t.Name()))
+	u.SetName(fmt.Sprintf("Command.%s", t.Name()))
 	u.SetExpectedErrors(status.InvalidArgument)
 	return u
 }
