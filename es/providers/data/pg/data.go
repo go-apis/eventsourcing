@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -251,6 +252,9 @@ func (t *data) Load(ctx context.Context, serviceName string, aggregateName strin
 		Where("id = ?", id).
 		Where("namespace = ?", namespace).
 		First(out)
+	if r.Error == gorm.ErrRecordNotFound {
+		return sql.ErrNoRows
+	}
 	return r.Error
 }
 func (t *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {

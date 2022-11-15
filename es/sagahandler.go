@@ -12,7 +12,7 @@ type sagaEventHandler struct {
 }
 
 func (b *sagaEventHandler) Handle(ctx context.Context, evt *Event) error {
-	pctx, pspan := otel.Tracer("SagaEventHandler").Start(ctx, "Handle")
+	pctx, pspan := otel.Tracer("sagaEventHandler").Start(ctx, "Handle")
 	defer pspan.End()
 
 	unit, err := GetUnit(pctx)

@@ -60,7 +60,7 @@ func Provider() (*es.ProviderConfig, error) {
 			},
 		},
 		Stream: es.StreamConfig{
-			Type: "nats",
+			Type: "noop",
 			PubSub: &gcppubsub.Config{
 				ProjectId: "nordic-gaming",
 				TopicId:   "test_topic",
@@ -150,6 +150,9 @@ func UserCommands(ctx context.Context) (uuid.UUID, uuid.UUID, error) {
 		&commands.CreateUser{
 			BaseCommand: es.BaseCommand{
 				AggregateId: userId2,
+			},
+			BaseNamespaceCommand: es.BaseNamespaceCommand{
+				Namespace: "other",
 			},
 			Username: "calvin.harris",
 			Password: "12345678",

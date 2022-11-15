@@ -8,7 +8,7 @@ import (
 )
 
 type sourcedAggregateHandler struct {
-	name    string
+	cfg     *EntityConfig
 	handles CommandHandles
 }
 
@@ -17,11 +17,9 @@ func (b *sourcedAggregateHandler) inner(ctx context.Context, entity Entity, cmd 
 	case CommandHandler:
 		return agg.Handle(ctx, cmd)
 	}
-
 	if b.handles != nil {
 		return b.handles.Handle(entity, ctx, cmd)
 	}
-
 	return fmt.Errorf("no handler for command: %T", cmd)
 }
 
@@ -36,7 +34,7 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 	aggregateId := cmd.GetAggregateId()
 	replay := IsReplayCommand(cmd)
 
-	agg, err := unit.Load(pctx, b.name, aggregateId)
+	agg, err := unit.Load(pctx, b.cfg.Name, aggregateId)
 	if err != nil {
 		return err
 	}
@@ -50,15 +48,15 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 		// what about parent
 	}
 
-	if err := unit.Save(pctx, b.name, agg); err != nil {
+	if err := unit.Save(pctx, b.cfg.Name, agg); err != nil {
 		return err
 	}
 	return nil
 }
 
-func NewSourcedAggregateHandler(name string, handles CommandHandles) CommandHandler {
+func NewSourcedAggregateHandler(cfg *EntityConfig, handles CommandHandles) CommandHandler {
 	return &sourcedAggregateHandler{
-		name:    name,
+		cfg:     cfg,
 		handles: handles,
 	}
 }

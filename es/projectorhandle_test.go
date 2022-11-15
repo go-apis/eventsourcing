@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func Test_SagaHandle(t *testing.T) {
-	saga := &demoSaga{}
-	handles := NewSagaHandles(saga)
+func Test_ProjectorHandle(t *testing.T) {
+	projector := &demoProjector{}
+	handles := FindProjectorHandles(projector)
 
 	if len(handles) != 1 {
 		t.Errorf("expected 1 handle, got %d", len(handles))

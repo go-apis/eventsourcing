@@ -68,7 +68,16 @@ func NewEntityOptionsFromTag(t reflect.Type) ([]EntityOption, error) {
 }
 
 func NewEntityOptions(agg interface{}) []EntityOption {
-	t := reflect.TypeOf(agg)
+	var t reflect.Type
+
+	switch raw := agg.(type) {
+	case reflect.Type:
+		t = raw
+		break
+	default:
+		t = reflect.TypeOf(agg)
+	}
+
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}

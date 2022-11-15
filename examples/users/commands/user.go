@@ -7,6 +7,7 @@ import (
 
 type CreateUser struct {
 	es.BaseCommand
+	es.BaseNamespaceCommand
 
 	Username string
 	Password string

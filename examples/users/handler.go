@@ -13,6 +13,7 @@ import (
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
+	"github.com/contextcloud/eventstore/examples/users/projectors"
 	"github.com/contextcloud/eventstore/examples/users/sagas"
 	"github.com/contextcloud/graceful/config"
 	"github.com/riandyrn/otelchi"
@@ -29,7 +30,7 @@ func userQueryFunc(cli es.Client) http.HandlerFunc {
 
 		filter := filters.Filter{}
 
-		q := es.NewQuery[*aggregates.User]()
+		q := es.NewQuery[*aggregates.StandardUser]()
 		out, err := q.Find(ctx, filter)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -52,9 +53,10 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 
 	esCfg, err := es.NewConfig(
 		pCfg,
-		&aggregates.User{},
+		&aggregates.StandardUser{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
+		projectors.NewUserProjector(),
 	)
 	if err != nil {
 		return nil, err

@@ -7,7 +7,7 @@ import (
 
 type UserCreated struct {
 	Username string
-	Password types.Encrypted
+	Password string
 }
 
 type EmailAdded struct {

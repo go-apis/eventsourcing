@@ -24,11 +24,6 @@ type client struct {
 	cfg      Config
 	conn     Conn
 	streamer Streamer
-
-	entityConfigs   map[string]*EntityConfig
-	commandConfigs  map[string]*CommandConfig
-	commandHandlers map[reflect.Type]CommandHandler
-	eventHandlers   map[reflect.Type][]EventHandler
 }
 
 func (c *client) GetServiceName() string {
@@ -37,7 +32,7 @@ func (c *client) GetServiceName() string {
 }
 
 func (c *client) GetEntityConfig(name string) (*EntityConfig, error) {
-	if cfg, ok := c.entityConfigs[strings.ToLower(name)]; ok {
+	if cfg, ok := c.cfg.GetEntityConfigs()[strings.ToLower(name)]; ok {
 		return cfg, nil
 	}
 
@@ -45,7 +40,7 @@ func (c *client) GetEntityConfig(name string) (*EntityConfig, error) {
 }
 
 func (c *client) GetCommandConfig(name string) (*CommandConfig, error) {
-	if cfg, ok := c.commandConfigs[strings.ToLower(name)]; ok {
+	if cfg, ok := c.cfg.GetCommandConfigs()[strings.ToLower(name)]; ok {
 		return cfg, nil
 	}
 
@@ -74,34 +69,14 @@ func (c *client) initialize(ctx context.Context) error {
 
 	pcfg := c.cfg.GetProviderConfig()
 
-	eventHandlers := c.cfg.GetEventHandlers()
-	for _, eh := range eventHandlers {
-		handler := eh.handler
-		for _, evt := range eh.eventConfigs {
-			c.eventHandlers[evt.Type] = append(c.eventHandlers[evt.Type], handler)
-		}
+	entityConfigs := []*EntityConfig{}
+	for _, cfg := range c.cfg.GetEntityConfigs() {
+		entityConfigs = append(entityConfigs, cfg)
 	}
-
-	commandHandlers := c.cfg.GetCommandHandlers()
-	commandHandlerMiddlewares := c.cfg.GetCommandHandlerMiddlewares()
-	for _, ch := range commandHandlers {
-		handler := UseCommandHandlerMiddleware(ch.handler, commandHandlerMiddlewares...)
-		for _, cmd := range ch.commandConfigs {
-			c.commandHandlers[cmd.Type] = handler
-		}
+	eventConfigs := []*EventConfig{}
+	for _, cfg := range c.cfg.GetEventConfigs() {
+		eventConfigs = append(eventConfigs, cfg)
 	}
-
-	entityConfigs := c.cfg.GetEntityConfigs()
-	for _, entityConfig := range entityConfigs {
-		key := strings.ToLower(entityConfig.Name)
-		c.entityConfigs[key] = entityConfig
-	}
-	commandConfigs := c.cfg.GetCommandConfigs()
-	for _, commandConfig := range commandConfigs {
-		key := strings.ToLower(commandConfig.Name)
-		c.commandConfigs[key] = commandConfig
-	}
-	eventConfigs := c.cfg.GetEventConfigs()
 
 	initOpts := InitializeOptions{
 		ServiceName:   pcfg.ServiceName,
@@ -159,10 +134,19 @@ func (c *client) handleCommand(ctx context.Context, cmd Command) error {
 		t = t.Elem()
 	}
 
-	h, ok := c.commandHandlers[t]
+	h, ok := c.cfg.GetCommandHandlers()[t]
 	if !ok {
 		return fmt.Errorf("command handler not found: %v", t)
 	}
+
+	// check if we have a namespace command
+	if nsCmd, ok := cmd.(NamespaceCommand); ok {
+		ns := nsCmd.GetNamespace()
+		if ns != "" {
+			pctx = SetNamespace(pctx, ns)
+		}
+	}
+
 	if err := h.Handle(pctx, cmd); err != nil {
 		return err
 	}
@@ -186,17 +170,18 @@ func (c *client) handleEvent(ctx context.Context, evt *Event) error {
 	defer pspan.End()
 
 	t := reflect.TypeOf(evt.Data)
-	all, ok := c.eventHandlers[t]
-	if !ok {
-		return nil
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
 	}
 
+	all := c.cfg.GetEventHandlers()[t]
 	for _, h := range all {
 		if err := c.eventHandlerHandleEvent(pctx, h, evt); err != nil {
 			return err
 		}
 	}
 
+	fmt.Printf("handle event: %v %d\n", t.Name(), len(all))
 	return nil
 }
 func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, evt *Event) error {
@@ -249,13 +234,9 @@ func NewClient(ctx context.Context, cfg Config) (Client, error) {
 	}
 
 	cli := &client{
-		cfg:             cfg,
-		conn:            conn,
-		streamer:        streamer,
-		entityConfigs:   make(map[string]*EntityConfig),
-		commandConfigs:  make(map[string]*CommandConfig),
-		commandHandlers: map[reflect.Type]CommandHandler{},
-		eventHandlers:   map[reflect.Type][]EventHandler{},
+		cfg:      cfg,
+		conn:     conn,
+		streamer: streamer,
 	}
 
 	if err := cli.initialize(ctx); err != nil {

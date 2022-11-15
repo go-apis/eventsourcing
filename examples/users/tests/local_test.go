@@ -6,20 +6,22 @@ import (
 
 	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
+	_ "github.com/contextcloud/eventstore/es/providers/stream/noop"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/projectors"
 	"github.com/contextcloud/eventstore/examples/users/sagas"
 	"go.opentelemetry.io/otel"
 )
 
 func Test_Local(t *testing.T) {
-	shutdown, err := Zipkin()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	// shutdown, err := Zipkin()
+	// if err != nil {
+	// 	t.Error(err)
+	// 	return
+	// }
 
 	pcfg, err := Provider()
 	if err != nil {
@@ -29,9 +31,11 @@ func Test_Local(t *testing.T) {
 
 	cfg, err := es.NewConfig(
 		pcfg,
+		&aggregates.StandardUser{},
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
+		projectors.NewUserProjector(),
 	)
 	if err != nil {
 		t.Error(err)
@@ -61,17 +65,18 @@ func Test_Local(t *testing.T) {
 		t.Error(err)
 		return
 	}
+	t.Log(userId)
 
-	for i := 0; i < 1000; i++ {
-		if err := QueryUsers(pctx, userId); err != nil {
-			t.Error(err)
-			return
-		}
+	// for i := 0; i < 1000; i++ {
+	// 	if err := QueryUsers(pctx, userId); err != nil {
+	// 		t.Error(err)
+	// 		return
+	// 	}
 
-		t.Logf("index: %d", i)
-	}
+	// 	t.Logf("index: %d", i)
+	// }
 
-	shutdown(pctx)
+	// shutdown(pctx)
 }
 
 func Benchmark_CreateUsers(b *testing.B) {

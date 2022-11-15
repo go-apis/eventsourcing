@@ -110,9 +110,8 @@ func (s *store) loadEntity(ctx context.Context, entity Entity) (Entity, error) {
 	id := entity.GetId()
 	if err := s.data.Load(pctx, s.serviceName, s.entityConfig.Name, namespace, id, entity); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, err
 		}
-		return nil, err
 	}
 	return entity, nil
 }
