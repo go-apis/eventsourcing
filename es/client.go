@@ -15,6 +15,7 @@ type Client interface {
 	GetCommandConfig(name string) (*CommandConfig, error)
 	Unit(ctx context.Context) (Unit, error)
 
+	ReplayCommands(ctx context.Context, cmds ...*ReplayCommand) error
 	HandleCommands(ctx context.Context, cmds ...Command) error
 	HandleEvents(ctx context.Context, events ...*Event) error
 	PublishEvents(ctx context.Context, events ...*Event) error
@@ -96,6 +97,7 @@ func (c *client) initialize(ctx context.Context) error {
 
 	return nil
 }
+
 func (c *client) handleStreamEvent(ctx context.Context, evt *Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleStreamEvent")
 	defer pspan.End()
@@ -122,6 +124,37 @@ func (c *client) handleStreamEvent(ctx context.Context, evt *Event) error {
 		return err
 	}
 
+	return nil
+}
+
+func (c *client) replayCommand(ctx context.Context, cmd *ReplayCommand) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "ReplayCommand")
+	defer pspan.End()
+
+	ns := cmd.GetNamespace()
+	if ns != "" {
+		pctx = SetNamespace(pctx, ns)
+	}
+
+	h := c.cfg.GetReplayHandler(cmd.AggregateName)
+	if h == nil {
+		return fmt.Errorf("aggregate command handler not found: %v", cmd.AggregateName)
+	}
+
+	if err := h.Handle(pctx, cmd); err != nil {
+		return err
+	}
+	return nil
+}
+func (c *client) ReplayCommands(ctx context.Context, cmds ...*ReplayCommand) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "ReplayCommands")
+	defer pspan.End()
+
+	for _, cmd := range cmds {
+		if err := c.replayCommand(pctx, cmd); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -152,7 +185,6 @@ func (c *client) handleCommand(ctx context.Context, cmd Command) error {
 	}
 	return nil
 }
-
 func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleCommands")
 	defer pspan.End()
@@ -193,7 +225,6 @@ func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, ev
 	}
 	return nil
 }
-
 func (c *client) HandleEvents(ctx context.Context, evts ...*Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvents")
 	defer pspan.End()

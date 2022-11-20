@@ -38,22 +38,19 @@ func (c BaseCommand) GetAggregateId() uuid.UUID {
 }
 
 // ReplayCommand a command that load and reply events ontop of an aggregate.
-type ReplayCommand interface {
-	IsReplay()
-}
+type ReplayCommand struct {
+	BaseCommand
+	BaseNamespaceCommand
 
-// BaseReplay a base replay command
-type BaseReplayCommand struct {
-}
-
-// IsReplay so we can check if it is a replay command
-func (c BaseReplayCommand) IsReplay() {
+	AggregateName string
 }
 
 func IsReplayCommand(cmd Command) bool {
 	// handle the command
 	switch cmd.(type) {
 	case ReplayCommand:
+		return true
+	case *ReplayCommand:
 		return true
 	default:
 		return false

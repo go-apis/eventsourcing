@@ -13,6 +13,7 @@ type config struct {
 	events          map[string]*EventConfig
 	commandHandlers map[reflect.Type]CommandHandler
 	eventHandlers   map[reflect.Type][]EventHandler
+	replayHandlers  map[string]CommandHandler
 }
 
 func (c config) GetProviderConfig() *ProviderConfig {
@@ -34,6 +35,10 @@ func (c config) GetCommandHandlers() map[reflect.Type]CommandHandler {
 }
 func (c config) GetEventHandlers() map[reflect.Type][]EventHandler {
 	return c.eventHandlers
+}
+
+func (c config) GetReplayHandler(entityName string) CommandHandler {
+	return c.replayHandlers[entityName]
 }
 
 type Builder interface {
@@ -99,6 +104,7 @@ func (b *builder) Build() (Config, error) {
 	entities := make(map[string]*EntityConfig)
 	commands := make(map[string]*CommandConfig)
 	events := make(map[string]*EventConfig)
+	replayHandlers := make(map[string]CommandHandler)
 	commandHandlers := make(map[reflect.Type]CommandHandler)
 	eventHandlers := make(map[reflect.Type][]EventHandler)
 
@@ -130,6 +136,7 @@ func (b *builder) Build() (Config, error) {
 
 		h := NewSourcedAggregateHandler(entityConfig, nil)
 		h = UseCommandHandlerMiddleware(h, b.middlewares...)
+		replayHandlers[name] = h
 
 		for _, cmdCfg := range cfg.CommandConfigs {
 			name := strings.ToLower(cmdCfg.Name)
@@ -168,6 +175,7 @@ func (b *builder) Build() (Config, error) {
 
 		h := NewSourcedAggregateHandler(entityConfig, handles)
 		h = UseCommandHandlerMiddleware(h, b.middlewares...)
+		replayHandlers[name] = h
 
 		for _, cmdCfg := range commandConfigs {
 			name := strings.ToLower(cmdCfg.Name)
@@ -242,6 +250,7 @@ func (b *builder) Build() (Config, error) {
 		events:          events,
 		commandHandlers: commandHandlers,
 		eventHandlers:   eventHandlers,
+		replayHandlers:  replayHandlers,
 	}, nil
 }
 

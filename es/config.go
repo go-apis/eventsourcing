@@ -71,6 +71,7 @@ type Config interface {
 	GetCommandConfigs() map[string]*CommandConfig
 	GetEventConfigs() map[string]*EventConfig
 
+	GetReplayHandler(entityName string) CommandHandler
 	GetCommandHandlers() map[reflect.Type]CommandHandler
 	GetEventHandlers() map[reflect.Type][]EventHandler
 }
