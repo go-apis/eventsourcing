@@ -21,7 +21,7 @@ type WhereOr struct {
 type WhereClause struct {
 	Column string
 	Op     string
-	Args   []interface{}
+	Args   interface{}
 }
 
 func Limit(v int) *int {

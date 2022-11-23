@@ -43,9 +43,18 @@ func whereClauseQuery(c filters.WhereClause) string {
 		return fmt.Sprintf(`%s IS ?`, c.Column)
 	case `not.is`:
 		return fmt.Sprintf(`%s IS NOT ?`, c.Column)
+	case `in`:
+		return fmt.Sprintf(`%s IN (?)`, c.Column)
+	case `not.in`:
+		return fmt.Sprintf(`%s NOT IN (?)`, c.Column)
 	default:
 		return ``
 	}
+}
+
+func whereQuery(q *gorm.DB, c filters.WhereClause) *gorm.DB {
+	query := whereClauseQuery(c)
+	return q.Where(query, c.Args)
 }
 
 func where(q *gorm.DB, filter filters.Where) *gorm.DB {
@@ -57,7 +66,7 @@ func where(q *gorm.DB, filter filters.Where) *gorm.DB {
 		}
 		return q.Where(o)
 	case filters.WhereClause:
-		return q.Where(whereClauseQuery(w), w.Args...)
+		return whereQuery(q, w)
 	case filters.WhereOr:
 		o := q.Session(&gorm.Session{NewDB: true})
 		return q.Or(where(o, w.Where))
