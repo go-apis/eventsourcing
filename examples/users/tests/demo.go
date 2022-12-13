@@ -82,7 +82,7 @@ func Provider() (*es.ProviderConfig, error) {
 
 func QueryUsers(ctx context.Context, userId uuid.UUID) error {
 	userQuery := es.NewQuery[*aggregates.User]()
-	user, err := userQuery.Load(ctx, userId)
+	user, err := userQuery.Get(ctx, userId)
 	if err != nil {
 		return err
 	}

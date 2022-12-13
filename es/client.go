@@ -213,7 +213,6 @@ func (c *client) handleEvent(ctx context.Context, evt *Event) error {
 		}
 	}
 
-	fmt.Printf("handle event: %v %d\n", t.Name(), len(all))
 	return nil
 }
 func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, evt *Event) error {

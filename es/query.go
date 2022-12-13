@@ -20,7 +20,7 @@ type Pagination[T any] struct {
 }
 
 type Query[T Entity] interface {
-	Load(ctx context.Context, id uuid.UUID) (T, error)
+	Get(ctx context.Context, id uuid.UUID) (T, error)
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	Count(ctx context.Context, filter filters.Filter) (int, error)
 	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
@@ -30,27 +30,20 @@ type query[T Entity] struct {
 	name string
 }
 
-func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (T, error) {
+func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Load")
 	defer pspan.End()
 
 	var item T
-
 	unit, err := GetUnit(pctx)
 	if err != nil {
 		return item, err
 	}
 
-	out, err := unit.Load(pctx, q.name, id)
-	if err != nil {
+	if err := unit.Get(pctx, q.name, id, &item); err != nil {
 		return item, err
 	}
-
-	result, ok := out.(T)
-	if !ok {
-		return item, fmt.Errorf("unexpected type: %T", out)
-	}
-	return result, nil
+	return item, nil
 }
 
 func (q *query[T]) Save(ctx context.Context, entities ...T) error {

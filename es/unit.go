@@ -22,6 +22,7 @@ type Unit interface {
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, entity Entity) error
 
+	Get(ctx context.Context, name string, id uuid.UUID, out interface{}) error
 	Find(ctx context.Context, name string, filter filters.Filter, out interface{}) error
 	Count(ctx context.Context, name string, filter filters.Filter) (int, error)
 }
@@ -134,6 +135,11 @@ func (u *unit) Save(ctx context.Context, name string, entity Entity) error {
 	return u.cli.HandleEvents(ctx, events...)
 }
 
+func (u *unit) Get(ctx context.Context, name string, id uuid.UUID, out interface{}) error {
+	namespace := NamespaceFromContext(ctx)
+	serviceName := u.cli.GetServiceName()
+	return u.data.Load(ctx, serviceName, name, namespace, id, out)
+}
 func (u *unit) Find(ctx context.Context, name string, filter filters.Filter, out interface{}) error {
 	namespace := NamespaceFromContext(ctx)
 	serviceName := u.cli.GetServiceName()
