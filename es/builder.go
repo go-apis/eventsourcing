@@ -45,6 +45,7 @@ type Builder interface {
 	Build() (Config, error)
 
 	SetProviderConfig(*ProviderConfig) Builder
+	AddCommandHandler(IsCommandHandler) Builder
 	AddSaga(IsSaga) Builder
 	AddProjector(IsProjector) Builder
 	AddAggregate(Aggregate) Builder
@@ -57,6 +58,7 @@ type Builder interface {
 // todo what about command handlers
 type builder struct {
 	providerConfig   *ProviderConfig
+	handlers         []IsCommandHandler
 	sagas            []IsSaga
 	projectors       []IsProjector
 	aggregates       []Aggregate
@@ -67,6 +69,11 @@ type builder struct {
 
 func (b *builder) SetProviderConfig(cfg *ProviderConfig) Builder {
 	b.providerConfig = cfg
+	return b
+}
+
+func (b *builder) AddCommandHandler(handler IsCommandHandler) Builder {
+	b.handlers = append(b.handlers, handler)
 	return b
 }
 
@@ -176,6 +183,32 @@ func (b *builder) Build() (Config, error) {
 		h := NewSourcedAggregateHandler(entityConfig, handles)
 		h = UseCommandHandlerMiddleware(h, b.middlewares...)
 		replayHandlers[name] = h
+
+		for _, cmdCfg := range commandConfigs {
+			name := strings.ToLower(cmdCfg.Name)
+			if _, ok := commands[name]; ok {
+				return nil, fmt.Errorf("duplicate command: %s", name)
+			}
+			commands[name] = cmdCfg
+
+			if _, ok := commandHandlers[cmdCfg.Type]; ok {
+				return nil, fmt.Errorf("duplicate command handler: %s", cmdCfg.Type)
+			}
+			commandHandlers[cmdCfg.Type] = h
+		}
+	}
+
+	for _, handler := range b.handlers {
+		// handles!
+		handles := NewCommandHandles(handler)
+		var commandConfigs []*CommandConfig
+		for t := range handles {
+			cmdConfig := NewCommandConfig(t)
+			commandConfigs = append(commandConfigs, cmdConfig)
+		}
+
+		h := NewCommandHandler(handler, handles)
+		h = UseCommandHandlerMiddleware(h, b.middlewares...)
 
 		for _, cmdCfg := range commandConfigs {
 			name := strings.ToLower(cmdCfg.Name)

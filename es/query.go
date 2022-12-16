@@ -21,6 +21,8 @@ type Pagination[T any] struct {
 
 type Query[T Entity] interface {
 	Get(ctx context.Context, id uuid.UUID) (T, error)
+	Load(ctx context.Context, id uuid.UUID) (T, error)
+	Save(ctx context.Context, entities ...T) error
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	Count(ctx context.Context, filter filters.Filter) (int, error)
 	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
@@ -31,7 +33,7 @@ type query[T Entity] struct {
 }
 
 func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
-	pctx, pspan := otel.Tracer("Query").Start(ctx, "Load")
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Get")
 	defer pspan.End()
 
 	var item T
@@ -44,6 +46,28 @@ func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 		return item, err
 	}
 	return item, nil
+}
+
+func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (T, error) {
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "Load")
+	defer pspan.End()
+
+	var item T
+	unit, err := GetUnit(pctx)
+	if err != nil {
+		return item, err
+	}
+
+	out, err := unit.Load(pctx, q.name, id)
+	if err != nil {
+		return item, err
+	}
+
+	result, ok := out.(T)
+	if !ok {
+		return item, fmt.Errorf("unexpected type: %T", out)
+	}
+	return result, nil
 }
 
 func (q *query[T]) Save(ctx context.Context, entities ...T) error {

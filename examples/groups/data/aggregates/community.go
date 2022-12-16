@@ -9,8 +9,8 @@ import (
 	"github.com/contextcloud/eventstore/es"
 	"github.com/google/uuid"
 
-	"github.com/contextcloud/eventstore/examples/groups/commands"
-	"github.com/contextcloud/eventstore/examples/groups/events"
+	"github.com/contextcloud/eventstore/examples/groups/data/commands"
+	"github.com/contextcloud/eventstore/examples/groups/data/events"
 	"github.com/contextcloud/eventstore/examples/groups/models"
 )
 
