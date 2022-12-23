@@ -127,7 +127,6 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 	_, hasApplyEvent := aggregate.(IsApplyEvent)
 
 	events := make([]*Event, len(raw))
-
 	for i, data := range raw {
 		t := reflect.TypeOf(data)
 		for t.Kind() == reflect.Ptr {
@@ -198,11 +197,36 @@ func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHold
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveAggregateHolder")
 	defer pspan.End()
 
+	namespace := NamespaceFromContext(pctx)
+	id := aggregate.GetId()
+	raw := aggregate.GetEvents()
+	timestamp := time.Now()
+
+	events := make([]*Event, len(raw))
+	for i, data := range raw {
+		t := reflect.TypeOf(data)
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		name := t.Name()
+		metadata := MetadataFromContext(pctx)
+
+		events[i] = &Event{
+			ServiceName:   s.serviceName,
+			Namespace:     namespace,
+			AggregateId:   id,
+			AggregateType: s.entityConfig.Name,
+			Type:          name,
+			Data:          data,
+			Timestamp:     timestamp,
+			Metadata:      metadata,
+		}
+	}
+
 	if err := s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate); err != nil {
 		return nil, err
 	}
 
-	events := aggregate.EventsToPublish()
 	return events, nil
 }
 func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]*Event, error) {
