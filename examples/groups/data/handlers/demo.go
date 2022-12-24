@@ -10,7 +10,7 @@ import (
 )
 
 type demoHandler struct {
-	es.BaseCommmandHandler
+	es.BaseCommandHandler
 
 	q es.Query[*aggregates.Demo]
 }

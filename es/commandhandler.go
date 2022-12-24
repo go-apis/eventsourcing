@@ -21,10 +21,10 @@ type IsCommandHandler interface {
 	IsCommandHandler()
 }
 
-type BaseCommmandHandler struct {
+type BaseCommandHandler struct {
 }
 
-func (BaseCommmandHandler) IsCommandHandler() {}
+func (BaseCommandHandler) IsCommandHandler() {}
 
 type commandHandler struct {
 	h       IsCommandHandler
