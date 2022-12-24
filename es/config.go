@@ -82,6 +82,9 @@ func NewConfig(pcfg *ProviderConfig, items ...interface{}) (Config, error) {
 
 	for _, item := range items {
 		switch raw := item.(type) {
+		case IsCommandHandler:
+			b.AddCommandHandler(raw)
+			continue
 		case IsSaga:
 			b.AddSaga(raw)
 			continue

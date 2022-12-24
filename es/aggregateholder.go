@@ -5,7 +5,7 @@ type AggregateHolder interface {
 	Entity
 
 	// Events returns events that need to be published
-	GetEvents() []*Event
+	GetEvents() []interface{}
 }
 
 // BaseAggregateHolder to make our commands smaller

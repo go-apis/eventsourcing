@@ -10,10 +10,7 @@ import (
 	"github.com/contextcloud/eventstore/eshttp"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/groups/aggregates"
-	"github.com/contextcloud/eventstore/examples/groups/commands"
-	"github.com/contextcloud/eventstore/examples/groups/events"
-	"github.com/contextcloud/eventstore/examples/groups/sagas"
+	"github.com/contextcloud/eventstore/examples/groups/data"
 	"github.com/contextcloud/graceful/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -26,27 +23,7 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	esCfg, err := es.NewConfig(
-		pCfg,
-		&aggregates.Group{},
-		sagas.NewUserSaga(),
-		es.NewAggregateConfig(
-			&aggregates.Community{},
-			es.EntitySnapshotEvery(1),
-			es.EntityEventTypes(
-				&events.CommunityCreated{},
-				&events.CommunityDeleted{},
-				&events.CommunityStaffAdded{},
-			),
-			&commands.CommunityNewCommand{},
-			&commands.CommunityDeleteCommand{},
-		),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	cli, err := es.NewClient(ctx, esCfg)
+	cli, err := data.NewClient(ctx, pCfg)
 	if err != nil {
 		return nil, err
 	}
