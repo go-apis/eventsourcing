@@ -46,7 +46,7 @@ func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 		return item, err
 	}
 
-	if err := unit.GetData().Get(pctx, namespace, q.name, id, &item); err != nil {
+	if err := unit.GetData().Get(pctx, q.name, namespace, id, &item); err != nil {
 		return item, err
 	}
 	return item, nil
@@ -67,7 +67,7 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	}
 
 	var items []T
-	if err := unit.GetData().Find(pctx, namespace, q.name, filter, &items); err != nil {
+	if err := unit.GetData().Find(pctx, q.name, namespace, filter, &items); err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -87,7 +87,7 @@ func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error
 		return 0, err
 	}
 
-	return unit.GetData().Count(pctx, namespace, q.name, filter)
+	return unit.GetData().Count(pctx, q.name, namespace, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
@@ -111,7 +111,7 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, err
 	}
 
-	totalItems, err := unit.GetData().Count(pctx, namespace, q.name, filter)
+	totalItems, err := unit.GetData().Count(pctx, q.name, namespace, filter)
 	if err != nil {
 		return nil, err
 	}
