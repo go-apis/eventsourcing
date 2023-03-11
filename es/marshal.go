@@ -8,12 +8,17 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-func MarshalEvent(ctx context.Context, event *Event) ([]byte, error) {
+func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte, error) {
 	_, span := otel.Tracer("local").Start(ctx, "MarshalEvent")
 	defer span.End()
 
+	d := &EventWithServiceName{
+		Event:       event,
+		ServiceName: serviceName,
+	}
+
 	// Marshal the event (using JSON for now).
-	b, err := json.Marshal(event)
+	b, err := json.Marshal(d)
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal event: %w", err)
 	}
@@ -21,12 +26,12 @@ func MarshalEvent(ctx context.Context, event *Event) ([]byte, error) {
 	return b, nil
 }
 
-func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*Event, error) {
+func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*EventWithServiceName, error) {
 	_, span := otel.Tracer("local").Start(ctx, "UnmarshalEvent")
 	defer span.End()
 
 	out := struct {
-		*Event
+		*EventWithServiceName
 
 		Data json.RawMessage `json:"data"`
 	}{}
@@ -50,7 +55,6 @@ func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []b
 	}
 
 	evt := &Event{
-		ServiceName:   out.ServiceName,
 		Namespace:     out.Namespace,
 		AggregateId:   out.AggregateId,
 		AggregateType: out.AggregateType,
@@ -65,5 +69,10 @@ func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []b
 		evt.Metadata = make(map[string]interface{})
 	}
 
-	return evt, nil
+	with := &EventWithServiceName{
+		Event:       evt,
+		ServiceName: out.ServiceName,
+	}
+
+	return with, nil
 }

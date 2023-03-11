@@ -31,6 +31,9 @@ func wrapped(callback func(context.Context, []byte) error) func(msg *nats.Msg) {
 type streamer struct {
 	conn    *nats.Conn
 	subject string
+
+	started     bool
+	serviceName string
 }
 
 func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callback es.EventCallback) error {
@@ -53,26 +56,29 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 		pctx, span := otel.Tracer("npub").Start(ctx, "Handle")
 		defer span.End()
 
-		evt, err := es.UnmarshalEvent(pctx, mapper, data)
+		with, err := es.UnmarshalEvent(pctx, mapper, data)
 		if err != nil {
 			return err
 		}
-		if evt == nil {
+		if with == nil {
 			return nil
 		}
 
 		// if we are the same service name than do nothing too
-		if strings.EqualFold(evt.ServiceName, opts.ServiceName) {
+		if strings.EqualFold(with.ServiceName, opts.ServiceName) {
 			return nil
 		}
 
-		return callback(pctx, evt)
+		return callback(pctx, with.Event)
 	}
 
 	_, err := s.conn.QueueSubscribe(s.subject+".*", opts.ServiceName, wrapped(handle))
 	if err != nil {
 		return err
 	}
+
+	s.started = true
+	s.serviceName = opts.ServiceName
 	return nil
 }
 
@@ -80,9 +86,13 @@ func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
 	_, span := otel.Tracer("npub").Start(ctx, "Publish")
 	defer span.End()
 
+	if !s.started {
+		return fmt.Errorf("streamer is not started")
+	}
+
 	datums := make([]Data, len(evt))
 	for i, e := range evt {
-		data, err := es.MarshalEvent(ctx, e)
+		data, err := es.MarshalEvent(ctx, s.serviceName, e)
 		if err != nil {
 			return err
 		}

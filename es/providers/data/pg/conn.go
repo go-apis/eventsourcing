@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/pkg/pgdb"
@@ -11,7 +12,9 @@ import (
 )
 
 type conn struct {
-	db *gorm.DB
+	initialized bool
+	serviceName string
+	db          *gorm.DB
 }
 
 func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) error {
@@ -37,6 +40,8 @@ func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) er
 		}
 	}
 
+	c.initialized = true
+	c.serviceName = initOpts.ServiceName
 	return nil
 }
 
@@ -44,8 +49,12 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	pctx, pspan := otel.Tracer("local").Start(ctx, "NewData")
 	defer pspan.End()
 
+	if !c.initialized {
+		return nil, fmt.Errorf("conn not initialized")
+	}
+
 	db := c.db.WithContext(pctx)
-	return newData(db), nil
+	return newData(c.serviceName, db), nil
 }
 
 func (c *conn) Close(ctx context.Context) error {

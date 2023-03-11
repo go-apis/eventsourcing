@@ -70,7 +70,6 @@ type EventDataFunc func() (interface{}, error)
 
 // Event that has been persisted to the event store.
 type Event struct {
-	ServiceName   string                 `json:"service_name"`
 	Namespace     string                 `json:"namespace"`
 	AggregateId   uuid.UUID              `json:"aggregate_id"`
 	AggregateType string                 `json:"aggregate_type"`
@@ -84,4 +83,10 @@ type Event struct {
 // String implements the String method of the Event interface.
 func (e Event) String() string {
 	return fmt.Sprintf("%s@%d", e.Type, e.Version)
+}
+
+type EventWithServiceName struct {
+	*Event
+
+	ServiceName string `json:"service_name"`
 }

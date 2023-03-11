@@ -21,75 +21,45 @@ type Pagination[T any] struct {
 
 type Query[T Entity] interface {
 	Get(ctx context.Context, id uuid.UUID) (T, error)
-	Load(ctx context.Context, id uuid.UUID) (T, error)
-	Save(ctx context.Context, entities ...T) error
 	Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	Count(ctx context.Context, filter filters.Filter) (int, error)
 	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
 }
 
 type query[T Entity] struct {
-	name string
+	options *QueryOptions
+	name    string
 }
 
 func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Get")
 	defer pspan.End()
 
+	namespace := ""
+	if q.options.UseNamespace {
+		namespace = NamespaceFromContext(ctx)
+	}
+
 	var item T
 	unit, err := GetUnit(pctx)
 	if err != nil {
 		return item, err
 	}
 
-	if err := unit.Get(pctx, q.name, id, &item); err != nil {
+	if err := unit.GetData().Get(pctx, namespace, q.name, id, &item); err != nil {
 		return item, err
 	}
 	return item, nil
 }
 
-func (q *query[T]) Load(ctx context.Context, id uuid.UUID) (T, error) {
-	pctx, pspan := otel.Tracer("Query").Start(ctx, "Load")
-	defer pspan.End()
-
-	var item T
-	unit, err := GetUnit(pctx)
-	if err != nil {
-		return item, err
-	}
-
-	out, err := unit.Load(pctx, q.name, id)
-	if err != nil {
-		return item, err
-	}
-
-	result, ok := out.(T)
-	if !ok {
-		return item, fmt.Errorf("unexpected type: %T", out)
-	}
-	return result, nil
-}
-
-func (q *query[T]) Save(ctx context.Context, entities ...T) error {
-	pctx, pspan := otel.Tracer("Query").Start(ctx, "Save")
-	defer pspan.End()
-
-	unit, err := GetUnit(pctx)
-	if err != nil {
-		return err
-	}
-
-	for _, entity := range entities {
-		if err := unit.Save(pctx, q.name, entity); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Find")
 	defer pspan.End()
+
+	namespace := ""
+	if q.options.UseNamespace {
+		namespace = NamespaceFromContext(ctx)
+	}
 
 	unit, err := GetUnit(pctx)
 	if err != nil {
@@ -97,7 +67,7 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	}
 
 	var items []T
-	if err := unit.Find(pctx, q.name, filter, &items); err != nil {
+	if err := unit.GetData().Find(pctx, namespace, q.name, filter, &items); err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -107,17 +77,27 @@ func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Count")
 	defer pspan.End()
 
+	namespace := ""
+	if q.options.UseNamespace {
+		namespace = NamespaceFromContext(ctx)
+	}
+
 	unit, err := GetUnit(pctx)
 	if err != nil {
 		return 0, err
 	}
 
-	return unit.Count(pctx, q.name, filter)
+	return unit.GetData().Count(pctx, namespace, q.name, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Pagination")
 	defer pspan.End()
+
+	namespace := ""
+	if q.options.UseNamespace {
+		namespace = NamespaceFromContext(ctx)
+	}
 
 	if filter.Limit == nil {
 		return nil, fmt.Errorf("Limit required for pagination")
@@ -131,13 +111,13 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, err
 	}
 
-	totalItems, err := unit.Count(pctx, q.name, filter)
+	totalItems, err := unit.GetData().Count(pctx, namespace, q.name, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []T
-	if err := unit.Find(pctx, q.name, filter, &items); err != nil {
+	if err := unit.GetData().Find(pctx, namespace, q.name, filter, &items); err != nil {
 		return nil, err
 	}
 
@@ -151,11 +131,17 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 	}, nil
 }
 
-func NewQuery[T Entity]() Query[T] {
+func NewQuery[T Entity](options ...QueryOption) Query[T] {
 	var item T
 	typeOf := utils.GetElemType(item)
 
+	o := DefaultQueryOptions()
+	for _, option := range options {
+		option(o)
+	}
+
 	return &query[T]{
-		name: typeOf.Name(),
+		options: o,
+		name:    typeOf.Name(),
 	}
 }

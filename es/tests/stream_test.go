@@ -19,7 +19,6 @@ type MyEvent struct {
 func Test_It(t *testing.T) {
 	testEvents := []*es.Event{
 		{
-			ServiceName:   "demo2",
 			Namespace:     "default",
 			AggregateId:   uuid.New(),
 			AggregateType: "MyAggregate",

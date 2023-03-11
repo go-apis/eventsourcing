@@ -15,7 +15,6 @@ type InitializeOptions struct {
 }
 
 type EventSearch struct {
-	ServiceName   string
 	Namespace     string
 	AggregateType string
 	AggregateId   uuid.UUID
@@ -23,7 +22,6 @@ type EventSearch struct {
 }
 
 type SnapshotSearch struct {
-	ServiceName   string
 	Namespace     string
 	AggregateType string
 	AggregateId   uuid.UUID
@@ -51,9 +49,9 @@ type Data interface {
 
 	GetEvents(ctx context.Context, mapper EventDataMapper, search EventSearch) ([]*Event, error)
 	SaveEvents(ctx context.Context, events []*Event) error
-	SaveEntity(ctx context.Context, serviceName string, aggregateName string, entity Entity) error
+	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error
 
-	Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
-	Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
-	Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int, error)
+	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
+	Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
+	Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error)
 }

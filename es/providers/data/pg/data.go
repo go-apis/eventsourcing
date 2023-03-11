@@ -17,8 +17,9 @@ import (
 )
 
 type data struct {
-	db *gorm.DB
-	tx *gorm.DB
+	serviceName string
+	db          *gorm.DB
+	tx          *gorm.DB
 
 	isCommitted bool
 }
@@ -53,15 +54,15 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	return newTransaction(d), nil
 }
 
-func (t *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
+func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "LoadSnapshot")
 	defer span.End()
 
 	var snapshot pgdb.Snapshot
-	r := t.getDb().
+	r := d.getDb().
 		WithContext(pctx).
 		Model(&pgdb.Snapshot{}).
-		Where("service_name = ?", search.ServiceName).
+		Where("service_name = ?", d.serviceName).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
 		Where("aggregate_id = ?", search.AggregateId).
@@ -98,7 +99,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	}
 
 	obj := &pgdb.Snapshot{
-		ServiceName:   snapshot.ServiceName,
+		ServiceName:   d.serviceName,
 		Namespace:     snapshot.Namespace,
 		AggregateId:   snapshot.AggregateId,
 		AggregateType: snapshot.AggregateType,
@@ -142,7 +143,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 
 	rows, err := g.
 		Model(&pgdb.Event{}).
-		Where("service_name = ?", search.ServiceName).
+		Where("service_name = ?", d.serviceName).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
 		Where("aggregate_id = ?", search.AggregateId).
@@ -169,7 +170,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 		}
 
 		events = append(events, &es.Event{
-			ServiceName:   evt.ServiceName,
+			// ServiceName:   d.serviceName,
 			Namespace:     evt.Namespace,
 			AggregateId:   evt.AggregateId,
 			AggregateType: evt.AggregateType,
@@ -196,22 +197,22 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 	}
 
 	evts := make([]*pgdb.Event, len(events))
-	for i, d := range events {
-		raw, err := json.Marshal(d.Data)
+	for i, evt := range events {
+		raw, err := json.Marshal(evt.Data)
 		if err != nil {
 			return err
 		}
 
 		evts[i] = &pgdb.Event{
-			ServiceName:   d.ServiceName,
-			Namespace:     d.Namespace,
-			AggregateId:   d.AggregateId,
-			AggregateType: d.AggregateType,
-			Type:          d.Type,
-			Version:       d.Version,
-			Timestamp:     d.Timestamp,
+			ServiceName:   d.serviceName,
+			Namespace:     evt.Namespace,
+			AggregateId:   evt.AggregateId,
+			AggregateType: evt.AggregateType,
+			Type:          evt.Type,
+			Version:       evt.Version,
+			Timestamp:     evt.Timestamp,
 			Data:          raw,
-			Metadata:      d.Metadata,
+			Metadata:      evt.Metadata,
 		}
 	}
 
@@ -220,16 +221,16 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		Create(&evts)
 	return out.Error
 }
-func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName string, raw es.Entity) error {
+func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Entity) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "SaveEntity")
 	defer span.End()
 
-	if !t.inTransaction() {
+	if !d.inTransaction() {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := pgdb.TableName(serviceName, aggregateName)
-	out := t.getDb().
+	table := pgdb.TableName(d.serviceName, aggregateName)
+	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
 		Clauses(clause.OnConflict{
@@ -240,34 +241,41 @@ func (t *data) SaveEntity(ctx context.Context, serviceName string, aggregateName
 	return out.Error
 }
 
-func (t *data) Load(ctx context.Context, serviceName string, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
+func (d *data) Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Load")
 	defer span.End()
 
-	table := pgdb.TableName(serviceName, aggregateName)
+	table := pgdb.TableName(d.serviceName, aggregateName)
 
-	r := t.getDb().
+	q := d.getDb().
 		WithContext(pctx).
 		Table(table).
-		Where("id = ?", id).
-		Where("namespace = ?", namespace).
-		First(out)
+		Where("id = ?", id)
+
+	if namespace != "" {
+		q = q.Where("namespace = ?", namespace)
+	}
+
+	r := q.First(out)
 	if r.Error == gorm.ErrRecordNotFound {
 		return sql.ErrNoRows
 	}
 	return r.Error
 }
-func (t *data) Find(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
+func (d *data) Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Find")
 	defer span.End()
 
-	table := pgdb.TableName(serviceName, aggregateName)
-	q := t.getDb().
+	table := pgdb.TableName(d.serviceName, aggregateName)
+	q := d.getDb().
 		WithContext(pctx).
-		Table(table).
-		Where("namespace = ?", namespace)
+		Table(table)
 
 	q = where(q, filter.Where)
+
+	if namespace != "" {
+		q = q.Where("namespace = ?", namespace)
+	}
 
 	if filter.Limit != nil {
 		q = q.Limit(*filter.Limit)
@@ -289,26 +297,31 @@ func (t *data) Find(ctx context.Context, serviceName string, aggregateName strin
 		Find(out)
 	return r.Error
 }
-func (t *data) Count(ctx context.Context, serviceName string, aggregateName string, namespace string, filter filters.Filter) (int, error) {
+func (d *data) Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error) {
 	pctx, span := otel.Tracer("local").Start(ctx, "Count")
 	defer span.End()
 
 	var totalRows int64
 
-	table := pgdb.TableName(serviceName, aggregateName)
-	q := t.getDb().
+	table := pgdb.TableName(d.serviceName, aggregateName)
+	q := d.getDb().
 		WithContext(pctx).
-		Table(table).
-		Where("namespace = ?", namespace)
+		Table(table)
 
 	q = where(q, filter.Where)
+
+	if namespace != "" {
+		q = q.Where("namespace = ?", namespace)
+	}
+
 	r := q.Count(&totalRows)
 	return int(totalRows), r.Error
 }
 
-func newData(db *gorm.DB) es.Data {
+func newData(serviceName string, db *gorm.DB) es.Data {
 	d := &data{
-		db: db,
+		serviceName: serviceName,
+		db:          db,
 	}
 	return d
 }

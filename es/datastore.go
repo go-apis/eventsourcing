@@ -57,13 +57,12 @@ type DataStore interface {
 	Save(ctx context.Context, aggregate Entity) ([]*Event, error)
 }
 
-type store struct {
-	serviceName  string
+type dataStore struct {
 	data         Data
 	entityConfig *EntityConfig
 }
 
-func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, forced bool) (Entity, error) {
+func (s *dataStore) loadSourced(ctx context.Context, aggregate AggregateSourced, forced bool) (Entity, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "LoadSourced")
 	defer pspan.End()
 
@@ -73,7 +72,6 @@ func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, for
 	// load up the aggregate
 	if s.entityConfig.SnapshotEvery >= 0 && !forced {
 		snapshotSearch := SnapshotSearch{
-			ServiceName:   s.serviceName,
 			Namespace:     namespace,
 			AggregateId:   id,
 			AggregateType: s.entityConfig.Name,
@@ -86,7 +84,6 @@ func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, for
 
 	// load up the events from the DB.
 	eventSearch := EventSearch{
-		ServiceName:   s.serviceName,
 		Namespace:     namespace,
 		AggregateId:   id,
 		AggregateType: s.entityConfig.Name,
@@ -101,21 +98,21 @@ func (s *store) loadSourced(ctx context.Context, aggregate AggregateSourced, for
 	}
 	return aggregate, nil
 }
-func (s *store) loadEntity(ctx context.Context, entity Entity) (Entity, error) {
+func (s *dataStore) loadEntity(ctx context.Context, entity Entity) (Entity, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "LoadEntity")
 	defer pspan.End()
 
 	namespace := NamespaceFromContext(pctx)
 
 	id := entity.GetId()
-	if err := s.data.Load(pctx, s.serviceName, s.entityConfig.Name, namespace, id, entity); err != nil {
+	if err := s.data.Get(pctx, s.entityConfig.Name, namespace, id, entity); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
 	}
 	return entity, nil
 }
-func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]*Event, error) {
+func (s *dataStore) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveSourced")
 	defer pspan.End()
 
@@ -144,7 +141,6 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 		}
 
 		events[i] = &Event{
-			ServiceName:   s.serviceName,
 			Namespace:     namespace,
 			AggregateId:   id,
 			AggregateType: s.entityConfig.Name,
@@ -173,7 +169,6 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 
 	if s.entityConfig.SnapshotEvery >= 0 && diff >= s.entityConfig.SnapshotEvery {
 		snapshot := &Snapshot{
-			ServiceName:   s.serviceName,
 			Namespace:     namespace,
 			AggregateId:   id,
 			AggregateType: s.entityConfig.Name,
@@ -186,14 +181,14 @@ func (s *store) saveSourced(ctx context.Context, aggregate AggregateSourced) ([]
 	}
 
 	if s.entityConfig.Project {
-		if err := s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate); err != nil {
+		if err := s.data.SaveEntity(pctx, s.entityConfig.Name, aggregate); err != nil {
 			return nil, err
 		}
 	}
 
 	return events, nil
 }
-func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHolder) ([]*Event, error) {
+func (s *dataStore) saveAggregateHolder(ctx context.Context, aggregate AggregateHolder) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveAggregateHolder")
 	defer pspan.End()
 
@@ -212,7 +207,6 @@ func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHold
 		metadata := MetadataFromContext(pctx)
 
 		events[i] = &Event{
-			ServiceName:   s.serviceName,
 			Namespace:     namespace,
 			AggregateId:   id,
 			AggregateType: s.entityConfig.Name,
@@ -223,20 +217,20 @@ func (s *store) saveAggregateHolder(ctx context.Context, aggregate AggregateHold
 		}
 	}
 
-	if err := s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate); err != nil {
+	if err := s.data.SaveEntity(pctx, s.entityConfig.Name, aggregate); err != nil {
 		return nil, err
 	}
 
 	return events, nil
 }
-func (s *store) saveEntity(ctx context.Context, aggregate Entity) ([]*Event, error) {
+func (s *dataStore) saveEntity(ctx context.Context, aggregate Entity) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "SaveEntity")
 	defer pspan.End()
 
-	return nil, s.data.SaveEntity(pctx, s.serviceName, s.entityConfig.Name, aggregate)
+	return nil, s.data.SaveEntity(pctx, s.entityConfig.Name, aggregate)
 }
 
-func (s *store) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error) {
+func (s *dataStore) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "Load")
 	defer pspan.End()
 
@@ -264,7 +258,7 @@ func (s *store) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) 
 		return s.loadEntity(pctx, agg)
 	}
 }
-func (s *store) Save(ctx context.Context, entity Entity) ([]*Event, error) {
+func (s *dataStore) Save(ctx context.Context, entity Entity) ([]*Event, error) {
 	pctx, pspan := otel.Tracer("DataStore").Start(ctx, "Save")
 	defer pspan.End()
 
@@ -279,9 +273,8 @@ func (s *store) Save(ctx context.Context, entity Entity) ([]*Event, error) {
 }
 
 // NewDataStore for creating stores
-func NewDataStore(serviceName string, data Data, entityConfig *EntityConfig) DataStore {
-	s := &store{
-		serviceName:  serviceName,
+func NewDataStore(data Data, entityConfig *EntityConfig) DataStore {
+	s := &dataStore{
 		data:         data,
 		entityConfig: entityConfig,
 	}

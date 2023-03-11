@@ -12,11 +12,11 @@ import (
 type demoHandler struct {
 	es.BaseCommandHandler
 
-	q es.Query[*aggregates.Demo]
+	s es.Store[*aggregates.Demo]
 }
 
 func (h *demoHandler) Handle(ctx context.Context, cmd *commands.NewDemo) error {
-	d, err := h.q.Load(ctx, cmd.AggregateId)
+	d, err := h.s.Load(ctx, cmd.AggregateId)
 	if err != nil {
 		return err
 	}
@@ -26,11 +26,11 @@ func (h *demoHandler) Handle(ctx context.Context, cmd *commands.NewDemo) error {
 		Name: cmd.Name,
 	})
 
-	return h.q.Save(ctx, d)
+	return h.s.Save(ctx, d)
 }
 
 func NewDemoHandler() es.IsCommandHandler {
 	return &demoHandler{
-		q: es.NewQuery[*aggregates.Demo](),
+		s: es.NewStore[*aggregates.Demo](),
 	}
 }
