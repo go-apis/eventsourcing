@@ -117,7 +117,7 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 	}
 
 	var items []T
-	if err := unit.GetData().Find(pctx, namespace, q.name, filter, &items); err != nil {
+	if err := unit.GetData().Find(pctx, q.name, namespace, filter, &items); err != nil {
 		return nil, err
 	}
 
