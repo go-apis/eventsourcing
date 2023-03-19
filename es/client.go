@@ -235,7 +235,6 @@ func (c *client) HandleEvents(ctx context.Context, evts ...*Event) error {
 	}
 	return nil
 }
-
 func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "PublishEvents")
 	defer pspan.End()

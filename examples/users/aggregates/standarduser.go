@@ -13,7 +13,7 @@ import (
 )
 
 type StandardUser struct {
-	es.BaseAggregateSourced
+	es.BaseAggregateSourced `es:",snapshot=3"`
 
 	Username    string
 	Password    string
@@ -33,7 +33,6 @@ func (u *StandardUser) HandleAddEmail(ctx context.Context, cmd *commands.AddEmai
 		Email: cmd.Email,
 	})
 }
-
 func (u *StandardUser) HandleAddConnection(ctx context.Context, cmd *commands.AddConnection) error {
 	return u.Apply(ctx, &events.ConnectionAdded{
 		Connections: types.SliceItem[models.Connection]{
@@ -46,7 +45,6 @@ func (u *StandardUser) HandleAddConnection(ctx context.Context, cmd *commands.Ad
 		},
 	})
 }
-
 func (u *StandardUser) HandleAddGroup(ctx context.Context, cmd *commands.AddGroup) error {
 	return u.Apply(ctx, &events.GroupAdded{
 		Groups: types.SliceItem[models.Group]{
@@ -57,7 +55,6 @@ func (u *StandardUser) HandleAddGroup(ctx context.Context, cmd *commands.AddGrou
 		},
 	})
 }
-
 func (u *StandardUser) HandleUpdateConnection(ctx context.Context, cmd *commands.UpdateConnection) error {
 	if len(u.Connections) == 0 {
 		return fmt.Errorf("Can't update connection")
@@ -71,4 +68,9 @@ func (u *StandardUser) HandleUpdateConnection(ctx context.Context, cmd *commands
 			},
 		},
 	})
+}
+
+func (u *StandardUser) ApplyEmailAdded(ctx context.Context, event *es.Event, data *events.EmailAdded) error {
+	u.Email = data.Email
+	return nil
 }

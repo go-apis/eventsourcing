@@ -85,7 +85,8 @@ func (h EventHandles) Handle(agg interface{}, ctx context.Context, evt *Event) e
 	return handle.Handle(agg, pctx, evt)
 }
 
-func NewEventHandles(t reflect.Type) EventHandles {
+func NewEventHandles(obj interface{}) EventHandles {
+	t := reflect.TypeOf(obj)
 	handles := make(EventHandles)
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)

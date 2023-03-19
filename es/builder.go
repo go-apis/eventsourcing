@@ -173,14 +173,15 @@ func (b *builder) Build() (Config, error) {
 		entities[name] = entityConfig
 
 		// handles!
-		handles := NewCommandHandles(agg)
+		commandHandles := NewCommandHandles(agg)
+
 		var commandConfigs []*CommandConfig
-		for t := range handles {
+		for t := range commandHandles {
 			cmdConfig := NewCommandConfig(t)
 			commandConfigs = append(commandConfigs, cmdConfig)
 		}
 
-		h := NewSourcedAggregateHandler(entityConfig, handles)
+		h := NewSourcedAggregateHandler(entityConfig, commandHandles)
 		h = UseCommandHandlerMiddleware(h, b.middlewares...)
 		replayHandlers[name] = h
 
