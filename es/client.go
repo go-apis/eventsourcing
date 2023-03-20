@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel"
+	"golang.org/x/sync/errgroup"
 )
 
 type Client interface {
@@ -17,6 +18,7 @@ type Client interface {
 
 	ReplayCommands(ctx context.Context, cmds ...*ReplayCommand) error
 	HandleCommands(ctx context.Context, cmds ...Command) error
+	HandleCommandsAsync(ctx context.Context, cmds ...Command) error
 	HandleEvents(ctx context.Context, events ...*Event) error
 	PublishEvents(ctx context.Context, events ...*Event) error
 }
@@ -195,6 +197,20 @@ func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
 		}
 	}
 	return nil
+}
+func (c *client) HandleCommandsAsync(ctx context.Context, cmds ...Command) error {
+	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleCommandsAsync")
+	defer pspan.End()
+
+	errs, ctx := errgroup.WithContext(pctx)
+	for _, cmd := range cmds {
+		current := cmd
+		errs.Go(func() error {
+			return c.handleCommand(ctx, current)
+		})
+	}
+
+	return errs.Wait()
 }
 
 func (c *client) handleEvent(ctx context.Context, evt *Event) error {

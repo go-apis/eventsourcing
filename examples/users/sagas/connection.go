@@ -31,5 +31,9 @@ func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt *es.Even
 }
 
 func NewConnectionSaga() *ConnectionSaga {
-	return &ConnectionSaga{}
+	return &ConnectionSaga{
+		BaseSaga: es.BaseSaga{
+			IsAsync: true,
+		},
+	}
 }

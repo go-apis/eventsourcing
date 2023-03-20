@@ -3,7 +3,7 @@ package es
 import "context"
 
 type IsSaga interface {
-	IsSaga()
+	GetIsAsync() bool
 }
 
 type Saga interface {
@@ -13,6 +13,9 @@ type Saga interface {
 }
 
 type BaseSaga struct {
+	IsAsync bool
 }
 
-func (BaseSaga) IsSaga() {}
+func (b *BaseSaga) GetIsAsync() bool {
+	return b.IsAsync
+}

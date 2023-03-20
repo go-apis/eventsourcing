@@ -25,12 +25,10 @@ func (b *sagaEventHandler) Handle(ctx context.Context, evt *Event) error {
 		return err
 	}
 
-	// dispatch.
-	if err := unit.Dispatch(pctx, cmds...); err != nil {
-		return err
+	if b.saga.GetIsAsync() {
+		return unit.DispatchAsync(pctx, cmds...)
 	}
-
-	return nil
+	return unit.Dispatch(pctx, cmds...)
 }
 
 func NewSagaEventHandler(handles SagaHandles, saga IsSaga) EventHandler {
