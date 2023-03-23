@@ -42,13 +42,16 @@ func NewEntityOptionsFromTag(t reflect.Type) ([]EntityOption, error) {
 	items := strings.Split(tag, ",")
 	for _, item := range items {
 		split := strings.Split(item, "=")
+		part1 := split[0]
+
 		if len(split) == 1 {
-			options = append(options, EntityName(split[0]))
+			if len(part1) > 0 {
+				options = append(options, EntityName(part1))
+			}
 			continue
 		}
 
-		key := split[0]
-		switch key {
+		switch part1 {
 		case "rev":
 			options = append(options, EntitySnapshotRevision(split[1]))
 			continue

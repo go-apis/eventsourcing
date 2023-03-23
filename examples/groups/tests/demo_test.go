@@ -22,6 +22,7 @@ func TestIt(t *testing.T) {
 		Data: es.DataConfig{
 			Type: "pg",
 			Pg: &pgdb.Config{
+				Debug:    true,
 				Host:     "localhost",
 				Port:     5432,
 				User:     "es",

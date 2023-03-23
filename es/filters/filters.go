@@ -1,10 +1,11 @@
 package filters
 
 type Filter struct {
-	Where  Where
-	Order  []Order
-	Limit  *int
-	Offset *int
+	Distinct []interface{}
+	Where    Where
+	Order    []Order
+	Limit    *int
+	Offset   *int
 }
 
 type Order struct {

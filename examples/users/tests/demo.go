@@ -52,6 +52,7 @@ func Provider() (*es.ProviderConfig, error) {
 		Data: es.DataConfig{
 			Type: "pg",
 			Pg: &pgdb.Config{
+				Debug:    true,
 				Host:     "localhost",
 				Port:     5432,
 				User:     "es",

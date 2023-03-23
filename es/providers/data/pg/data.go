@@ -277,6 +277,10 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 		q = q.Where("namespace = ?", namespace)
 	}
 
+	if filter.Distinct != nil {
+		q = q.Distinct(filter.Distinct...)
+	}
+
 	if filter.Limit != nil {
 		q = q.Limit(*filter.Limit)
 	}
@@ -312,6 +316,10 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 
 	if namespace != "" {
 		q = q.Where("namespace = ?", namespace)
+	}
+
+	if filter.Distinct != nil {
+		q = q.Distinct(filter.Distinct...)
 	}
 
 	r := q.Count(&totalRows)

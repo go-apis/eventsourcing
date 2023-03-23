@@ -2,7 +2,10 @@ package sagas
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/examples/users/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/examples/users/events"
 	"github.com/google/uuid"
@@ -19,6 +22,13 @@ func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt *es.Even
 
 	id := uuid.NewSHA1(evt.AggregateId, []byte(item.UserId))
 
+	q := es.NewQuery[*aggregates.User]()
+	all, err := q.Find(ctx, filters.Filter{})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("all: %+v", all)
+
 	return es.Commands(&commands.CreateExternalUser{
 		BaseCommand: es.BaseCommand{
 			AggregateId: id,
@@ -32,8 +42,6 @@ func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt *es.Even
 
 func NewConnectionSaga() *ConnectionSaga {
 	return &ConnectionSaga{
-		BaseSaga: es.BaseSaga{
-			IsAsync: true,
-		},
+		BaseSaga: es.BaseSaga{},
 	}
 }
