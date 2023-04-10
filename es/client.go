@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -182,6 +183,11 @@ func (c *client) handleCommand(ctx context.Context, cmd Command) error {
 		}
 	}
 
+	pspan.SetAttributes(
+		attribute.String("command", t.Name()),
+		attribute.String("id", cmd.GetAggregateId().String()),
+	)
+
 	if err := h.Handle(pctx, cmd); err != nil {
 		return err
 	}
@@ -222,6 +228,12 @@ func (c *client) handleEvent(ctx context.Context, evt *Event) error {
 		t = t.Elem()
 	}
 
+	pspan.SetAttributes(
+		attribute.String("event", evt.Type),
+		attribute.String("id", evt.AggregateId.String()),
+		attribute.String("type", evt.AggregateType),
+	)
+
 	all := c.cfg.GetEventHandlers()[t]
 	for _, h := range all {
 		if err := c.eventHandlerHandleEvent(pctx, h, evt); err != nil {
@@ -234,6 +246,12 @@ func (c *client) handleEvent(ctx context.Context, evt *Event) error {
 func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, evt *Event) error {
 	pctx, pspan := otel.Tracer("client").Start(ctx, "EventHandlerHandleEvent")
 	defer pspan.End()
+
+	pspan.SetAttributes(
+		attribute.String("event", evt.Type),
+		attribute.String("id", evt.AggregateId.String()),
+		attribute.String("type", evt.AggregateType),
+	)
 
 	if err := h.Handle(pctx, evt); err != nil {
 		return err

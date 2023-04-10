@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type sourcedAggregateHandler struct {
@@ -33,6 +34,12 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 	}
 	aggregateId := cmd.GetAggregateId()
 	replay := IsReplayCommand(cmd)
+
+	pspan.SetAttributes(
+		attribute.String("aggregate", b.cfg.Name),
+		attribute.String("id", aggregateId.String()),
+		attribute.Bool("replay", replay),
+	)
 
 	agg, err := unit.Load(pctx, b.cfg.Name, aggregateId)
 	if err != nil {
