@@ -2,8 +2,6 @@ package es
 
 import (
 	"context"
-
-	"go.opentelemetry.io/otel"
 )
 
 type sagaEventHandler struct {
@@ -12,23 +10,20 @@ type sagaEventHandler struct {
 }
 
 func (b *sagaEventHandler) Handle(ctx context.Context, evt *Event) error {
-	pctx, pspan := otel.Tracer("sagaEventHandler").Start(ctx, "Handle")
-	defer pspan.End()
-
-	unit, err := GetUnit(pctx)
+	unit, err := GetUnit(ctx)
 	if err != nil {
 		return err
 	}
 
-	cmds, err := b.handles.Handle(b.saga, pctx, evt)
+	cmds, err := b.handles.Handle(b.saga, ctx, evt)
 	if err != nil {
 		return err
 	}
 
 	if b.saga.GetIsAsync() {
-		return unit.DispatchAsync(pctx, cmds...)
+		return unit.DispatchAsync(ctx, cmds...)
 	}
-	return unit.Dispatch(pctx, cmds...)
+	return unit.Dispatch(ctx, cmds...)
 }
 
 func NewSagaEventHandler(handles SagaHandles, saga IsSaga) EventHandler {

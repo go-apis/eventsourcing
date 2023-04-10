@@ -68,9 +68,6 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 }
 
 func (c *client) initialize(ctx context.Context) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "Initialize")
-	defer pspan.End()
-
 	pcfg := c.cfg.GetProviderConfig()
 
 	entityConfigs := []*EntityConfig{}
@@ -88,12 +85,12 @@ func (c *client) initialize(ctx context.Context) error {
 		EventConfigs:  eventConfigs,
 	}
 
-	if err := c.conn.Initialize(pctx, initOpts); err != nil {
+	if err := c.conn.Initialize(ctx, initOpts); err != nil {
 		return err
 	}
 
 	if c.streamer != nil {
-		if err := c.streamer.Start(pctx, initOpts, c.handleStreamEvent); err != nil {
+		if err := c.streamer.Start(ctx, initOpts, c.handleStreamEvent); err != nil {
 			return err
 		}
 	}
@@ -139,6 +136,11 @@ func (c *client) replayCommand(ctx context.Context, cmd *ReplayCommand) error {
 		pctx = SetNamespace(pctx, ns)
 	}
 
+	pspan.SetAttributes(
+		attribute.String("name ", cmd.AggregateName),
+		attribute.String("id", cmd.GetAggregateId().String()),
+	)
+
 	h := c.cfg.GetReplayHandler(cmd.AggregateName)
 	if h == nil {
 		return fmt.Errorf("aggregate command handler not found: %v", cmd.AggregateName)
@@ -150,11 +152,8 @@ func (c *client) replayCommand(ctx context.Context, cmd *ReplayCommand) error {
 	return nil
 }
 func (c *client) ReplayCommands(ctx context.Context, cmds ...*ReplayCommand) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "ReplayCommands")
-	defer pspan.End()
-
 	for _, cmd := range cmds {
-		if err := c.replayCommand(pctx, cmd); err != nil {
+		if err := c.replayCommand(ctx, cmd); err != nil {
 			return err
 		}
 	}
@@ -194,21 +193,15 @@ func (c *client) handleCommand(ctx context.Context, cmd Command) error {
 	return nil
 }
 func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleCommands")
-	defer pspan.End()
-
 	for _, cmd := range cmds {
-		if err := c.handleCommand(pctx, cmd); err != nil {
+		if err := c.handleCommand(ctx, cmd); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func (c *client) HandleCommandsAsync(ctx context.Context, cmds ...Command) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleCommandsAsync")
-	defer pspan.End()
-
-	errs, ctx := errgroup.WithContext(pctx)
+	errs, ctx := errgroup.WithContext(ctx)
 	for _, cmd := range cmds {
 		current := cmd
 		errs.Go(func() error {
@@ -220,23 +213,14 @@ func (c *client) HandleCommandsAsync(ctx context.Context, cmds ...Command) error
 }
 
 func (c *client) handleEvent(ctx context.Context, evt *Event) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvent")
-	defer pspan.End()
-
 	t := reflect.TypeOf(evt.Data)
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 
-	pspan.SetAttributes(
-		attribute.String("event", evt.Type),
-		attribute.String("id", evt.AggregateId.String()),
-		attribute.String("type", evt.AggregateType),
-	)
-
 	all := c.cfg.GetEventHandlers()[t]
 	for _, h := range all {
-		if err := c.eventHandlerHandleEvent(pctx, h, evt); err != nil {
+		if err := c.eventHandlerHandleEvent(ctx, h, evt); err != nil {
 			return err
 		}
 	}
@@ -259,25 +243,19 @@ func (c *client) eventHandlerHandleEvent(ctx context.Context, h EventHandler, ev
 	return nil
 }
 func (c *client) HandleEvents(ctx context.Context, evts ...*Event) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "HandleEvents")
-	defer pspan.End()
-
 	for _, evt := range evts {
-		if err := c.handleEvent(pctx, evt); err != nil {
+		if err := c.handleEvent(ctx, evt); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
-	pctx, pspan := otel.Tracer("client").Start(ctx, "PublishEvents")
-	defer pspan.End()
-
 	if c.streamer == nil {
 		return nil
 	}
 
-	return c.streamer.Publish(pctx, evts...)
+	return c.streamer.Publish(ctx, evts...)
 }
 
 func NewClient(ctx context.Context, cfg Config) (Client, error) {

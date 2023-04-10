@@ -4,14 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"go.opentelemetry.io/otel"
 )
 
 func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte, error) {
-	_, span := otel.Tracer("local").Start(ctx, "MarshalEvent")
-	defer span.End()
-
 	d := &EventWithServiceName{
 		Event:       event,
 		ServiceName: serviceName,
@@ -27,9 +22,6 @@ func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte
 }
 
 func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*EventWithServiceName, error) {
-	_, span := otel.Tracer("local").Start(ctx, "UnmarshalEvent")
-	defer span.End()
-
 	out := struct {
 		*EventWithServiceName
 

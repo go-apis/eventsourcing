@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/contextcloud/eventstore/es"
-	"go.opentelemetry.io/otel"
 )
 
 type CommandNameExtractor func(r *http.Request) (string, error)
@@ -33,16 +32,13 @@ func NewCommanders(extractor CommandNameExtractor) func(w http.ResponseWriter, r
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		pctx, span := otel.Tracer("es").Start(ctx, "NewCommanders")
-		defer span.End()
-
 		name, err := ext(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		unit, err := es.GetUnit(pctx)
+		unit, err := es.GetUnit(ctx)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -60,7 +56,7 @@ func NewCommanders(extractor CommandNameExtractor) func(w http.ResponseWriter, r
 		}
 		defer r.Body.Close()
 
-		if err := es.Dispatch(pctx, cmd); err != nil {
+		if err := es.Dispatch(ctx, cmd); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
