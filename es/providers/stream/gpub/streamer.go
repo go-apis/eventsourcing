@@ -86,7 +86,7 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 	return nil
 }
 
-func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
+func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
 	pctx, span := otel.Tracer("gpub").Start(ctx, "Publish")
 	defer span.End()
 
@@ -94,21 +94,25 @@ func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
 		return fmt.Errorf("streamer is not started")
 	}
 
-	datums := make([][]byte, len(evt))
-	for i, e := range evt {
-		data, err := es.MarshalEvent(ctx, s.serviceName, e)
+	messages := make([]*pubsub.Message, len(evts))
+	for i, evt := range evts {
+		orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
+		data, err := es.MarshalEvent(ctx, s.serviceName, evt)
 		if err != nil {
 			return err
 		}
-		datums[i] = data
+
+		msg := &pubsub.Message{
+			Data:        data,
+			OrderingKey: orderingKey,
+		}
+		messages[i] = msg
 	}
 
-	for _, data := range datums {
-		_, err := s.p.Publish(pctx, data)
-		if err != nil {
-			// todo add some logging
-			return err
-		}
+	_, err := s.p.Publish(pctx, messages...)
+	if err != nil {
+		// todo add some logging
+		return err
 	}
 
 	return nil

@@ -84,9 +84,3 @@ type Event struct {
 func (e Event) String() string {
 	return fmt.Sprintf("%s@%d", e.Type, e.Version)
 }
-
-type EventWithServiceName struct {
-	*Event
-
-	ServiceName string `json:"service_name"`
-}
