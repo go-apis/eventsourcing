@@ -9,6 +9,9 @@ type UserCreated struct {
 	Username string
 	Password string
 }
+type UserDeleted struct {
+	Deleted bool
+}
 
 type EmailAdded struct {
 	Email string

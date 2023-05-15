@@ -240,6 +240,21 @@ func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Enti
 		Create(raw)
 	return out.Error
 }
+func (d *data) DeleteEntity(ctx context.Context, aggregateName string, raw es.Entity) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "DeleteEntity")
+	defer span.End()
+
+	if !d.inTransaction() {
+		return fmt.Errorf("must be in transaction")
+	}
+
+	table := pgdb.TableName(d.serviceName, aggregateName)
+	out := d.getDb().
+		WithContext(pctx).
+		Table(table).
+		Delete(raw, "namespace = ?", raw.GetNamespace())
+	return out.Error
+}
 
 func (d *data) Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Load")

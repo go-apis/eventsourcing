@@ -21,6 +21,7 @@ type Unit interface {
 
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, entity Entity) error
+	Delete(ctx context.Context, name string, entity Entity) error
 }
 
 type unit struct {
@@ -130,6 +131,15 @@ func (u *unit) Save(ctx context.Context, name string, entity Entity) error {
 	}
 	u.events = append(u.events, events...)
 	return u.cli.HandleEvents(ctx, events...)
+}
+func (u *unit) Delete(ctx context.Context, name string, entity Entity) error {
+	entityConfig, err := u.cli.GetEntityConfig(name)
+	if err != nil {
+		return err
+	}
+
+	dataStore := NewDataStore(u.data, entityConfig)
+	return dataStore.Delete(ctx, entity)
 }
 
 func newUnit(cli Client, data Data) (Unit, error) {

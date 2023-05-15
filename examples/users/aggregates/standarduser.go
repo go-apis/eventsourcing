@@ -20,12 +20,18 @@ type StandardUser struct {
 	Email       string
 	Connections types.Slice[models.Connection] `gorm:"type:jsonb;serializer:json"`
 	Groups      types.Slice[models.Group]      `gorm:"type:jsonb;serializer:json"`
+	Deleted     bool
 }
 
 func (u *StandardUser) HandleCreate(ctx context.Context, cmd *commands.CreateUser) error {
 	return u.Apply(ctx, &events.UserCreated{
 		Username: cmd.Username,
 		Password: cmd.Password,
+	})
+}
+func (u *StandardUser) HandleDelete(ctx context.Context, cmd *commands.DeleteUser) error {
+	return u.Apply(ctx, &events.UserDeleted{
+		Deleted: true,
 	})
 }
 func (u *StandardUser) HandleAddEmail(ctx context.Context, cmd *commands.AddEmail) error {

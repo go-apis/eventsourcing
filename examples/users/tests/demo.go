@@ -158,6 +158,11 @@ func UserCommands(ctx context.Context) (uuid.UUID, uuid.UUID, error) {
 			Username: "calvin.harris",
 			Password: "12345678",
 		},
+		&commands.DeleteUser{
+			BaseCommand: es.BaseCommand{
+				AggregateId: userId2,
+			},
+		},
 	}
 
 	unit, err := es.GetUnit(ctx)

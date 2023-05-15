@@ -26,6 +26,7 @@ func toJson(data interface{}) (json.RawMessage, error) {
 type DataStore interface {
 	Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, aggregate Entity) ([]*Event, error)
+	Delete(ctx context.Context, aggregate Entity) error
 }
 
 type dataStore struct {
@@ -202,6 +203,9 @@ func (s *dataStore) saveAggregateHolder(ctx context.Context, aggregate Aggregate
 func (s *dataStore) saveEntity(ctx context.Context, aggregate Entity) ([]*Event, error) {
 	return nil, s.data.SaveEntity(ctx, s.entityConfig.Name, aggregate)
 }
+func (s *dataStore) deleteEntity(ctx context.Context, aggregate Entity) error {
+	return s.data.DeleteEntity(ctx, s.entityConfig.Name, aggregate)
+}
 
 func (s *dataStore) Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error) {
 	options := &DataLoadOptions{}
@@ -236,6 +240,14 @@ func (s *dataStore) Save(ctx context.Context, entity Entity) ([]*Event, error) {
 		return s.saveAggregateHolder(ctx, agg)
 	default:
 		return s.saveEntity(ctx, agg)
+	}
+}
+func (s *dataStore) Delete(ctx context.Context, entity Entity) error {
+	switch agg := entity.(type) {
+	case AggregateSourced:
+		return fmt.Errorf("cannot delete an aggregate sourced entity")
+	default:
+		return s.deleteEntity(ctx, agg)
 	}
 }
 

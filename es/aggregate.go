@@ -28,6 +28,11 @@ func (a *BaseAggregate) GetId() uuid.UUID {
 	return a.Id
 }
 
+// GetId of the aggregate
+func (a *BaseAggregate) GetNamespace() string {
+	return a.Namespace
+}
+
 // SetId of the aggregate
 func (a *BaseAggregate) SetId(id uuid.UUID, namespace string) {
 	a.Id = id

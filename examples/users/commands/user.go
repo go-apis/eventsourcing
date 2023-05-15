@@ -13,6 +13,11 @@ type CreateUser struct {
 	Password string
 }
 
+type DeleteUser struct {
+	es.BaseCommand
+	es.BaseNamespaceCommand
+}
+
 type AddEmail struct {
 	es.BaseCommand
 

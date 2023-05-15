@@ -2,7 +2,10 @@ package es
 
 import (
 	"context"
+	"errors"
 )
+
+var ErrDeleteEntity = errors.New("delete entity")
 
 type projectorEventHandler struct {
 	cfg       *EntityConfig
@@ -23,13 +26,18 @@ func (p *projectorEventHandler) Handle(ctx context.Context, evt *Event) error {
 			return err
 		}
 
-		if err := h.Handle(p.projector, ctx, ent, evt); err != nil {
+		if err := h.Handle(p.projector, ctx, ent, evt); err != nil && err != ErrDeleteEntity {
 			return err
-		}
-
-		// save it!
-		if err := unit.Save(ctx, p.cfg.Name, ent); err != nil {
-			return err
+		} else if err == ErrDeleteEntity {
+			// delete it.
+			if err := unit.Delete(ctx, p.cfg.Name, ent); err != nil {
+				return err
+			}
+		} else {
+			// save it!
+			if err := unit.Save(ctx, p.cfg.Name, ent); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -9,4 +9,5 @@ type EntityFunc func() (Entity, error)
 
 type Entity interface {
 	GetId() uuid.UUID
+	GetNamespace() string
 }

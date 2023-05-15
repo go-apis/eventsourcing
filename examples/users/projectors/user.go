@@ -23,6 +23,9 @@ func (u *UserProjector) ProjectUserAdded(ctx context.Context, user *aggregates.U
 	user.Username = evt.Username
 	return nil
 }
+func (u *UserProjector) ProjectUserDeleted(ctx context.Context, user *aggregates.User, evt *events.UserDeleted) error {
+	return es.ErrDeleteEntity
+}
 
 func (u *UserProjector) ProjectEmailAdded(ctx context.Context, user *aggregates.User, evt *events.EmailAdded) error {
 	user.Email = evt.Email

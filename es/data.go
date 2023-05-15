@@ -50,6 +50,7 @@ type Data interface {
 	GetEvents(ctx context.Context, mapper EventDataMapper, search EventSearch) ([]*Event, error)
 	SaveEvents(ctx context.Context, events []*Event) error
 	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error
+	DeleteEntity(ctx context.Context, aggregateName string, entity Entity) error
 
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
