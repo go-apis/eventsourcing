@@ -6,14 +6,14 @@ import (
 	"fmt"
 )
 
-type EventPublish struct {
+type EventPublished struct {
 	*Event
 
 	ServiceName string `json:"service_name"`
 }
 
 func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte, error) {
-	d := &EventPublish{
+	d := &EventPublished{
 		Event:       event,
 		ServiceName: serviceName,
 	}
@@ -27,9 +27,9 @@ func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte
 	return b, nil
 }
 
-func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*EventPublish, error) {
+func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*EventPublished, error) {
 	out := struct {
-		*EventPublish
+		*EventPublished
 
 		Data json.RawMessage `json:"data"`
 	}{}
@@ -67,7 +67,7 @@ func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []b
 		evt.Metadata = make(map[string]interface{})
 	}
 
-	with := &EventPublish{
+	with := &EventPublished{
 		Event:       evt,
 		ServiceName: out.ServiceName,
 	}

@@ -8,7 +8,6 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"golang.org/x/sync/errgroup"
 )
 
 type Client interface {
@@ -19,7 +18,6 @@ type Client interface {
 
 	ReplayCommands(ctx context.Context, cmds ...*ReplayCommand) error
 	HandleCommands(ctx context.Context, cmds ...Command) error
-	HandleCommandsAsync(ctx context.Context, cmds ...Command) error
 	HandleEvents(ctx context.Context, events ...*Event) error
 	PublishEvents(ctx context.Context, events ...*Event) error
 }
@@ -200,17 +198,6 @@ func (c *client) HandleCommands(ctx context.Context, cmds ...Command) error {
 	}
 	return nil
 }
-func (c *client) HandleCommandsAsync(ctx context.Context, cmds ...Command) error {
-	errs, ctx := errgroup.WithContext(ctx)
-	for _, cmd := range cmds {
-		current := cmd
-		errs.Go(func() error {
-			return c.handleCommand(ctx, current)
-		})
-	}
-
-	return errs.Wait()
-}
 
 func (c *client) handleEvent(ctx context.Context, evt *Event) error {
 	t := reflect.TypeOf(evt.Data)
@@ -255,7 +242,21 @@ func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
 		return nil
 	}
 
-	return c.streamer.Publish(ctx, evts...)
+	configs := c.cfg.GetEventConfigs()
+
+	var publishEvts []*Event
+	for _, evt := range evts {
+		cfg, ok := configs[evt.Type]
+		if !ok {
+			continue
+		}
+
+		if cfg.Publish {
+			publishEvts = append(publishEvts, evt)
+		}
+	}
+
+	return c.streamer.Publish(ctx, publishEvts...)
 }
 
 func NewClient(ctx context.Context, cfg Config) (Client, error) {

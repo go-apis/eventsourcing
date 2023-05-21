@@ -13,6 +13,7 @@ import (
 type EventConfig struct {
 	Name    string
 	Type    reflect.Type
+	Publish bool
 	Factory func() (interface{}, error)
 }
 
@@ -37,9 +38,13 @@ func NewEventConfig(evt interface{}) *EventConfig {
 		return out, nil
 	}
 
+	impl, _ := factory()
+	_, publish := impl.(EventPublish)
+
 	return &EventConfig{
 		Name:    name,
 		Type:    t,
+		Publish: publish,
 		Factory: factory,
 	}
 }
@@ -83,4 +88,14 @@ type Event struct {
 // String implements the String method of the Event interface.
 func (e Event) String() string {
 	return fmt.Sprintf("%s@%d", e.Type, e.Version)
+}
+
+type EventPublish interface {
+	Publish()
+}
+
+type BaseEventPublish struct {
+}
+
+func (b BaseEventPublish) Publish() {
 }

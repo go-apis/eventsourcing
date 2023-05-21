@@ -26,13 +26,6 @@ func NamespaceFromContext(ctx context.Context) string {
 	}
 	return defaultNamespace
 }
-func UserFromContext(ctx context.Context) User {
-	user, ok := ctx.Value(UnitKey).(User)
-	if ok {
-		return user
-	}
-	return nil
-}
 func MetadataFromContext(ctx context.Context) map[string]interface{} {
 	m := make(map[string]interface{})
 
@@ -64,7 +57,4 @@ func SetNamespace(ctx context.Context, namespace string) context.Context {
 }
 func SetUnit(ctx context.Context, unit Unit) context.Context {
 	return context.WithValue(ctx, UnitKey, unit)
-}
-func SetUser(ctx context.Context, user User) context.Context {
-	return context.WithValue(ctx, UserKey, user)
 }

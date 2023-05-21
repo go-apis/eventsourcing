@@ -17,7 +17,6 @@ type Unit interface {
 
 	CreateCommand(name string) (Command, error)
 	Dispatch(ctx context.Context, cmds ...Command) error
-	DispatchAsync(ctx context.Context, cmds ...Command) error
 
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, entity Entity) error
@@ -67,10 +66,6 @@ func (u *unit) CreateCommand(name string) (Command, error) {
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 	ctx = SetUnit(ctx, u)
 	return u.cli.HandleCommands(ctx, cmds...)
-}
-func (u *unit) DispatchAsync(ctx context.Context, cmds ...Command) error {
-	ctx = SetUnit(ctx, u)
-	return u.cli.HandleCommandsAsync(ctx, cmds...)
 }
 
 func (u *unit) Commit(ctx context.Context) (int, error) {

@@ -20,9 +20,6 @@ func (b *sagaEventHandler) Handle(ctx context.Context, evt *Event) error {
 		return err
 	}
 
-	if b.saga.GetIsAsync() {
-		return unit.DispatchAsync(ctx, cmds...)
-	}
 	return unit.Dispatch(ctx, cmds...)
 }
 
