@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type ServiceEvent struct {
@@ -38,7 +39,7 @@ func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, e
 		return nil, fmt.Errorf("Could not decode event: %w", err)
 	}
 
-	evtConfig, ok := cfg.GetEventConfigs()[out.Type]
+	evtConfig, ok := cfg.GetEventConfigs()[strings.ToLower(out.Type)]
 	if !ok {
 		return nil, nil
 	}

@@ -229,7 +229,7 @@ func (c *client) PublishEvents(ctx context.Context, evts ...*Event) error {
 
 	var publishEvts []*Event
 	for _, evt := range evts {
-		cfg, ok := configs[evt.Type]
+		cfg, ok := configs[strings.ToLower(evt.Type)]
 		if !ok {
 			continue
 		}
