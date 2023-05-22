@@ -12,6 +12,44 @@ import (
 	"github.com/google/uuid"
 )
 
+var _ es.Config = &MyConfig{}
+
+type MyConfig struct {
+}
+
+func (MyConfig) GetProviderConfig() *es.ProviderConfig {
+	return &es.ProviderConfig{
+		ServiceName: "demo",
+		Version:     "1.0.0",
+	}
+}
+func (MyConfig) GetEntityConfigs() map[string]*es.EntityConfig {
+	return nil
+}
+func (MyConfig) GetCommandConfigs() map[string]*es.CommandConfig {
+	return nil
+}
+func (MyConfig) GetEventConfigs() map[string]*es.EventConfig {
+	return map[string]*es.EventConfig{
+		"MyEvent": {
+			Name: "MyEvent",
+			Type: reflect.TypeOf(&MyEvent{}),
+			Factory: func() (interface{}, error) {
+				return &MyEvent{}, nil
+			},
+		},
+	}
+}
+func (MyConfig) GetReplayHandler(entityName string) es.CommandHandler {
+	return nil
+}
+func (MyConfig) GetCommandHandlers() map[reflect.Type]es.CommandHandler {
+	return nil
+}
+func (MyConfig) GetEventHandlers() map[reflect.Type][]es.EventHandler {
+	return nil
+}
+
 type MyEvent struct {
 	Name string
 }
@@ -29,16 +67,16 @@ func Test_It(t *testing.T) {
 		},
 	}
 
-	cfg := &gcppubsub.Config{
+	streamCfg := &gcppubsub.Config{
 		ProjectId: "nordic-gaming",
 		TopicId:   "test_topic",
 	}
-	if err := gcppubsub.Reset(cfg); err != nil {
+	if err := gcppubsub.Reset(streamCfg); err != nil {
 		t.Error(err)
 		return
 	}
 
-	cli, err := gcppubsub.Open(cfg)
+	cli, err := gcppubsub.Open(streamCfg)
 	if err != nil {
 		t.Error(err)
 		return
@@ -50,18 +88,7 @@ func Test_It(t *testing.T) {
 		return
 	}
 
-	initOpts := es.InitializeOptions{
-		ServiceName: "demo",
-		EventConfigs: []*es.EventConfig{
-			{
-				Name: "MyEvent",
-				Type: reflect.TypeOf(&MyEvent{}),
-				Factory: func() (interface{}, error) {
-					return &MyEvent{}, nil
-				},
-			},
-		},
-	}
+	cfg := &MyConfig{}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -78,7 +105,7 @@ func Test_It(t *testing.T) {
 		return nil
 	}
 
-	if err := streamer.Start(ctx, initOpts, callback); err != nil {
+	if err := streamer.Start(ctx, cfg, callback); err != nil {
 		t.Error(err)
 		return
 	}

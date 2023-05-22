@@ -6,14 +6,14 @@ import (
 	"fmt"
 )
 
-type EventPublished struct {
+type ServiceEvent struct {
 	*Event
 
 	ServiceName string `json:"service_name"`
 }
 
 func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte, error) {
-	d := &EventPublished{
+	d := &ServiceEvent{
 		Event:       event,
 		ServiceName: serviceName,
 	}
@@ -27,9 +27,9 @@ func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte
 	return b, nil
 }
 
-func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []byte) (*EventPublished, error) {
+func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, error) {
 	out := struct {
-		*EventPublished
+		*ServiceEvent
 
 		Data json.RawMessage `json:"data"`
 	}{}
@@ -38,12 +38,17 @@ func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []b
 		return nil, fmt.Errorf("Could not decode event: %w", err)
 	}
 
-	builder, ok := mappers[out.Type]
+	evtConfig, ok := cfg.GetEventConfigs()[out.Type]
 	if !ok {
 		return nil, nil
 	}
 
-	data, err := builder()
+	// we only care about service names that match the config
+	if evtConfig.ServiceName == nil || *evtConfig.ServiceName != out.ServiceName {
+		return nil, nil
+	}
+
+	data, err := evtConfig.Factory()
 	if err != nil {
 		return nil, fmt.Errorf("Could not create event: %w", err)
 	}
@@ -67,7 +72,7 @@ func UnmarshalEvent(ctx context.Context, mappers map[string]EventDataFunc, b []b
 		evt.Metadata = make(map[string]interface{})
 	}
 
-	with := &EventPublished{
+	with := &ServiceEvent{
 		Event:       evt,
 		ServiceName: out.ServiceName,
 	}

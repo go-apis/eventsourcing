@@ -1,6 +1,7 @@
 package events
 
 import (
+	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/types"
 	"github.com/contextcloud/eventstore/examples/groups/models"
 	"github.com/google/uuid"
@@ -16,5 +17,7 @@ type UserAdded struct {
 }
 
 type GroupAdded struct {
+	es.BaseEventPublished `service:"users"`
+
 	Groups types.SliceItem[models.Group]
 }

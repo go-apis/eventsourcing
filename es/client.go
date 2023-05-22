@@ -66,29 +66,12 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 }
 
 func (c *client) initialize(ctx context.Context) error {
-	pcfg := c.cfg.GetProviderConfig()
-
-	entityConfigs := []*EntityConfig{}
-	for _, cfg := range c.cfg.GetEntityConfigs() {
-		entityConfigs = append(entityConfigs, cfg)
-	}
-	eventConfigs := []*EventConfig{}
-	for _, cfg := range c.cfg.GetEventConfigs() {
-		eventConfigs = append(eventConfigs, cfg)
-	}
-
-	initOpts := InitializeOptions{
-		ServiceName:   pcfg.ServiceName,
-		EntityConfigs: entityConfigs,
-		EventConfigs:  eventConfigs,
-	}
-
-	if err := c.conn.Initialize(ctx, initOpts); err != nil {
+	if err := c.conn.Initialize(ctx, c.cfg); err != nil {
 		return err
 	}
 
 	if c.streamer != nil {
-		if err := c.streamer.Start(ctx, initOpts, c.handleStreamEvent); err != nil {
+		if err := c.streamer.Start(ctx, c.cfg, c.handleStreamEvent); err != nil {
 			return err
 		}
 	}

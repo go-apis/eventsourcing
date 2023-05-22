@@ -3,7 +3,6 @@ package npub
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/contextcloud/eventstore/es"
 
@@ -36,27 +35,24 @@ type streamer struct {
 	serviceName string
 }
 
-func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callback es.EventCallback) error {
+func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCallback) error {
 	_, span := otel.Tracer("npub").Start(ctx, "Start")
 	defer span.End()
 
-	if len(opts.ServiceName) == 0 {
-		return fmt.Errorf("service name is required")
+	if cfg == nil {
+		return fmt.Errorf("cfg is required")
 	}
 	if callback == nil {
 		return fmt.Errorf("callback is required")
 	}
 
-	mapper := map[string]es.EventDataFunc{}
-	for _, eventConfigs := range opts.EventConfigs {
-		mapper[eventConfigs.Name] = eventConfigs.Factory
-	}
+	serviceName := cfg.GetProviderConfig().ServiceName
 
 	handle := func(ctx context.Context, data []byte) error {
 		pctx, span := otel.Tracer("npub").Start(ctx, "Handle")
 		defer span.End()
 
-		with, err := es.UnmarshalEvent(pctx, mapper, data)
+		with, err := es.UnmarshalEvent(pctx, cfg, data)
 		if err != nil {
 			return err
 		}
@@ -64,21 +60,16 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 			return nil
 		}
 
-		// if we are the same service name than do nothing too
-		if strings.EqualFold(with.ServiceName, opts.ServiceName) {
-			return nil
-		}
-
 		return callback(pctx, with.Event)
 	}
 
-	_, err := s.conn.QueueSubscribe(s.subject+".*", opts.ServiceName, wrapped(handle))
+	_, err := s.conn.QueueSubscribe(s.subject+".*", serviceName, wrapped(handle))
 	if err != nil {
 		return err
 	}
 
 	s.started = true
-	s.serviceName = opts.ServiceName
+	s.serviceName = serviceName
 	return nil
 }
 

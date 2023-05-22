@@ -7,13 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type InitializeOptions struct {
-	ServiceName   string
-	Revision      string
-	EventConfigs  []*EventConfig
-	EntityConfigs []*EntityConfig
-}
-
 type EventSearch struct {
 	Namespace     string
 	AggregateType string
@@ -31,7 +24,7 @@ type SnapshotSearch struct {
 type ConnFactory func(cfg DataConfig) (Conn, error)
 
 type Conn interface {
-	Initialize(ctx context.Context, opts InitializeOptions) error
+	Initialize(ctx context.Context, cfg Config) error
 	NewData(ctx context.Context) (Data, error)
 	Close(ctx context.Context) error
 }

@@ -3,7 +3,6 @@ package gpub
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/contextcloud/eventstore/es"
@@ -28,23 +27,20 @@ type streamer struct {
 	serviceName string
 }
 
-func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callback es.EventCallback) error {
+func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCallback) error {
 	pctx, span := otel.Tracer("gpub").Start(ctx, "Start")
 	defer span.End()
 
-	if len(opts.ServiceName) == 0 {
-		return fmt.Errorf("service name is required")
+	if cfg == nil {
+		return fmt.Errorf("cfg is required")
 	}
 	if callback == nil {
 		return fmt.Errorf("callback is required")
 	}
 
-	mapper := map[string]es.EventDataFunc{}
-	for _, eventConfigs := range opts.EventConfigs {
-		mapper[eventConfigs.Name] = eventConfigs.Factory
-	}
+	serviceName := cfg.GetProviderConfig().ServiceName
 
-	sub, err := s.p.Subscription(pctx, opts.ServiceName)
+	sub, err := s.p.Subscription(pctx, serviceName)
 	if err != nil {
 		return err
 	}
@@ -53,16 +49,11 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 		pctx, span := otel.Tracer("gpub").Start(ctx, "Handle")
 		defer span.End()
 
-		with, err := es.UnmarshalEvent(pctx, mapper, data)
+		with, err := es.UnmarshalEvent(pctx, cfg, data)
 		if err != nil {
 			return err
 		}
 		if with == nil {
-			return nil
-		}
-
-		// if we are the same service name than do nothing too
-		if strings.EqualFold(with.ServiceName, opts.ServiceName) {
 			return nil
 		}
 
@@ -82,7 +73,7 @@ func (s *streamer) Start(ctx context.Context, opts es.InitializeOptions, callbac
 	}()
 
 	s.started = true
-	s.serviceName = opts.ServiceName
+	s.serviceName = serviceName
 	return nil
 }
 

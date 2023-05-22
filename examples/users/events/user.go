@@ -1,6 +1,7 @@
 package events
 
 import (
+	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/types"
 	"github.com/contextcloud/eventstore/examples/users/models"
 )
@@ -26,5 +27,7 @@ type ConnectionUpdated struct {
 }
 
 type GroupAdded struct {
+	es.BaseEventPublish
+
 	Groups types.SliceItem[models.Group]
 }

@@ -17,7 +17,7 @@ type conn struct {
 	db          *gorm.DB
 }
 
-func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) error {
+func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 	_, pspan := otel.Tracer("local").Start(ctx, "Initialize")
 	defer pspan.End()
 
@@ -25,13 +25,17 @@ func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) er
 		return err
 	}
 
-	for _, opt := range initOpts.EntityConfigs {
+	serviceName := cfg.
+		GetProviderConfig().
+		ServiceName
+
+	for _, opt := range cfg.GetEntityConfigs() {
 		obj, err := opt.Factory()
 		if err != nil {
 			return err
 		}
 
-		table := pgdb.TableName(initOpts.ServiceName, opt.Name)
+		table := pgdb.TableName(serviceName, opt.Name)
 		if err := c.db.Table(table).AutoMigrate(&pgdb.Entity{}); err != nil {
 			return err
 		}
@@ -41,7 +45,7 @@ func (c *conn) Initialize(ctx context.Context, initOpts es.InitializeOptions) er
 	}
 
 	c.initialized = true
-	c.serviceName = initOpts.ServiceName
+	c.serviceName = serviceName
 	return nil
 }
 
