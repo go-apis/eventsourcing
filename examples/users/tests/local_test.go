@@ -11,6 +11,7 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/examples/users/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/events"
 	"github.com/contextcloud/eventstore/examples/users/projectors"
 	"github.com/contextcloud/eventstore/examples/users/sagas"
 	"go.opentelemetry.io/otel"
@@ -36,6 +37,7 @@ func Test_Local(t *testing.T) {
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
 		projectors.NewUserProjector(),
+		&events.GroupAdded{},
 	)
 	if err != nil {
 		t.Error(err)

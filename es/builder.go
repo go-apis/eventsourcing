@@ -52,6 +52,8 @@ type Builder interface {
 	AddEntity(Entity) Builder
 	AddAggregateConfig(*AggregateConfig) Builder
 	AddMiddleware(CommandHandlerMiddleware) Builder
+	AddEventPublish(EventPublish) Builder
+	AddEventPublished(EventPublished) Builder
 }
 
 // todo what about event handlers
@@ -65,6 +67,7 @@ type builder struct {
 	entities         []Entity
 	aggregateConfigs []*AggregateConfig
 	middlewares      []CommandHandlerMiddleware
+	events           []interface{}
 }
 
 func (b *builder) SetProviderConfig(cfg *ProviderConfig) Builder {
@@ -104,6 +107,16 @@ func (b *builder) AddAggregateConfig(cfg *AggregateConfig) Builder {
 
 func (b *builder) AddMiddleware(m CommandHandlerMiddleware) Builder {
 	b.middlewares = append(b.middlewares, m)
+	return b
+}
+
+func (b *builder) AddEventPublish(p EventPublish) Builder {
+	b.events = append(b.events, p)
+	return b
+}
+
+func (b *builder) AddEventPublished(p EventPublished) Builder {
+	b.events = append(b.events, p)
 	return b
 }
 
@@ -274,6 +287,14 @@ func (b *builder) Build() (Config, error) {
 				}
 				eventHandlers[evtCfg.Type] = append(eventHandlers[evtCfg.Type], h)
 			}
+		}
+	}
+
+	for _, evt := range b.events {
+		evtConfig := NewEventConfig(evt)
+		name := strings.ToLower(evtConfig.Name)
+		if _, ok := events[name]; !ok {
+			events[name] = evtConfig
 		}
 	}
 

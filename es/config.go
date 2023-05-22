@@ -103,6 +103,10 @@ func NewConfig(pcfg *ProviderConfig, items ...interface{}) (Config, error) {
 		case CommandHandlerMiddleware:
 			b.AddMiddleware(raw)
 			continue
+		case EventPublish:
+			b.AddEventPublish(raw)
+		case EventPublished:
+			b.AddEventPublished(raw)
 		default:
 			return nil, fmt.Errorf("invalid item type: %T", item)
 		}
