@@ -17,10 +17,12 @@ type Unit interface {
 
 	CreateCommand(name string) (Command, error)
 	Dispatch(ctx context.Context, cmds ...Command) error
+	Replay(ctx context.Context, cmds ...*ReplayCommand) error
 
 	Load(ctx context.Context, name string, id uuid.UUID, dataOptions ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, entity Entity) error
 	Delete(ctx context.Context, name string, entity Entity) error
+	Truncate(ctx context.Context, name string) error
 }
 
 type unit struct {
@@ -66,6 +68,10 @@ func (u *unit) CreateCommand(name string) (Command, error) {
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 	ctx = SetUnit(ctx, u)
 	return u.cli.HandleCommands(ctx, cmds...)
+}
+func (u *unit) Replay(ctx context.Context, cmds ...*ReplayCommand) error {
+	ctx = SetUnit(ctx, u)
+	return u.cli.ReplayCommands(ctx, cmds...)
 }
 
 func (u *unit) Commit(ctx context.Context) (int, error) {
@@ -135,6 +141,15 @@ func (u *unit) Delete(ctx context.Context, name string, entity Entity) error {
 
 	dataStore := NewDataStore(u.data, entityConfig)
 	return dataStore.Delete(ctx, entity)
+}
+func (u *unit) Truncate(ctx context.Context, name string) error {
+	entityConfig, err := u.cli.GetEntityConfig(name)
+	if err != nil {
+		return err
+	}
+
+	dataStore := NewDataStore(u.data, entityConfig)
+	return dataStore.Truncate(ctx)
 }
 
 func newUnit(cli Client, data Data) (Unit, error) {

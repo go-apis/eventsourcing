@@ -27,6 +27,7 @@ type DataStore interface {
 	Load(ctx context.Context, id uuid.UUID, opts ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, aggregate Entity) ([]*Event, error)
 	Delete(ctx context.Context, aggregate Entity) error
+	Truncate(ctx context.Context) error
 }
 
 type dataStore struct {
@@ -249,6 +250,10 @@ func (s *dataStore) Delete(ctx context.Context, entity Entity) error {
 	default:
 		return s.deleteEntity(ctx, agg)
 	}
+}
+
+func (s *dataStore) Truncate(ctx context.Context) error {
+	return s.data.Truncate(ctx, s.entityConfig.Name)
 }
 
 // NewDataStore for creating stores
