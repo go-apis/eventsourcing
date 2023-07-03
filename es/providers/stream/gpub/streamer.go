@@ -45,6 +45,8 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 		return err
 	}
 
+	sub.ReceiveSettings.MaxOutstandingMessages = 100
+
 	handle := func(ctx context.Context, data []byte) error {
 		pctx, span := otel.Tracer("gpub").Start(ctx, "Handle")
 		defer span.End()
