@@ -46,6 +46,7 @@ func Zipkin() (Shutdown, error) {
 }
 
 func Provider() (*es.ProviderConfig, error) {
+	ctx := context.Background()
 	pcfg := &es.ProviderConfig{
 		ServiceName: "users",
 		Version:     "v1",
@@ -72,7 +73,7 @@ func Provider() (*es.ProviderConfig, error) {
 			},
 		},
 	}
-	if err := pgdb.Reset(pcfg.Data.Pg); err != nil {
+	if err := pgdb.Reset(ctx, pcfg.Data.Pg); err != nil {
 		return nil, err
 	}
 	// if err := gcppubsub.Reset(pcfg.Stream.PubSub); err != nil {

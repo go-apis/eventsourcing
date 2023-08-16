@@ -23,9 +23,11 @@ func init() {
 	schema.RegisterSerializer("timestamppb", &TimestampSerializer{})
 }
 
-func Open(cfg *Config) (*gorm.DB, error) {
-	// dsn := cfg.DSN()
-	url := cfg.URL()
+func Open(ctx context.Context, cfg *Config) (*gorm.DB, error) {
+	url, err := cfg.URL(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	level := logger.Info
 	if !cfg.Debug {

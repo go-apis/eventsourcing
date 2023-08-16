@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
@@ -16,7 +17,8 @@ func New(cfg es.DataConfig) (es.Conn, error) {
 	}
 
 	// create a new gorm connection
-	gdb, err := pgdb.Open(cfg.Pg)
+	ctx := context.Background()
+	gdb, err := pgdb.Open(ctx, cfg.Pg)
 	if err != nil {
 		return nil, err
 	}

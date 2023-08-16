@@ -24,7 +24,7 @@ func NewServer(ctx context.Context, cfg *config.Config) (srv.Startable, error) {
 		return nil, err
 	}
 
-	gormDb, err := pgdb.Open(pcfg.Data.Pg)
+	gormDb, err := pgdb.Open(ctx, pcfg.Data.Pg)
 	if err != nil {
 		return nil, err
 	}

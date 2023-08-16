@@ -35,7 +35,7 @@ func TestIt(t *testing.T) {
 		},
 	}
 
-	if err := pgdb.Reset(pcfg.Data.Pg); err != nil {
+	if err := pgdb.Reset(ctx, pcfg.Data.Pg); err != nil {
 		t.Fatal(err)
 	}
 

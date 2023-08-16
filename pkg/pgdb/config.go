@@ -1,25 +1,49 @@
 package pgdb
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/rds/auth"
 )
 
 type Config struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Name     string
-	SslMode  string
-	Options  string
+	Host      string
+	Port      int
+	User      string
+	Password  string
+	Name      string
+	SslMode   string
+	Options   string
+	AwsRegion string
 
 	Debug bool
 }
 
-func (o *Config) DSN() string {
+func (o *Config) DSN(ctx context.Context) (string, error) {
 	var parts []string
+
+	dbPass := o.Password
+	dbEndpoint := fmt.Sprintf("%s:%d", o.Host, o.Port)
+
+	// if the password doesn't exist lets try using AWS directly
+	if len(o.Password) == 0 && len(o.AwsRegion) > 0 {
+		awscfg, err := awsconfig.LoadDefaultConfig(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		authenticationToken, err := auth.BuildAuthToken(ctx, dbEndpoint, o.AwsRegion, o.User, awscfg.Credentials)
+		if err != nil {
+			return "", err
+		}
+
+		// set the pass
+		dbPass = authenticationToken
+	}
 
 	if o.Host != "" {
 		parts = append(parts, fmt.Sprintf("host=%s", o.Host))
@@ -38,30 +62,43 @@ func (o *Config) DSN() string {
 	}
 
 	if o.Password != "" {
-		parts = append(parts, fmt.Sprintf("password=%s", o.Password))
+		parts = append(parts, fmt.Sprintf("password=%s", dbPass))
 	}
 
 	if o.SslMode != "" {
 		parts = append(parts, fmt.Sprintf("sslmode=%s", o.SslMode))
-	} else {
-		parts = append(parts, "sslmode=disable")
 	}
 
 	if o.Options != "" {
 		parts = append(parts, fmt.Sprintf("options=%s", o.Options))
 	}
 
-	return strings.Join(parts, " ")
+	return strings.Join(parts, " "), nil
 }
 
-func (o *Config) URL() string {
-	sslmode := "disable"
-	if o.SslMode != "" {
-		sslmode = o.SslMode
+func (o *Config) URL(ctx context.Context) (string, error) {
+	dbPass := o.Password
+	dbEndpoint := fmt.Sprintf("%s:%d", o.Host, o.Port)
+
+	// if the password doesn't exist lets try using AWS directly
+	if len(o.Password) == 0 && len(o.AwsRegion) > 0 {
+		awscfg, err := awsconfig.LoadDefaultConfig(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		authenticationToken, err := auth.BuildAuthToken(ctx, dbEndpoint, o.AwsRegion, o.User, awscfg.Credentials)
+		if err != nil {
+			return "", err
+		}
+
+		// set the pass
+		dbPass = authenticationToken
 	}
 
-	query := url.Values{
-		"sslmode": []string{sslmode},
+	query := url.Values{}
+	if o.SslMode != "" {
+		query["sslmode"] = []string{o.SslMode}
 	}
 
 	if o.Options != "" {
@@ -70,13 +107,13 @@ func (o *Config) URL() string {
 
 	out := url.URL{
 		Scheme:   "postgresql",
-		Host:     fmt.Sprintf("%s:%d", o.Host, o.Port),
+		Host:     dbEndpoint,
 		Path:     o.Name,
-		User:     url.UserPassword(o.User, o.Password),
+		User:     url.UserPassword(o.User, dbPass),
 		RawQuery: query.Encode(),
 	}
 
-	return out.String()
+	return out.String(), nil
 }
 
 func NewConfig() *Config {

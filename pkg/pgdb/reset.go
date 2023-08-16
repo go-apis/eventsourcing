@@ -1,10 +1,11 @@
 package pgdb
 
 import (
+	"context"
 	"fmt"
 )
 
-func Reset(cfg *Config) error {
+func Reset(ctx context.Context, cfg *Config) error {
 	r := &Config{
 		Host:     cfg.Host,
 		Port:     cfg.Port,
@@ -14,7 +15,7 @@ func Reset(cfg *Config) error {
 		Debug:    cfg.Debug,
 	}
 
-	db, err := Open(r)
+	db, err := Open(ctx, r)
 	if err != nil {
 		return err
 	}
