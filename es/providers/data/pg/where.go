@@ -65,6 +65,12 @@ func where(q *gorm.DB, filter filters.Where) *gorm.DB {
 			o = where(o, inner)
 		}
 		return q.Where(o)
+	case []filters.WhereClause:
+		o := q.Session(&gorm.Session{NewDB: true})
+		for _, inner := range w {
+			o = where(o, inner)
+		}
+		return q.Where(o)
 	case filters.WhereClause:
 		return whereQuery(q, w)
 	case filters.WhereOr:
