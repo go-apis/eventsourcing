@@ -7,7 +7,6 @@ import (
 	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
-	"github.com/contextcloud/eventstore/eshttp"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/examples/groups/data"
@@ -32,7 +31,6 @@ func NewHandler(ctx context.Context, cfg *config.Config) (http.Handler, error) {
 	r.Use(otelchi.Middleware("server", otelchi.WithChiRoutes(r)))
 	r.Use(es.CreateUnit(cli))
 	r.Use(middleware.Logger)
-	r.Post("/commands/{name}", eshttp.NewCommanders(nil))
 
 	return r, nil
 }
