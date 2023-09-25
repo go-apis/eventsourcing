@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"go.opentelemetry.io/otel"
 
 	"gorm.io/gorm"
@@ -21,7 +20,7 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 	_, pspan := otel.Tracer("local").Start(ctx, "Initialize")
 	defer pspan.End()
 
-	if err := c.db.AutoMigrate(&pgdb.Event{}, &pgdb.Snapshot{}); err != nil {
+	if err := c.db.AutoMigrate(&Event{}, &Snapshot{}); err != nil {
 		return err
 	}
 
@@ -35,8 +34,8 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 			return err
 		}
 
-		table := pgdb.TableName(serviceName, opt.Name)
-		if err := c.db.Table(table).AutoMigrate(&pgdb.Entity{}); err != nil {
+		table := TableName(serviceName, opt.Name)
+		if err := c.db.Table(table).AutoMigrate(&Entity{}); err != nil {
 			return err
 		}
 		if err := c.db.Table(table).AutoMigrate(obj); err != nil {

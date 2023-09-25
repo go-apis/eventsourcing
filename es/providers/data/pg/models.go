@@ -1,4 +1,4 @@
-package pgdb
+package pg
 
 import (
 	"encoding/json"
@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/datatypes"
-
 	"github.com/jinzhu/inflection"
+	"gorm.io/datatypes"
 )
 
 type Event struct {

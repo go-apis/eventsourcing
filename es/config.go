@@ -6,7 +6,7 @@ import (
 
 	"github.com/contextcloud/eventstore/pkg/gcppubsub"
 	"github.com/contextcloud/eventstore/pkg/natspubsub"
-	"github.com/contextcloud/eventstore/pkg/pgdb"
+	"github.com/contextcloud/goutils/xgorm"
 )
 
 type StreamConfig struct {
@@ -16,8 +16,9 @@ type StreamConfig struct {
 }
 
 type DataConfig struct {
-	Type string
-	Pg   *pgdb.Config
+	Type  string
+	Pg    *xgorm.DbConfig
+	Reset bool
 }
 
 type ProviderConfig struct {

@@ -11,7 +11,7 @@ import (
 	"github.com/contextcloud/eventstore/examples/users/commands"
 	"github.com/contextcloud/eventstore/pkg/gcppubsub"
 	"github.com/contextcloud/eventstore/pkg/natspubsub"
-	"github.com/contextcloud/eventstore/pkg/pgdb"
+	"github.com/contextcloud/goutils/xgorm"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/zipkin"
@@ -46,20 +46,19 @@ func Zipkin() (Shutdown, error) {
 }
 
 func Provider() (*es.ProviderConfig, error) {
-	ctx := context.Background()
 	pcfg := &es.ProviderConfig{
 		ServiceName: "users",
 		Version:     "v1",
 		Data: es.DataConfig{
 			Type: "pg",
-			Pg: &pgdb.Config{
-				Debug:    true,
+			Pg: &xgorm.DbConfig{
 				Host:     "localhost",
 				Port:     5432,
-				User:     "es",
+				Username: "es",
 				Password: "es",
-				Name:     "eventstore",
+				Database: "eventstore",
 			},
+			Reset: true,
 		},
 		Stream: es.StreamConfig{
 			Type: "noop",
@@ -73,12 +72,6 @@ func Provider() (*es.ProviderConfig, error) {
 			},
 		},
 	}
-	if err := pgdb.Reset(ctx, pcfg.Data.Pg); err != nil {
-		return nil, err
-	}
-	// if err := gcppubsub.Reset(pcfg.Stream.PubSub); err != nil {
-	// 	return nil, err
-	// }
 	return pcfg, nil
 }
 

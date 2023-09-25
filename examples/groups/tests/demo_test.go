@@ -6,7 +6,7 @@ import (
 
 	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
 	_ "github.com/contextcloud/eventstore/es/providers/stream/noop"
-	"github.com/contextcloud/eventstore/pkg/pgdb"
+	"github.com/contextcloud/goutils/xgorm"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/examples/groups/data"
@@ -21,22 +21,18 @@ func TestIt(t *testing.T) {
 		Version:     "v1",
 		Data: es.DataConfig{
 			Type: "pg",
-			Pg: &pgdb.Config{
-				Debug:    true,
+			Pg: &xgorm.DbConfig{
 				Host:     "localhost",
 				Port:     5432,
-				User:     "es",
+				Username: "es",
 				Password: "es",
-				Name:     "es",
+				Database: "es",
 			},
+			Reset: true,
 		},
 		Stream: es.StreamConfig{
 			Type: "noop",
 		},
-	}
-
-	if err := pgdb.Reset(ctx, pcfg.Data.Pg); err != nil {
-		t.Fatal(err)
 	}
 
 	cli, err := data.NewClient(ctx, pcfg)

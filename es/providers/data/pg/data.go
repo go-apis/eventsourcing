@@ -8,7 +8,6 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/pkg/pgdb"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 
@@ -58,10 +57,10 @@ func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 	pctx, span := otel.Tracer("local").Start(ctx, "LoadSnapshot")
 	defer span.End()
 
-	var snapshot pgdb.Snapshot
+	var snapshot Snapshot
 	r := d.getDb().
 		WithContext(pctx).
-		Model(&pgdb.Snapshot{}).
+		Model(&Snapshot{}).
 		Where("service_name = ?", d.serviceName).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
@@ -98,7 +97,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 		return err
 	}
 
-	obj := &pgdb.Snapshot{
+	obj := &Snapshot{
 		ServiceName:   d.serviceName,
 		Namespace:     snapshot.Namespace,
 		AggregateId:   snapshot.AggregateId,
@@ -116,7 +115,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	return out.Error
 }
 
-func (d *data) loadData(mappers es.EventDataMapper, evt *pgdb.Event) (interface{}, error) {
+func (d *data) loadData(mappers es.EventDataMapper, evt *Event) (interface{}, error) {
 	mapper, ok := mappers[evt.Type]
 	if !ok {
 		return evt.Data, nil
@@ -142,7 +141,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 		WithContext(pctx)
 
 	rows, err := g.
-		Model(&pgdb.Event{}).
+		Model(&Event{}).
 		Where("service_name = ?", d.serviceName).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
@@ -157,7 +156,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 
 	var events []*es.Event
 	for rows.Next() {
-		var evt pgdb.Event
+		var evt Event
 		// ScanRows is a method of `gorm.DB`, it can be used to scan a row into a struct
 		if err := g.ScanRows(rows, &evt); err != nil {
 			return nil, err
@@ -196,14 +195,14 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		return nil // nothing to save
 	}
 
-	evts := make([]*pgdb.Event, len(events))
+	evts := make([]*Event, len(events))
 	for i, evt := range events {
 		raw, err := json.Marshal(evt.Data)
 		if err != nil {
 			return err
 		}
 
-		evts[i] = &pgdb.Event{
+		evts[i] = &Event{
 			ServiceName:   d.serviceName,
 			Namespace:     evt.Namespace,
 			AggregateId:   evt.AggregateId,
@@ -229,7 +228,7 @@ func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Enti
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := pgdb.TableName(d.serviceName, aggregateName)
+	table := TableName(d.serviceName, aggregateName)
 	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
@@ -248,7 +247,7 @@ func (d *data) DeleteEntity(ctx context.Context, aggregateName string, raw es.En
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := pgdb.TableName(d.serviceName, aggregateName)
+	table := TableName(d.serviceName, aggregateName)
 	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
@@ -263,7 +262,7 @@ func (d *data) Truncate(ctx context.Context, aggregateName string) error {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := pgdb.TableName(d.serviceName, aggregateName)
+	table := TableName(d.serviceName, aggregateName)
 	out := d.getDb().
 		WithContext(pctx).
 		Raw(fmt.Sprintf("TRUNCATE TABLE %s", table))
@@ -274,7 +273,7 @@ func (d *data) Get(ctx context.Context, aggregateName string, namespace string, 
 	pctx, span := otel.Tracer("local").Start(ctx, "Load")
 	defer span.End()
 
-	table := pgdb.TableName(d.serviceName, aggregateName)
+	table := TableName(d.serviceName, aggregateName)
 
 	q := d.getDb().
 		WithContext(pctx).
@@ -295,7 +294,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 	pctx, span := otel.Tracer("local").Start(ctx, "Find")
 	defer span.End()
 
-	table := pgdb.TableName(d.serviceName, aggregateName)
+	table := TableName(d.serviceName, aggregateName)
 	q := d.getDb().
 		WithContext(pctx).
 		Table(table)
@@ -336,7 +335,7 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 
 	var totalRows int64
 
-	table := pgdb.TableName(d.serviceName, aggregateName)
+	table := TableName(d.serviceName, aggregateName)
 	q := d.getDb().
 		WithContext(pctx).
 		Table(table)

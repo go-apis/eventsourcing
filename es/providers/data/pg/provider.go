@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/pkg/pgdb"
+	"github.com/contextcloud/goutils/xgorm"
 )
 
 func New(cfg es.DataConfig) (es.Conn, error) {
@@ -18,7 +18,15 @@ func New(cfg es.DataConfig) (es.Conn, error) {
 
 	// create a new gorm connection
 	ctx := context.Background()
-	gdb, err := pgdb.Open(ctx, cfg.Pg)
+
+	dbops := []xgorm.Option{
+		xgorm.WithTracing(),
+	}
+	if cfg.Reset {
+		dbops = append(dbops, xgorm.WithRecreate())
+	}
+
+	gdb, err := xgorm.NewDb(ctx, cfg.Pg, dbops...)
 	if err != nil {
 		return nil, err
 	}
