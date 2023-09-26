@@ -1,6 +1,7 @@
 package es
 
 import (
+	"context"
 	"fmt"
 	"sync"
 )
@@ -24,23 +25,23 @@ func RegisterStreamProviders(name string, factory StreamerFactory) {
 	StreamProviders[name] = factory
 }
 
-func GetConn(cfg *ProviderConfig) (Conn, error) {
+func GetConn(ctx context.Context, cfg *ProviderConfig) (Conn, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if factory, ok := DataProviders[cfg.Data.Type]; ok {
-		return factory(cfg.Data)
+		return factory(ctx, cfg.Data)
 	}
 
 	return nil, fmt.Errorf("data provider not found: %s", cfg.Data.Type)
 }
 
-func GetStreamer(cfg *ProviderConfig) (Streamer, error) {
+func GetStreamer(ctx context.Context, cfg *ProviderConfig) (Streamer, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if factory, ok := StreamProviders[cfg.Stream.Type]; ok {
-		return factory(cfg.Stream)
+		return factory(ctx, cfg.Stream)
 	}
 
 	return nil, fmt.Errorf("streamer provider not found: %s", cfg.Stream.Type)

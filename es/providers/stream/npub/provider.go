@@ -1,13 +1,14 @@
 package npub
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/nats-io/nats.go"
 )
 
-func New(cfg es.StreamConfig) (es.Streamer, error) {
+func New(ctx context.Context, cfg es.StreamConfig) (es.Streamer, error) {
 	if cfg.Type != "nats" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Type)
 	}

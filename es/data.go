@@ -21,7 +21,7 @@ type SnapshotSearch struct {
 	Revision      string
 }
 
-type ConnFactory func(cfg DataConfig) (Conn, error)
+type ConnFactory func(ctx context.Context, cfg DataConfig) (Conn, error)
 
 type Conn interface {
 	Initialize(ctx context.Context, cfg Config) error

@@ -4,7 +4,7 @@ import (
 	"context"
 )
 
-type StreamerFactory func(cfg StreamConfig) (Streamer, error)
+type StreamerFactory func(ctx context.Context, cfg StreamConfig) (Streamer, error)
 
 type EventCallback func(ctx context.Context, evt *Event) error
 

@@ -1,13 +1,14 @@
 package gpub
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/pkg/gcppubsub"
 )
 
-func New(cfg es.StreamConfig) (es.Streamer, error) {
+func New(ctx context.Context, cfg es.StreamConfig) (es.Streamer, error) {
 	if cfg.Type != "pubsub" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Type)
 	}

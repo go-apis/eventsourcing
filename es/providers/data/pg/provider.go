@@ -6,9 +6,11 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/goutils/xgorm"
+	"github.com/contextcloud/goutils/xlog"
+	gormlogger "gorm.io/gorm/logger"
 )
 
-func New(cfg es.DataConfig) (es.Conn, error) {
+func New(ctx context.Context, cfg es.DataConfig) (es.Conn, error) {
 	if cfg.Type != "pg" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Type)
 	}
@@ -16,10 +18,10 @@ func New(cfg es.DataConfig) (es.Conn, error) {
 		return nil, fmt.Errorf("invalid pg config")
 	}
 
-	// create a new gorm connection
-	ctx := context.Background()
+	log := xlog.Logger(ctx)
 
 	dbops := []xgorm.Option{
+		xgorm.WithLogger(log.ZapLogger(), gormlogger.Info),
 		xgorm.WithTracing(),
 	}
 	if cfg.Reset {

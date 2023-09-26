@@ -248,12 +248,12 @@ func NewClient(ctx context.Context, cfg Config) (Client, error) {
 		return nil, fmt.Errorf("provider config not set")
 	}
 
-	conn, err := GetConn(pcfg)
+	conn, err := GetConn(ctx, pcfg)
 	if err != nil {
 		return nil, err
 	}
 
-	streamer, err := GetStreamer(pcfg)
+	streamer, err := GetStreamer(ctx, pcfg)
 	if err != nil {
 		return nil, err
 	}
