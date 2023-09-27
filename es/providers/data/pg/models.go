@@ -37,6 +37,6 @@ type Entity struct {
 	Id        string `gorm:"primaryKey;type:uuid"`
 }
 
-func TableName(serviceName string, aggregateName string) string {
-	return strings.ToLower(serviceName + "_" + inflection.Plural(aggregateName))
+func TableName(service string, aggregateName string) string {
+	return strings.ToLower(service + "_" + inflection.Plural(aggregateName))
 }

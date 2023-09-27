@@ -38,7 +38,7 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 		return fmt.Errorf("callback is required")
 	}
 
-	serviceName := cfg.GetProviderConfig().ServiceName
+	serviceName := cfg.GetProviderConfig().Service
 
 	sub, err := s.p.Subscription(pctx, serviceName)
 	if err != nil {
@@ -62,7 +62,6 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 		return callback(pctx, with.Event)
 	}
 
-	// is this blocking?
 	go func() {
 		ctx := context.Background()
 		pctx, span := otel.Tracer("gpub").Start(ctx, "Receive")

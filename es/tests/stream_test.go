@@ -19,8 +19,8 @@ type MyConfig struct {
 
 func (MyConfig) GetProviderConfig() *es.ProviderConfig {
 	return &es.ProviderConfig{
-		ServiceName: "demo",
-		Version:     "1.0.0",
+		Service: "demo",
+		Version: "1.0.0",
 	}
 }
 func (MyConfig) GetEntityConfigs() map[string]*es.EntityConfig {

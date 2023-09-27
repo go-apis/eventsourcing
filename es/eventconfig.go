@@ -7,11 +7,11 @@ import (
 // EventOptions represents the configuration options
 // for the event.
 type EventConfig struct {
-	Name        string
-	Type        reflect.Type
-	Publish     bool
-	ServiceName *string
-	Factory     func() (interface{}, error)
+	Name    string
+	Type    reflect.Type
+	Publish bool
+	Service *string
+	Factory func() (interface{}, error)
 }
 
 func NewEventConfig(evt interface{}) *EventConfig {
@@ -38,20 +38,20 @@ func NewEventConfig(evt interface{}) *EventConfig {
 	impl, _ := factory()
 	_, publish := impl.(EventPublish)
 
-	var serviceName *string
+	var service *string
 	if field, ok := t.FieldByName("BaseEventPublished"); ok {
 		if tag := field.Tag.Get("service"); tag != "" {
-			serviceName = &tag
+			service = &tag
 		}
 
 	}
 
 	return &EventConfig{
-		Name:        name,
-		Type:        t,
-		Publish:     publish,
-		Factory:     factory,
-		ServiceName: serviceName,
+		Name:    name,
+		Type:    t,
+		Publish: publish,
+		Factory: factory,
+		Service: service,
 	}
 }
 

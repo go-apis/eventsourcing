@@ -13,6 +13,15 @@ type StreamConfig struct {
 	Type   string
 	PubSub *gcppubsub.Config
 	Nats   *natspubsub.Config
+	AWS    *AwsSnsConfig
+}
+
+type AwsSnsConfig struct {
+	Region              string
+	TopicARN            string
+	QueueName           string
+	MaxNumberOfMessages int
+	WaitTimeSeconds     int
 }
 
 type DataConfig struct {
@@ -22,8 +31,8 @@ type DataConfig struct {
 }
 
 type ProviderConfig struct {
-	ServiceName string
-	Version     string
+	Service string
+	Version string
 
 	Data   DataConfig
 	Stream StreamConfig

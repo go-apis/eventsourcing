@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/aggregates"
-	"github.com/contextcloud/eventstore/examples/users/events"
+	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/data/events"
 )
 
 type UserProjector struct {

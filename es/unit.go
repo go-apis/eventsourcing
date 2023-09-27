@@ -12,10 +12,10 @@ var ErrHandlerNotFound = fmt.Errorf("handler not found")
 var ErrNotCommandHandler = fmt.Errorf("not a command handler")
 
 type Unit interface {
-	GetData() Data
-	NewTx(ctx context.Context) (Tx, error)
+	Data() Data
+	Commit(ctx context.Context) (int, error)
+	Rollback(ctx context.Context) error
 
-	CreateCommand(name string) (Command, error)
 	Dispatch(ctx context.Context, cmds ...Command) error
 	Replay(ctx context.Context, cmds ...*ReplayCommand) error
 
@@ -35,34 +35,8 @@ type unit struct {
 	events []*Event
 }
 
-func (u *unit) GetData() Data {
+func (u *unit) Data() Data {
 	return u.data
-}
-
-func (u *unit) NewTx(ctx context.Context) (Tx, error) {
-	u.Lock()
-	defer u.Unlock()
-
-	if u.tx != nil {
-		return u, nil
-	}
-
-	tx, err := u.data.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	u.tx = tx
-	return u, nil
-}
-
-func (u *unit) CreateCommand(name string) (Command, error) {
-	// create the command.
-	cfg, err := u.cli.GetCommandConfig(name)
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Factory()
 }
 
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
@@ -152,9 +126,15 @@ func (u *unit) Truncate(ctx context.Context, name string) error {
 	return dataStore.Truncate(ctx)
 }
 
-func newUnit(cli Client, data Data) (Unit, error) {
+func newUnit(ctx context.Context, cli Client, data Data) (Unit, error) {
+	tx, err := data.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &unit{
 		cli:  cli,
 		data: data,
+		tx:   tx,
 	}, nil
 }

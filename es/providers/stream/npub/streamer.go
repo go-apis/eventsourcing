@@ -46,7 +46,7 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 		return fmt.Errorf("callback is required")
 	}
 
-	serviceName := cfg.GetProviderConfig().ServiceName
+	serviceName := cfg.GetProviderConfig().Service
 
 	handle := func(ctx context.Context, data []byte) error {
 		pctx, span := otel.Tracer("npub").Start(ctx, "Handle")

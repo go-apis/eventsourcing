@@ -2,122 +2,118 @@ package tests
 
 import (
 	"context"
+	"log"
 	"testing"
-
-	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/noop"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+	"time"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/aggregates"
-	"github.com/contextcloud/eventstore/examples/users/events"
-	"github.com/contextcloud/eventstore/examples/users/projectors"
-	"github.com/contextcloud/eventstore/examples/users/sagas"
-	"go.opentelemetry.io/otel"
+	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/data/commands"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 )
 
-func Test_Local(t *testing.T) {
-	// shutdown, err := Zipkin()
-	// if err != nil {
-	// 	t.Error(err)
-	// 	return
-	// }
+func Test(t *testing.T) {
+	tester, err := NewTester()
+	require.NoError(t, err)
 
-	pcfg, err := Provider()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	t.Run("create", func(t *testing.T) {
+		cli := tester.Client()
 
-	cfg, err := es.NewConfig(
-		pcfg,
-		&aggregates.StandardUser{},
-		&aggregates.User{},
-		&aggregates.ExternalUser{},
-		sagas.NewConnectionSaga(),
-		projectors.NewUserProjector(),
-		&events.GroupAdded{},
-	)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	ctx := context.Background()
-	pctx, pspan := otel.Tracer("test").Start(ctx, "Local")
-	defer pspan.End()
-
-	cli, err := es.NewClient(pctx, cfg)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	// the event store should know the aggregates and the commands.
-	unit, err := cli.Unit(pctx)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	pctx = es.SetUnit(pctx, unit)
-
-	userId, _, err := UserCommands(pctx)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	t.Log(userId)
-
-	// for i := 0; i < 1000; i++ {
-	// 	if err := QueryUsers(pctx, userId); err != nil {
-	// 		t.Error(err)
-	// 		return
-	// 	}
-
-	// 	t.Logf("index: %d", i)
-	// }
-
-	// shutdown(pctx)
-}
-
-func Benchmark_CreateUsers(b *testing.B) {
-	pcfg, err := Provider()
-	if err != nil {
-		b.Error(err)
-		return
-	}
-
-	cfg, err := es.NewConfig(
-		pcfg,
-		&aggregates.User{},
-		&aggregates.ExternalUser{},
-		sagas.NewConnectionSaga(),
-	)
-	if err != nil {
-		b.Error(err)
-		return
-	}
-
-	pctx := context.Background()
-	cli, err := es.NewClient(pctx, cfg)
-	if err != nil {
-		b.Error(err)
-		return
-	}
-
-	for i := 0; i < b.N; i++ {
 		ctx := context.Background()
-		// the event store should know the aggregates and the commands.
+
 		unit, err := cli.Unit(ctx)
-		if err != nil {
-			b.Error(err)
-			return
+		require.NoError(t, err)
+
+		userId1 := uuid.New()
+		userId2 := uuid.New()
+
+		cmds := []es.Command{
+			&commands.CreateUser{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId1,
+				},
+				Username: "chris.kolenko",
+				Password: "12345678",
+			},
+			&commands.AddEmail{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId1,
+				},
+				Email: "chris@context.gg",
+			},
+			&commands.AddConnection{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId1,
+				},
+				Name:     "Smashgg",
+				UserId:   "demo1",
+				Username: "chris.kolenko",
+			},
+			&commands.UpdateConnection{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId1,
+				},
+				Username: "aaaaaaaaaa",
+			},
+			&commands.CreateUser{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId2,
+				},
+				BaseNamespaceCommand: es.BaseNamespaceCommand{
+					Namespace: "other",
+				},
+				Username: "calvin.harris",
+				Password: "12345678",
+			},
+			&commands.DeleteUser{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId2,
+				},
+			},
+			&commands.AddGroup{
+				BaseCommand: es.BaseCommand{
+					AggregateId: userId2,
+				},
+				GroupId: uuid.New(),
+			},
 		}
+
 		ctx = es.SetUnit(ctx, unit)
-		if _, _, err := UserCommands(ctx); err != nil {
-			b.Error(err)
-			return
+
+		errD := es.Dispatch(ctx, cmds...)
+		require.NoError(t, errD)
+
+		userQuery := es.NewQuery[*aggregates.User]()
+		user, err := userQuery.Get(ctx, userId1)
+		require.NoError(t, err)
+
+		filter := filters.Filter{
+			Where: filters.WhereClause{
+				Column: "username",
+				Op:     "eq",
+				Args:   []interface{}{"chris.kolenko"},
+			},
+			Order:  []filters.Order{{Column: "username"}},
+			Limit:  filters.Limit(1),
+			Offset: filters.Offset(0),
 		}
-	}
+
+		users, err := userQuery.Find(ctx, filter)
+		require.NoError(t, err)
+
+		total, err := userQuery.Count(ctx, filter)
+		require.NoError(t, err)
+
+		log.Printf("user: %+v", user)
+		log.Printf("users: %+v", users)
+		log.Printf("total: %+v", total)
+
+		c, err := unit.Commit(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, c)
+
+		time.Sleep(5 * time.Minute)
+	})
 }

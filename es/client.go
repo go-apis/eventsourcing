@@ -11,7 +11,7 @@ import (
 )
 
 type Client interface {
-	GetServiceName() string
+	GetService() string
 	GetEntityConfig(name string) (*EntityConfig, error)
 	GetCommandConfig(name string) (*CommandConfig, error)
 	Unit(ctx context.Context) (Unit, error)
@@ -28,9 +28,9 @@ type client struct {
 	streamer Streamer
 }
 
-func (c *client) GetServiceName() string {
+func (c *client) GetService() string {
 	pcfg := c.cfg.GetProviderConfig()
-	return pcfg.ServiceName
+	return pcfg.Service
 }
 
 func (c *client) GetEntityConfig(name string) (*EntityConfig, error) {
@@ -62,7 +62,7 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 		return nil, err
 	}
 
-	return newUnit(c, data)
+	return newUnit(pctx, c, data)
 }
 
 func (c *client) initialize(ctx context.Context) error {
@@ -90,18 +90,13 @@ func (c *client) handleStreamEvent(ctx context.Context, evt *Event) error {
 	pctx = SetUnit(pctx, unit)
 	pctx = SetNamespace(pctx, evt.Namespace)
 
-	// create the transaction!
-	tx, err := unit.NewTx(pctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(pctx)
+	defer unit.Rollback(pctx)
 
 	if err := c.handleEvent(pctx, evt); err != nil {
 		return err
 	}
 
-	if _, err := tx.Commit(pctx); err != nil {
+	if _, err := unit.Commit(pctx); err != nil {
 		return err
 	}
 

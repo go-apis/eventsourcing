@@ -16,9 +16,9 @@ import (
 )
 
 type data struct {
-	serviceName string
-	db          *gorm.DB
-	tx          *gorm.DB
+	service string
+	db      *gorm.DB
+	tx      *gorm.DB
 
 	isCommitted bool
 }
@@ -61,7 +61,7 @@ func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 	r := d.getDb().
 		WithContext(pctx).
 		Model(&Snapshot{}).
-		Where("service_name = ?", d.serviceName).
+		Where("service_name = ?", d.service).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
 		Where("aggregate_id = ?", search.AggregateId).
@@ -98,7 +98,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	}
 
 	obj := &Snapshot{
-		ServiceName:   d.serviceName,
+		ServiceName:   d.service,
 		Namespace:     snapshot.Namespace,
 		AggregateId:   snapshot.AggregateId,
 		AggregateType: snapshot.AggregateType,
@@ -142,7 +142,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 
 	rows, err := g.
 		Model(&Event{}).
-		Where("service_name = ?", d.serviceName).
+		Where("service_name = ?", d.service).
 		Where("namespace = ?", search.Namespace).
 		Where("aggregate_type = ?", search.AggregateType).
 		Where("aggregate_id = ?", search.AggregateId).
@@ -169,7 +169,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 		}
 
 		events = append(events, &es.Event{
-			// ServiceName:   d.serviceName,
+			// service:   d.service,
 			Namespace:     evt.Namespace,
 			AggregateId:   evt.AggregateId,
 			AggregateType: evt.AggregateType,
@@ -203,7 +203,7 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		}
 
 		evts[i] = &Event{
-			ServiceName:   d.serviceName,
+			ServiceName:   d.service,
 			Namespace:     evt.Namespace,
 			AggregateId:   evt.AggregateId,
 			AggregateType: evt.AggregateType,
@@ -228,7 +228,7 @@ func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Enti
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := TableName(d.serviceName, aggregateName)
+	table := TableName(d.service, aggregateName)
 	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
@@ -247,7 +247,7 @@ func (d *data) DeleteEntity(ctx context.Context, aggregateName string, raw es.En
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := TableName(d.serviceName, aggregateName)
+	table := TableName(d.service, aggregateName)
 	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
@@ -262,7 +262,7 @@ func (d *data) Truncate(ctx context.Context, aggregateName string) error {
 		return fmt.Errorf("must be in transaction")
 	}
 
-	table := TableName(d.serviceName, aggregateName)
+	table := TableName(d.service, aggregateName)
 	out := d.getDb().
 		WithContext(pctx).
 		Raw(fmt.Sprintf("TRUNCATE TABLE %s", table))
@@ -273,7 +273,7 @@ func (d *data) Get(ctx context.Context, aggregateName string, namespace string, 
 	pctx, span := otel.Tracer("local").Start(ctx, "Load")
 	defer span.End()
 
-	table := TableName(d.serviceName, aggregateName)
+	table := TableName(d.service, aggregateName)
 
 	q := d.getDb().
 		WithContext(pctx).
@@ -294,7 +294,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 	pctx, span := otel.Tracer("local").Start(ctx, "Find")
 	defer span.End()
 
-	table := TableName(d.serviceName, aggregateName)
+	table := TableName(d.service, aggregateName)
 	q := d.getDb().
 		WithContext(pctx).
 		Table(table)
@@ -335,7 +335,7 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 
 	var totalRows int64
 
-	table := TableName(d.serviceName, aggregateName)
+	table := TableName(d.service, aggregateName)
 	q := d.getDb().
 		WithContext(pctx).
 		Table(table)
@@ -354,10 +354,10 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	return int(totalRows), r.Error
 }
 
-func newData(serviceName string, db *gorm.DB) es.Data {
+func newData(service string, db *gorm.DB) es.Data {
 	d := &data{
-		serviceName: serviceName,
-		db:          db,
+		service: service,
+		db:      db,
 	}
 	return d
 }

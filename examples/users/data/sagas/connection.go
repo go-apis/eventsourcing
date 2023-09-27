@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/examples/users/aggregates"
-	"github.com/contextcloud/eventstore/examples/users/commands"
-	"github.com/contextcloud/eventstore/examples/users/events"
+	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
+	"github.com/contextcloud/eventstore/examples/users/data/commands"
+	"github.com/contextcloud/eventstore/examples/users/data/events"
 	"github.com/google/uuid"
 
 	"github.com/contextcloud/eventstore/es"

@@ -10,13 +10,13 @@ import (
 type ServiceEvent struct {
 	*Event
 
-	ServiceName string `json:"service_name"`
+	Service string `json:"service"`
 }
 
-func MarshalEvent(ctx context.Context, serviceName string, event *Event) ([]byte, error) {
+func MarshalEvent(ctx context.Context, service string, event *Event) ([]byte, error) {
 	d := &ServiceEvent{
-		Event:       event,
-		ServiceName: serviceName,
+		Event:   event,
+		Service: service,
 	}
 
 	// Marshal the event (using JSON for now).
@@ -36,7 +36,7 @@ func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, e
 	}{}
 
 	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, fmt.Errorf("Could not decode event: %w", err)
+		return nil, fmt.Errorf("could not decode event: %w", err)
 	}
 
 	evtConfig, ok := cfg.GetEventConfigs()[strings.ToLower(out.Type)]
@@ -44,18 +44,22 @@ func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, e
 		return nil, nil
 	}
 
-	// we only care about service names that match the config
-	if evtConfig.ServiceName == nil || *evtConfig.ServiceName != out.ServiceName {
+	service := cfg.GetProviderConfig().Service
+	if strings.EqualFold(service, out.Service) {
+		return nil, nil
+	}
+
+	if evtConfig.Service != nil && *evtConfig.Service != out.Service {
 		return nil, nil
 	}
 
 	data, err := evtConfig.Factory()
 	if err != nil {
-		return nil, fmt.Errorf("Could not create event: %w", err)
+		return nil, fmt.Errorf("could not create event: %w", err)
 	}
 
 	if err := json.Unmarshal(out.Data, data); err != nil {
-		return nil, fmt.Errorf("Could not decode event: %w", err)
+		return nil, fmt.Errorf("could not decode event: %w", err)
 	}
 
 	evt := &Event{
@@ -74,8 +78,8 @@ func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, e
 	}
 
 	with := &ServiceEvent{
-		Event:       evt,
-		ServiceName: out.ServiceName,
+		Event:   evt,
+		Service: out.Service,
 	}
 
 	return with, nil

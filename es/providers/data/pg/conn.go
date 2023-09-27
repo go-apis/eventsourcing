@@ -12,7 +12,7 @@ import (
 
 type conn struct {
 	initialized bool
-	serviceName string
+	service     string
 	db          *gorm.DB
 }
 
@@ -24,9 +24,9 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 		return err
 	}
 
-	serviceName := cfg.
+	service := cfg.
 		GetProviderConfig().
-		ServiceName
+		Service
 
 	for _, opt := range cfg.GetEntityConfigs() {
 		obj, err := opt.Factory()
@@ -34,7 +34,7 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 			return err
 		}
 
-		table := TableName(serviceName, opt.Name)
+		table := TableName(service, opt.Name)
 		if err := c.db.Table(table).AutoMigrate(&Entity{}); err != nil {
 			return err
 		}
@@ -44,7 +44,7 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 	}
 
 	c.initialized = true
-	c.serviceName = serviceName
+	c.service = service
 	return nil
 }
 
@@ -57,7 +57,7 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	}
 
 	db := c.db.WithContext(pctx)
-	return newData(c.serviceName, db), nil
+	return newData(c.service, db), nil
 }
 
 func (c *conn) Close(ctx context.Context) error {

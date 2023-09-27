@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es/types"
-	"github.com/contextcloud/eventstore/examples/users/commands"
-	"github.com/contextcloud/eventstore/examples/users/events"
+	"github.com/contextcloud/eventstore/examples/users/data/commands"
+	"github.com/contextcloud/eventstore/examples/users/data/events"
 	"github.com/contextcloud/eventstore/examples/users/models"
 
 	"github.com/contextcloud/eventstore/es"
