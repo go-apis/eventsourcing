@@ -2,6 +2,7 @@ package pg
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/contextcloud/eventstore/es/filters"
@@ -56,9 +57,14 @@ func whereClauseQuery(c filters.WhereClause) string {
 	}
 }
 
+func isNil(a interface{}) bool {
+	defer func() { recover() }()
+	return a == nil || reflect.ValueOf(a).IsNil()
+}
+
 func whereQuery(q *gorm.DB, c filters.WhereClause) *gorm.DB {
 	query := whereClauseQuery(c)
-	if c.Args == nil {
+	if isNil(c.Args) {
 		return q.Where(query)
 	}
 	return q.Where(query, c.Args)
