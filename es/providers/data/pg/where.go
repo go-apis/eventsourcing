@@ -43,6 +43,10 @@ func whereClauseQuery(c filters.WhereClause) string {
 		return fmt.Sprintf(`%s IS ?`, c.Column)
 	case `not.is`:
 		return fmt.Sprintf(`%s IS NOT ?`, c.Column)
+	case `is.null`:
+		return fmt.Sprintf(`%s IS NULL`, c.Column)
+	case `not.is.null`:
+		return fmt.Sprintf(`%s IS NOT NULL`, c.Column)
 	case `in`:
 		return fmt.Sprintf(`%s IN (?)`, c.Column)
 	case `not.in`:
