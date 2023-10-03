@@ -58,6 +58,9 @@ func whereClauseQuery(c filters.WhereClause) string {
 
 func whereQuery(q *gorm.DB, c filters.WhereClause) *gorm.DB {
 	query := whereClauseQuery(c)
+	if c.Args == nil {
+		return q.Where(query)
+	}
 	return q.Where(query, c.Args)
 }
 
