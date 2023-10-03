@@ -12,11 +12,11 @@ import (
 )
 
 type Pagination[T any] struct {
-	Limit      int `json:"limit"`
-	Page       int `json:"page"`
-	TotalItems int `json:"total_items"`
-	TotalPages int `json:"total_pages"`
-	Items      []T `json:"items"`
+	Limit      int   `json:"limit"`
+	Page       int   `json:"page"`
+	TotalItems int64 `json:"total_items"`
+	TotalPages int   `json:"total_pages"`
+	Items      []T   `json:"items"`
 }
 
 type Query[T Entity] interface {
@@ -31,14 +31,19 @@ type query[T Entity] struct {
 	name    string
 }
 
+func (q *query[T]) getNamespace(ctx context.Context) string {
+	if len(q.options.Namespace) > 0 {
+		return q.options.Namespace
+	}
+	if q.options.UseNamespace {
+		return NamespaceFromContext(ctx)
+	}
+	return ""
+}
+
 func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Get")
 	defer pspan.End()
-
-	namespace := ""
-	if q.options.UseNamespace {
-		namespace = NamespaceFromContext(ctx)
-	}
 
 	var item T
 	unit, err := GetUnit(pctx)
@@ -46,6 +51,7 @@ func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 		return item, err
 	}
 
+	namespace := q.getNamespace(pctx)
 	if err := unit.Data().Get(pctx, q.name, namespace, id, &item); err != nil {
 		return item, err
 	}
@@ -56,15 +62,12 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Find")
 	defer pspan.End()
 
-	namespace := ""
-	if q.options.UseNamespace {
-		namespace = NamespaceFromContext(ctx)
-	}
-
 	unit, err := GetUnit(pctx)
 	if err != nil {
 		return nil, err
 	}
+
+	namespace := q.getNamespace(pctx)
 
 	var items []T
 	if err := unit.Data().Find(pctx, q.name, namespace, filter, &items); err != nil {
@@ -77,27 +80,18 @@ func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Count")
 	defer pspan.End()
 
-	namespace := ""
-	if q.options.UseNamespace {
-		namespace = NamespaceFromContext(ctx)
-	}
-
 	unit, err := GetUnit(pctx)
 	if err != nil {
 		return 0, err
 	}
 
+	namespace := q.getNamespace(pctx)
 	return unit.Data().Count(pctx, q.name, namespace, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Pagination")
 	defer pspan.End()
-
-	namespace := ""
-	if q.options.UseNamespace {
-		namespace = NamespaceFromContext(ctx)
-	}
 
 	if filter.Limit == nil {
 		return nil, fmt.Errorf("Limit required for pagination")
@@ -111,6 +105,7 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 		return nil, err
 	}
 
+	namespace := q.getNamespace(pctx)
 	totalItems, err := unit.Data().Count(pctx, q.name, namespace, filter)
 	if err != nil {
 		return nil, err
@@ -125,7 +120,7 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 	return &Pagination[T]{
 		Limit:      *filter.Limit,
 		Page:       *filter.Offset + 1,
-		TotalItems: totalItems,
+		TotalItems: int64(totalItems),
 		TotalPages: totalPages,
 		Items:      items,
 	}, nil
