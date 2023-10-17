@@ -23,6 +23,8 @@ func New(ctx context.Context, cfg *es.ProviderConfig) (es.Conn, error) {
 	dbops := []xgorm.Option{
 		xgorm.WithLogger(log.ZapLogger(), gormlogger.Info),
 		xgorm.WithTracing(),
+		xgorm.WithDisableNestedTransaction(),
+		xgorm.WithSkipDefaultTransaction(),
 	}
 	if cfg.Data.Reset {
 		dbops = append(dbops, xgorm.WithRecreate())

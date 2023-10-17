@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
@@ -107,7 +106,5 @@ func Test(t *testing.T) {
 		log.Printf("user: %+v", user)
 		log.Printf("users: %+v", users)
 		log.Printf("total: %+v", total)
-
-		time.Sleep(5 * time.Second)
 	})
 }

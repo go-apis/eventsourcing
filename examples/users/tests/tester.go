@@ -40,6 +40,9 @@ func NewTester() (Tester, error) {
 				Username: "es",
 				Password: "es",
 				Database: "eventstore",
+
+				MaxIdleConns: 10,
+				MaxOpenConns: 10,
 			},
 			Reset: true,
 		},
