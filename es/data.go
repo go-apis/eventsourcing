@@ -21,16 +21,15 @@ type SnapshotSearch struct {
 	Revision      string
 }
 
-type ConnFactory func(ctx context.Context, cfg DataConfig) (Conn, error)
+type ConnFactory func(ctx context.Context, cfg *ProviderConfig) (Conn, error)
 
 type Conn interface {
-	Initialize(ctx context.Context, cfg Config) error
 	NewData(ctx context.Context) (Data, error)
 	Close(ctx context.Context) error
 }
 
 type Tx interface {
-	Commit(ctx context.Context) (int, error)
+	Commit(ctx context.Context) error
 	Rollback(ctx context.Context) error
 }
 

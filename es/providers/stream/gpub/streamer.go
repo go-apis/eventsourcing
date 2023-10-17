@@ -2,6 +2,7 @@ package gpub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cloud.google.com/go/pubsub"
@@ -21,26 +22,21 @@ func wrapped(callback func(context.Context, []byte) error) func(ctx context.Cont
 }
 
 type streamer struct {
-	p *gcppubsub.Pub
+	service string
+	p       *gcppubsub.Pub
 
-	started     bool
-	serviceName string
+	started bool
 }
 
-func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCallback) error {
+func (s *streamer) Start(ctx context.Context, callback es.EventCallback) error {
 	pctx, span := otel.Tracer("gpub").Start(ctx, "Start")
 	defer span.End()
 
-	if cfg == nil {
-		return fmt.Errorf("cfg is required")
-	}
 	if callback == nil {
 		return fmt.Errorf("callback is required")
 	}
 
-	serviceName := cfg.GetProviderConfig().Service
-
-	sub, err := s.p.Subscription(pctx, serviceName)
+	sub, err := s.p.Subscription(pctx, s.service)
 	if err != nil {
 		return err
 	}
@@ -51,15 +47,15 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 		pctx, span := otel.Tracer("gpub").Start(ctx, "Handle")
 		defer span.End()
 
-		with, err := es.UnmarshalEvent(pctx, cfg, data)
+		evt, err := es.UnmarshalEvent(pctx, data)
+		if errors.Is(err, es.ErrNotFound) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
-		if with == nil {
-			return nil
-		}
 
-		return callback(pctx, with.Event)
+		return callback(pctx, evt)
 	}
 
 	go func() {
@@ -74,7 +70,6 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 	}()
 
 	s.started = true
-	s.serviceName = serviceName
 	return nil
 }
 
@@ -89,7 +84,7 @@ func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
 	messages := make([]*pubsub.Message, len(evts))
 	for i, evt := range evts {
 		orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
-		data, err := es.MarshalEvent(ctx, s.serviceName, evt)
+		data, err := es.MarshalEvent(ctx, evt)
 		if err != nil {
 			return err
 		}
@@ -117,8 +112,9 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.p.Close()
 }
 
-func NewStreamer(p *gcppubsub.Pub) (es.Streamer, error) {
+func NewStreamer(service string, p *gcppubsub.Pub) (es.Streamer, error) {
 	return &streamer{
-		p: p,
+		service: service,
+		p:       p,
 	}, nil
 }

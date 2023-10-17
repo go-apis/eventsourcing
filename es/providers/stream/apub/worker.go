@@ -2,6 +2,7 @@ package apub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
@@ -16,7 +17,6 @@ type Worker interface {
 
 type worker struct {
 	sqsClient *sqs.Client
-	cfg       es.Config
 	input     *sqs.ReceiveMessageInput
 	callback  es.EventCallback
 }
@@ -27,17 +27,15 @@ func (w *worker) handle(ctx context.Context, msg types.Message) error {
 	}
 
 	data := []byte(*msg.Body)
-	with, err := es.UnmarshalEvent(ctx, w.cfg, data)
+	evt, err := es.UnmarshalEvent(ctx, data)
+	if errors.Is(err, es.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
 
-	// nothing todo
-	if with == nil {
-		return nil
-	}
-
-	return w.callback(ctx, with.Event)
+	return w.callback(ctx, evt)
 }
 func (w *worker) poll(ctx context.Context) {
 	for {
@@ -74,13 +72,11 @@ func (w *worker) Close() error {
 
 func NewWorker(
 	sqsClient *sqs.Client,
-	cfg es.Config,
 	input *sqs.ReceiveMessageInput,
 	callback es.EventCallback,
 ) (Worker, error) {
 	return &worker{
 		sqsClient: sqsClient,
-		cfg:       cfg,
 		input:     input,
 		callback:  callback,
 	}, nil

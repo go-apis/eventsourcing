@@ -8,21 +8,21 @@ import (
 	"github.com/contextcloud/eventstore/pkg/gcppubsub"
 )
 
-func New(ctx context.Context, cfg es.StreamConfig) (es.Streamer, error) {
-	if cfg.Type != "pubsub" {
-		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Type)
+func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
+	if cfg.Stream.Type != "pubsub" {
+		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
-	if cfg.PubSub == nil {
+	if cfg.Stream.PubSub == nil {
 		return nil, fmt.Errorf("invalid pubsub config")
 	}
 
 	// create a new gorm connection
-	p, err := gcppubsub.Open(cfg.PubSub)
+	p, err := gcppubsub.Open(cfg.Stream.PubSub)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewStreamer(p)
+	return NewStreamer(cfg.Service, p)
 }
 
 func init() {

@@ -2,7 +2,6 @@ package es
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/contextcloud/eventstore/pkg/gcppubsub"
 	"github.com/contextcloud/eventstore/pkg/natspubsub"
@@ -73,54 +72,4 @@ type EventHandlerConfig struct {
 type CommandHandlerConfig struct {
 	handler        CommandHandler
 	commandConfigs []*CommandConfig
-}
-
-type Config interface {
-	GetProviderConfig() *ProviderConfig
-	GetEntityConfigs() map[string]*EntityConfig
-	GetCommandConfigs() map[string]*CommandConfig
-	GetEventConfigs() map[string]*EventConfig
-
-	GetReplayHandler(entityName string) CommandHandler
-	GetCommandHandlers() map[reflect.Type]CommandHandler
-	GetEventHandlers() map[reflect.Type][]EventHandler
-}
-
-func NewConfig(pcfg *ProviderConfig, items ...interface{}) (Config, error) {
-	b := NewBuilder().
-		SetProviderConfig(pcfg)
-
-	for _, item := range items {
-		switch raw := item.(type) {
-		case IsCommandHandler:
-			b.AddCommandHandler(raw)
-			continue
-		case IsSaga:
-			b.AddSaga(raw)
-			continue
-		case IsProjector:
-			b.AddProjector(raw)
-			continue
-		case Aggregate:
-			b.AddAggregate(raw)
-			continue
-		case Entity:
-			b.AddEntity(raw)
-			continue
-		case *AggregateConfig:
-			b.AddAggregateConfig(raw)
-			continue
-		case CommandHandlerMiddleware:
-			b.AddMiddleware(raw)
-			continue
-		case EventPublish:
-			b.AddEventPublish(raw)
-		case EventPublished:
-			b.AddEventPublished(raw)
-		default:
-			return nil, fmt.Errorf("invalid item type: %T", item)
-		}
-	}
-
-	return b.Build()
 }

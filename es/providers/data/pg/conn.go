@@ -2,7 +2,6 @@ package pg
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
 	"go.opentelemetry.io/otel"
@@ -11,12 +10,11 @@ import (
 )
 
 type conn struct {
-	initialized bool
-	service     string
-	db          *gorm.DB
+	service string
+	db      *gorm.DB
 }
 
-func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
+func (c *conn) initialize(ctx context.Context) error {
 	_, pspan := otel.Tracer("local").Start(ctx, "Initialize")
 	defer pspan.End()
 
@@ -24,17 +22,14 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 		return err
 	}
 
-	service := cfg.
-		GetProviderConfig().
-		Service
-
-	for _, opt := range cfg.GetEntityConfigs() {
+	entities := es.GlobalRegistry.GetEntities()
+	for _, opt := range entities {
 		obj, err := opt.Factory()
 		if err != nil {
 			return err
 		}
 
-		table := TableName(service, opt.Name)
+		table := TableName(c.service, opt.Name)
 		if err := c.db.Table(table).AutoMigrate(&Entity{}); err != nil {
 			return err
 		}
@@ -43,18 +38,12 @@ func (c *conn) Initialize(ctx context.Context, cfg es.Config) error {
 		}
 	}
 
-	c.initialized = true
-	c.service = service
 	return nil
 }
 
 func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	pctx, pspan := otel.Tracer("local").Start(ctx, "NewData")
 	defer pspan.End()
-
-	if !c.initialized {
-		return nil, fmt.Errorf("conn not initialized")
-	}
 
 	db := c.db.WithContext(pctx)
 	return newData(c.service, db), nil
@@ -71,6 +60,13 @@ func (c *conn) Close(ctx context.Context) error {
 	return sqlDB.Close()
 }
 
-func NewConn(db *gorm.DB) (es.Conn, error) {
-	return &conn{db: db}, nil
+func NewConn(ctx context.Context, service string, db *gorm.DB) (es.Conn, error) {
+	c := &conn{
+		service: service,
+		db:      db,
+	}
+	if err := c.initialize(ctx); err != nil {
+		return nil, err
+	}
+	return c, nil
 }

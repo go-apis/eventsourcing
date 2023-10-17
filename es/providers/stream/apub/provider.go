@@ -12,12 +12,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
-func New(ctx context.Context, cfg es.StreamConfig) (es.Streamer, error) {
-	if cfg.Type != "apub" {
-		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Type)
+func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
+	if cfg.Stream.Type != "apub" {
+		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
 
-	awscfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.AWS.Region))
+	awscfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Stream.AWS.Region))
 	if err != nil {
 		panic("configuration error, " + err.Error())
 	}
@@ -26,19 +26,20 @@ func New(ctx context.Context, cfg es.StreamConfig) (es.Streamer, error) {
 	sqsClient := sqs.NewFromConfig(awscfg)
 
 	out, err := sqsClient.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
-		QueueName: aws.String(cfg.AWS.QueueName),
+		QueueName: aws.String(cfg.Stream.AWS.QueueName),
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return NewStreamer(
+		cfg.Service,
 		snsClient,
 		sqsClient,
-		cfg.AWS.TopicARN,
+		cfg.Stream.AWS.TopicARN,
 		*out.QueueUrl,
-		cfg.AWS.MaxNumberOfMessages,
-		cfg.AWS.WaitTimeSeconds,
+		cfg.Stream.AWS.MaxNumberOfMessages,
+		cfg.Stream.AWS.WaitTimeSeconds,
 	)
 }
 

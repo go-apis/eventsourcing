@@ -22,13 +22,13 @@ func Test(t *testing.T) {
 		cli := tester.Client()
 
 		ctx := context.Background()
+		unit, errU := cli.Unit(ctx)
+		require.NoError(t, errU)
 
-		unit, err := cli.Unit(ctx)
-		require.NoError(t, err)
+		ctx = es.SetUnit(ctx, unit)
 
 		userId1 := uuid.New()
 		userId2 := uuid.New()
-
 		cmds := []es.Command{
 			&commands.CreateUser{
 				BaseCommand: es.BaseCommand{
@@ -80,9 +80,7 @@ func Test(t *testing.T) {
 			},
 		}
 
-		ctx = es.SetUnit(ctx, unit)
-
-		errD := es.Dispatch(ctx, cmds...)
+		errD := unit.Dispatch(ctx, cmds...)
 		require.NoError(t, errD)
 
 		userQuery := es.NewQuery[*aggregates.User]()
@@ -110,10 +108,6 @@ func Test(t *testing.T) {
 		log.Printf("users: %+v", users)
 		log.Printf("total: %+v", total)
 
-		c, err := unit.Commit(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 0, c)
-
-		time.Sleep(5 * time.Minute)
+		time.Sleep(5 * time.Second)
 	})
 }

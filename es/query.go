@@ -36,7 +36,7 @@ func (q *query[T]) getNamespace(ctx context.Context) string {
 		return q.options.Namespace
 	}
 	if q.options.UseNamespace {
-		return NamespaceFromContext(ctx)
+		return GetNamespace(ctx)
 	}
 	return ""
 }
@@ -52,7 +52,7 @@ func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 	}
 
 	namespace := q.getNamespace(pctx)
-	if err := unit.Data().Get(pctx, q.name, namespace, id, &item); err != nil {
+	if err := unit.Get(pctx, q.name, namespace, id, &item); err != nil {
 		return item, err
 	}
 	return item, nil
@@ -70,7 +70,7 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	namespace := q.getNamespace(pctx)
 
 	var items []T
-	if err := unit.Data().Find(pctx, q.name, namespace, filter, &items); err != nil {
+	if err := unit.Find(pctx, q.name, namespace, filter, &items); err != nil {
 		return nil, err
 	}
 	return items, nil
@@ -86,7 +86,7 @@ func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error
 	}
 
 	namespace := q.getNamespace(pctx)
-	return unit.Data().Count(pctx, q.name, namespace, filter)
+	return unit.Count(pctx, q.name, namespace, filter)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
@@ -106,13 +106,13 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 	}
 
 	namespace := q.getNamespace(pctx)
-	totalItems, err := unit.Data().Count(pctx, q.name, namespace, filter)
+	totalItems, err := unit.Count(pctx, q.name, namespace, filter)
 	if err != nil {
 		return nil, err
 	}
 
 	var items []T
-	if err := unit.Data().Find(pctx, q.name, namespace, filter, &items); err != nil {
+	if err := unit.Find(pctx, q.name, namespace, filter, &items); err != nil {
 		return nil, err
 	}
 

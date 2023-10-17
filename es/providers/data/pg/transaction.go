@@ -3,32 +3,35 @@ package pg
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
 	"go.opentelemetry.io/otel"
+	"gorm.io/gorm"
 )
 
+type RollbackFunc func() error
+type CommitFunc func() error
+
 type transaction struct {
-	d *data
+	db *gorm.DB
+
+	commitFunc   CommitFunc
+	rollbackFunc RollbackFunc
 }
 
-func (t *transaction) Commit(ctx context.Context) (int, error) {
+func (t *transaction) Commit(ctx context.Context) error {
 	_, span := otel.Tracer("local").Start(ctx, "Commit")
 	defer span.End()
 
-	out := t.d.tx.Commit()
-	t.d.isCommitted = true
-	return int(out.RowsAffected), out.Error
+	if t.commitFunc != nil {
+		return t.commitFunc()
+	}
+	return t.db.Commit().Error
 }
 func (t *transaction) Rollback(ctx context.Context) error {
 	_, span := otel.Tracer("local").Start(ctx, "Rollback")
 	defer span.End()
 
-	out := t.d.tx.Rollback()
-	return out.Error
-}
-
-func newTransaction(d *data) es.Tx {
-	return &transaction{
-		d: d,
+	if t.rollbackFunc != nil {
+		return t.rollbackFunc()
 	}
+	return t.db.Rollback().Error
 }

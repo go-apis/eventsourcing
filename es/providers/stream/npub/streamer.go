@@ -2,6 +2,7 @@ package npub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
@@ -28,48 +29,42 @@ func wrapped(callback func(context.Context, []byte) error) func(msg *nats.Msg) {
 }
 
 type streamer struct {
+	service string
 	conn    *nats.Conn
 	subject string
 
-	started     bool
-	serviceName string
+	started bool
 }
 
-func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCallback) error {
+func (s *streamer) Start(ctx context.Context, callback es.EventCallback) error {
 	_, span := otel.Tracer("npub").Start(ctx, "Start")
 	defer span.End()
 
-	if cfg == nil {
-		return fmt.Errorf("cfg is required")
-	}
 	if callback == nil {
 		return fmt.Errorf("callback is required")
 	}
-
-	serviceName := cfg.GetProviderConfig().Service
 
 	handle := func(ctx context.Context, data []byte) error {
 		pctx, span := otel.Tracer("npub").Start(ctx, "Handle")
 		defer span.End()
 
-		with, err := es.UnmarshalEvent(pctx, cfg, data)
+		evt, err := es.UnmarshalEvent(pctx, data)
+		if errors.Is(err, es.ErrNotFound) {
+			return nil
+		}
 		if err != nil {
 			return err
 		}
-		if with == nil {
-			return nil
-		}
 
-		return callback(pctx, with.Event)
+		return callback(pctx, evt)
 	}
 
-	_, err := s.conn.QueueSubscribe(s.subject+".*", serviceName, wrapped(handle))
+	_, err := s.conn.QueueSubscribe(s.subject+".*", s.service, wrapped(handle))
 	if err != nil {
 		return err
 	}
 
 	s.started = true
-	s.serviceName = serviceName
 	return nil
 }
 
@@ -83,7 +78,7 @@ func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
 
 	datums := make([]Data, len(evt))
 	for i, e := range evt {
-		data, err := es.MarshalEvent(ctx, s.serviceName, e)
+		data, err := es.MarshalEvent(ctx, e)
 		if err != nil {
 			return err
 		}
@@ -111,8 +106,9 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.conn.LastError()
 }
 
-func NewStreamer(conn *nats.Conn, subject string) (es.Streamer, error) {
+func NewStreamer(service string, conn *nats.Conn, subject string) (es.Streamer, error) {
 	return &streamer{
+		service: service,
 		conn:    conn,
 		subject: subject,
 	}, nil

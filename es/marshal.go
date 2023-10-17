@@ -4,23 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
-type ServiceEvent struct {
-	*Event
-
-	Service string `json:"service"`
-}
-
-func MarshalEvent(ctx context.Context, service string, event *Event) ([]byte, error) {
-	d := &ServiceEvent{
-		Event:   event,
-		Service: service,
-	}
-
+func MarshalEvent(ctx context.Context, event *Event) ([]byte, error) {
 	// Marshal the event (using JSON for now).
-	b, err := json.Marshal(d)
+	b, err := json.Marshal(event)
 	if err != nil {
 		return nil, fmt.Errorf("could not marshal event: %w", err)
 	}
@@ -28,9 +16,9 @@ func MarshalEvent(ctx context.Context, service string, event *Event) ([]byte, er
 	return b, nil
 }
 
-func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, error) {
+func UnmarshalEvent(ctx context.Context, b []byte) (*Event, error) {
 	out := struct {
-		*ServiceEvent
+		*Event
 
 		Data json.RawMessage `json:"data"`
 	}{}
@@ -39,18 +27,9 @@ func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, e
 		return nil, fmt.Errorf("could not decode event: %w", err)
 	}
 
-	evtConfig, ok := cfg.GetEventConfigs()[strings.ToLower(out.Type)]
-	if !ok {
-		return nil, nil
-	}
-
-	service := cfg.GetProviderConfig().Service
-	if strings.EqualFold(service, out.Service) {
-		return nil, nil
-	}
-
-	if evtConfig.Service != nil && *evtConfig.Service != out.Service {
-		return nil, nil
+	evtConfig, err := GlobalRegistry.GetEventConfig(out.Type)
+	if err != nil {
+		return nil, err
 	}
 
 	data, err := evtConfig.Factory()
@@ -62,25 +41,20 @@ func UnmarshalEvent(ctx context.Context, cfg Config, b []byte) (*ServiceEvent, e
 		return nil, fmt.Errorf("could not decode event: %w", err)
 	}
 
-	evt := &Event{
+	metadata := out.Metadata
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+
+	return &Event{
+		Service:       out.Service,
 		Namespace:     out.Namespace,
 		AggregateId:   out.AggregateId,
 		AggregateType: out.AggregateType,
 		Version:       out.Version,
 		Type:          out.Type,
 		Timestamp:     out.Timestamp,
-		Metadata:      out.Metadata,
+		Metadata:      metadata,
 		Data:          data,
-	}
-
-	if evt.Metadata == nil {
-		evt.Metadata = make(map[string]interface{})
-	}
-
-	with := &ServiceEvent{
-		Event:   evt,
-		Service: out.Service,
-	}
-
-	return with, nil
+	}, nil
 }

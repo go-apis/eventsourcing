@@ -14,6 +14,7 @@ import (
 )
 
 type streamer struct {
+	service             string
 	snsClient           *sns.Client
 	sqsClient           *sqs.Client
 	topicArn            string
@@ -21,17 +22,13 @@ type streamer struct {
 	maxNumberOfMessages int
 	waitTimeSeconds     int
 
-	worker  Worker
-	service string
+	worker Worker
 }
 
-func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCallback) error {
+func (s *streamer) Start(ctx context.Context, callback es.EventCallback) error {
 	_, span := otel.Tracer("apub").Start(ctx, "Start")
 	defer span.End()
 
-	if cfg == nil {
-		return fmt.Errorf("cfg is required")
-	}
 	if callback == nil {
 		return fmt.Errorf("callback is required")
 	}
@@ -46,13 +43,12 @@ func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCa
 		WaitTimeSeconds:     int32(s.waitTimeSeconds),
 	}
 
-	worker, err := NewWorker(s.sqsClient, cfg, input, callback)
+	worker, err := NewWorker(s.sqsClient, input, callback)
 	if err != nil {
 		return err
 	}
 
 	s.worker = worker
-	s.service = cfg.GetProviderConfig().Service
 	return s.worker.Start(ctx)
 }
 
@@ -68,7 +64,7 @@ func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
 	for i, evt := range evts {
 		messageDeduplicationId := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateType, evt.AggregateId.String(), evt.Version)
 		messageGroupId := fmt.Sprintf("%s:%s:%s", evt.Namespace, evt.AggregateType, evt.AggregateId.String())
-		data, err := es.MarshalEvent(ctx, s.service, evt)
+		data, err := es.MarshalEvent(ctx, evt)
 		if err != nil {
 			return err
 		}
@@ -106,6 +102,7 @@ func (s *streamer) Close(ctx context.Context) error {
 }
 
 func NewStreamer(
+	service string,
 	snsClient *sns.Client,
 	sqsClient *sqs.Client,
 	topicArn string,
@@ -114,6 +111,7 @@ func NewStreamer(
 	waitTimeSeconds int,
 ) (es.Streamer, error) {
 	return &streamer{
+		service:             service,
 		snsClient:           snsClient,
 		sqsClient:           sqsClient,
 		topicArn:            topicArn,

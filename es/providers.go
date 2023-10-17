@@ -30,7 +30,7 @@ func GetConn(ctx context.Context, cfg *ProviderConfig) (Conn, error) {
 	defer lock.Unlock()
 
 	if factory, ok := DataProviders[cfg.Data.Type]; ok {
-		return factory(ctx, cfg.Data)
+		return factory(ctx, cfg)
 	}
 
 	return nil, fmt.Errorf("data provider not found: %s", cfg.Data.Type)
@@ -41,7 +41,7 @@ func GetStreamer(ctx context.Context, cfg *ProviderConfig) (Streamer, error) {
 	defer lock.Unlock()
 
 	if factory, ok := StreamProviders[cfg.Stream.Type]; ok {
-		return factory(ctx, cfg.Stream)
+		return factory(ctx, cfg)
 	}
 
 	return nil, fmt.Errorf("streamer provider not found: %s", cfg.Stream.Type)

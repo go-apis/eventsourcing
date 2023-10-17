@@ -10,7 +10,6 @@ type EventConfig struct {
 	Name    string
 	Type    reflect.Type
 	Publish bool
-	Service *string
 	Factory func() (interface{}, error)
 }
 
@@ -38,20 +37,11 @@ func NewEventConfig(evt interface{}) *EventConfig {
 	impl, _ := factory()
 	_, publish := impl.(EventPublish)
 
-	var service *string
-	if field, ok := t.FieldByName("BaseEventPublished"); ok {
-		if tag := field.Tag.Get("service"); tag != "" {
-			service = &tag
-		}
-
-	}
-
 	return &EventConfig{
 		Name:    name,
 		Type:    t,
 		Publish: publish,
 		Factory: factory,
-		Service: service,
 	}
 }
 

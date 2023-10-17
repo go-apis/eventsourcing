@@ -11,20 +11,18 @@ import (
 )
 
 func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) {
-	esCfg, err := es.NewConfig(
-		pcfg,
+	if err := es.RegistryAdd(
 		&aggregates.StandardUser{},
 		&aggregates.User{},
 		&aggregates.ExternalUser{},
 		sagas.NewConnectionSaga(),
 		projectors.NewUserProjector(),
 		&events.GroupAdded{},
-	)
-	if err != nil {
+	); err != nil {
 		return nil, err
 	}
 
-	cli, err := es.NewClient(ctx, esCfg)
+	cli, err := es.NewClient(ctx, pcfg)
 	if err != nil {
 		return nil, err
 	}

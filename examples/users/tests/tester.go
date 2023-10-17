@@ -44,7 +44,7 @@ func NewTester() (Tester, error) {
 			Reset: true,
 		},
 		Stream: es.StreamConfig{
-			Type: "apub",
+			Type: "noop",
 			PubSub: &gcppubsub.Config{
 				ProjectId: "nordic-gaming",
 				TopicId:   "test_topic",

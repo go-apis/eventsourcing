@@ -7,9 +7,9 @@ import (
 	"github.com/contextcloud/eventstore/es"
 )
 
-func New(ctx context.Context, cfg es.StreamConfig) (es.Streamer, error) {
-	if cfg.Type != "noop" {
-		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Type)
+func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
+	if cfg.Stream.Type != "noop" {
+		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
 	return NewStreamer()
 }

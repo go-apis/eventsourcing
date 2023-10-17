@@ -9,6 +9,7 @@ import (
 
 // Event that has been persisted to the event store.
 type Event struct {
+	Service       string                 `json:"service"`
 	Namespace     string                 `json:"namespace"`
 	AggregateId   uuid.UUID              `json:"aggregate_id"`
 	AggregateType string                 `json:"aggregate_type"`

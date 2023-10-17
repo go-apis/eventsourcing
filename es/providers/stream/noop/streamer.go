@@ -11,7 +11,7 @@ import (
 type streamer struct {
 }
 
-func (s *streamer) Start(ctx context.Context, cfg es.Config, callback es.EventCallback) error {
+func (s *streamer) Start(ctx context.Context, callback es.EventCallback) error {
 	_, span := otel.Tracer("noop").Start(ctx, "Start")
 	defer span.End()
 

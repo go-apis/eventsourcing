@@ -18,39 +18,43 @@ import (
 type data struct {
 	service string
 	db      *gorm.DB
-	tx      *gorm.DB
-
-	isCommitted bool
-}
-
-func (d *data) getDb() *gorm.DB {
-	if d.tx != nil && !d.isCommitted {
-		return d.tx
-	}
-	return d.db
-}
-
-func (d *data) inTransaction() bool {
-	return d.tx != nil && !d.isCommitted
 }
 
 func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	_, span := otel.Tracer("local").Start(ctx, "Begin")
 	defer span.End()
 
-	if d.isCommitted {
-		return nil, fmt.Errorf("cannot begin transaction after commit")
-	}
+	db := d.db
 
-	if d.tx == nil {
-		tx := d.db.Begin()
-		if tx.Error != nil {
-			return nil, tx.Error
+	if committer, ok := db.Statement.ConnPool.(gorm.TxCommitter); ok && committer != nil {
+		var rollback RollbackFunc
+		var commitFunc CommitFunc
+
+		if !db.DisableNestedTransaction {
+			// nested transaction
+			//create save point
+			spname := fmt.Sprintf("sp%p", d)
+			if err := db.SavePoint(spname).Error; err != nil {
+				return nil, err
+			}
+			rollback = func() error {
+				return db.RollbackTo(spname).Error
+			}
+			//nested level do not need to commit
+			commitFunc = func() error {
+				return nil
+			}
 		}
-		d.tx = tx
+
+		return &transaction{
+			db:           db.WithContext(ctx),
+			rollbackFunc: rollback,
+			commitFunc:   commitFunc,
+		}, nil
 	}
 
-	return newTransaction(d), nil
+	tx := db.Begin()
+	return &transaction{db: tx}, tx.Error
 }
 
 func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
@@ -58,7 +62,7 @@ func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 	defer span.End()
 
 	var snapshot Snapshot
-	r := d.getDb().
+	r := d.db.
 		WithContext(pctx).
 		Model(&Snapshot{}).
 		Where("service_name = ?", d.service).
@@ -66,8 +70,9 @@ func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 		Where("aggregate_type = ?", search.AggregateType).
 		Where("aggregate_id = ?", search.AggregateId).
 		Where("revision = ?", search.Revision).
-		First(&snapshot)
-	if r.Error == gorm.ErrRecordNotFound {
+		Limit(1).
+		Find(&snapshot)
+	if r.RowsAffected == 0 {
 		return nil
 	}
 	if r.Error != nil {
@@ -83,10 +88,6 @@ func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "SaveSnapshot")
 	defer span.End()
-
-	if !d.inTransaction() {
-		return fmt.Errorf("must be in transaction")
-	}
 
 	if snapshot == nil {
 		return nil // nothing to save
@@ -106,7 +107,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 		Aggregate:     raw,
 	}
 
-	out := d.getDb().
+	out := d.db.
 		WithContext(pctx).
 		Clauses(clause.OnConflict{
 			UpdateAll: true,
@@ -137,7 +138,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 	pctx, span := otel.Tracer("local").Start(ctx, "GetEvents")
 	defer span.End()
 
-	g := d.getDb().
+	g := d.db.
 		WithContext(pctx)
 
 	rows, err := g.
@@ -169,7 +170,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 		}
 
 		events = append(events, &es.Event{
-			// service:   d.service,
+			Service:       evt.ServiceName,
 			Namespace:     evt.Namespace,
 			AggregateId:   evt.AggregateId,
 			AggregateType: evt.AggregateType,
@@ -186,10 +187,6 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "SaveEvents")
 	defer span.End()
-
-	if !d.inTransaction() {
-		return fmt.Errorf("must be in transaction")
-	}
 
 	if len(events) == 0 {
 		return nil // nothing to save
@@ -215,7 +212,7 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		}
 	}
 
-	out := d.getDb().
+	out := d.db.
 		WithContext(pctx).
 		Create(&evts)
 	return out.Error
@@ -224,12 +221,8 @@ func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Enti
 	pctx, span := otel.Tracer("local").Start(ctx, "SaveEntity")
 	defer span.End()
 
-	if !d.inTransaction() {
-		return fmt.Errorf("must be in transaction")
-	}
-
 	table := TableName(d.service, aggregateName)
-	out := d.getDb().
+	out := d.db.
 		WithContext(pctx).
 		Table(table).
 		Clauses(clause.OnConflict{
@@ -243,12 +236,8 @@ func (d *data) DeleteEntity(ctx context.Context, aggregateName string, raw es.En
 	pctx, span := otel.Tracer("local").Start(ctx, "DeleteEntity")
 	defer span.End()
 
-	if !d.inTransaction() {
-		return fmt.Errorf("must be in transaction")
-	}
-
 	table := TableName(d.service, aggregateName)
-	out := d.getDb().
+	out := d.db.
 		WithContext(pctx).
 		Table(table).
 		Delete(raw, "namespace = ?", raw.GetNamespace())
@@ -258,24 +247,19 @@ func (d *data) Truncate(ctx context.Context, aggregateName string) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Truncate")
 	defer span.End()
 
-	if !d.inTransaction() {
-		return fmt.Errorf("must be in transaction")
-	}
-
 	table := TableName(d.service, aggregateName)
-	out := d.getDb().
+	out := d.db.
 		WithContext(pctx).
 		Raw(fmt.Sprintf("TRUNCATE TABLE %s", table))
 	return out.Error
 }
-
 func (d *data) Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Load")
 	defer span.End()
 
 	table := TableName(d.service, aggregateName)
 
-	q := d.getDb().
+	q := d.db.
 		WithContext(pctx).
 		Table(table).
 		Where("id = ?", id)
@@ -284,8 +268,8 @@ func (d *data) Get(ctx context.Context, aggregateName string, namespace string, 
 		q = q.Where("namespace = ?", namespace)
 	}
 
-	r := q.First(out)
-	if r.Error == gorm.ErrRecordNotFound {
+	r := q.Limit(1).Find(out)
+	if r.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}
 	return r.Error
@@ -295,7 +279,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 	defer span.End()
 
 	table := TableName(d.service, aggregateName)
-	q := d.getDb().
+	q := d.db.
 		WithContext(pctx).
 		Table(table)
 
@@ -336,7 +320,7 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	var totalRows int64
 
 	table := TableName(d.service, aggregateName)
-	q := d.getDb().
+	q := d.db.
 		WithContext(pctx).
 		Table(table)
 
