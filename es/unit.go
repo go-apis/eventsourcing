@@ -7,6 +7,8 @@ import (
 
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type Unit interface {
@@ -147,53 +149,108 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 	return nil
 }
 
+func (u *unit) handle(ctx context.Context, evt *Event) error {
+	pctx, pspan := otel.Tracer("unit").Start(ctx, "handle")
+	defer pspan.End()
+
+	// set the namespace
+	pctx = SetNamespace(pctx, evt.Namespace)
+
+	hs := GlobalRegistry.GetEventHandlers(evt.Data)
+	if len(hs) == 0 {
+		return nil
+	}
+
+	pspan.SetAttributes(
+		attribute.String("id", evt.AggregateId.String()),
+	)
+
+	for _, h := range hs {
+		if err := h.Handle(pctx, evt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 func (u *unit) Handle(ctx context.Context, events ...*Event) error {
 	ctx = SetUnit(ctx, u)
 
 	return u.work(ctx, func(ctx context.Context) error {
 		for _, evt := range events {
-			// set the namespace
-			nctx := SetNamespace(ctx, evt.Namespace)
-
-			hs := GlobalRegistry.GetEventHandlers(evt.Data)
-			if len(hs) == 0 {
-				continue
-			}
-			for _, h := range hs {
-				if err := h.Handle(nctx, evt); err != nil {
-					return err
-				}
+			if err := u.handle(ctx, evt); err != nil {
+				return err
 			}
 		}
 		return nil
 	})
+}
+func (u *unit) dispatch(ctx context.Context, cmd Command) error {
+	pctx, pspan := otel.Tracer("unit").Start(ctx, "dispatch")
+	defer pspan.End()
+
+	h, err := GlobalRegistry.GetCommandHandler(cmd)
+	if err != nil {
+		return err
+	}
+
+	// check if we have a namespace command
+	if nsCmd, ok := cmd.(NamespaceCommand); ok {
+		ns := nsCmd.GetNamespace()
+		if ns != "" {
+			pctx = SetNamespace(pctx, ns)
+		}
+	}
+
+	pspan.SetAttributes(
+		attribute.String("id", cmd.GetAggregateId().String()),
+	)
+
+	if err := h.Handle(pctx, cmd); err != nil {
+		return err
+	}
+	return nil
 }
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 	ctx = SetUnit(ctx, u)
 
 	return u.work(ctx, func(ctx context.Context) error {
 		for _, cmd := range cmds {
-			h, err := GlobalRegistry.GetCommandHandler(cmd)
-			if err != nil {
-				return err
-			}
-			if err := h.Handle(ctx, cmd); err != nil {
+			if err := u.dispatch(ctx, cmd); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
 }
+func (u *unit) replay(ctx context.Context, cmd *ReplayCommand) error {
+	pctx, pspan := otel.Tracer("unit").Start(ctx, "dispatch")
+	defer pspan.End()
+
+	h, err := GlobalRegistry.GetReplayHandler(cmd)
+	if err != nil {
+		return err
+	}
+
+	ns := cmd.GetNamespace()
+	if ns != "" {
+		pctx = SetNamespace(pctx, ns)
+	}
+
+	pspan.SetAttributes(
+		attribute.String("id", cmd.GetAggregateId().String()),
+	)
+
+	if err := h.Handle(ctx, cmd); err != nil {
+		return err
+	}
+	return nil
+}
 func (u *unit) Replay(ctx context.Context, cmds ...*ReplayCommand) error {
 	ctx = SetUnit(ctx, u)
 
 	return u.work(ctx, func(ctx context.Context) error {
 		for _, cmd := range cmds {
-			h, err := GlobalRegistry.GetReplayHandler(cmd)
-			if err != nil {
-				return err
-			}
-			if err := h.Handle(ctx, cmd); err != nil {
+			if err := u.replay(ctx, cmd); err != nil {
 				return err
 			}
 		}
