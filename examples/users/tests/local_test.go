@@ -9,6 +9,7 @@ import (
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/data/commands"
+	"github.com/contextcloud/eventstore/examples/users/helpers"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -25,9 +26,10 @@ func Test(t *testing.T) {
 		require.NoError(t, errU)
 
 		ctx = es.SetUnit(ctx, unit)
+		ctx = helpers.SetSkipSaga(ctx)
 
-		userId1 := uuid.New()
-		userId2 := uuid.New()
+		userId1 := uuid.MustParse("05de3d57-9c15-484c-aa9b-acf1002daa7c")
+		userId2 := uuid.MustParse("175fa613-0e28-411d-8eae-6b55f26bf561")
 		cmds := []es.Command{
 			&commands.CreateUser{
 				BaseCommand: es.BaseCommand{
@@ -107,4 +109,41 @@ func Test(t *testing.T) {
 		log.Printf("users: %+v", users)
 		log.Printf("total: %+v", total)
 	})
+
+	t.Run("run-saga", func(t *testing.T) {
+		cli := tester.Client()
+
+		ctx := context.Background()
+		unit, errU := cli.Unit(ctx)
+		require.NoError(t, errU)
+
+		ctx = es.SetUnit(ctx, unit)
+
+		events, err := unit.FindEvents(ctx, filters.Filter{
+			Where: []filters.WhereClause{
+				{
+					Column: "aggregate_id",
+					Op:     "eq",
+					Args:   "05de3d57-9c15-484c-aa9b-acf1002daa7c",
+				},
+				{
+					Column: "aggregate_type",
+					Op:     "eq",
+					Args:   "StandardUser",
+				},
+				{
+					Column: "type",
+					Op:     "eq",
+					Args:   "ConnectionAdded",
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		require.Len(t, events, 1)
+
+		errD := unit.Handle(ctx, events...)
+		require.NoError(t, errD)
+	})
+
 }

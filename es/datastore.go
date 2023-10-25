@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 )
 
@@ -76,14 +77,32 @@ func (s *dataStore) loadSourced(ctx context.Context, entityConfig *EntityConfig,
 		}
 	}
 
-	// load up the events from the DB.
-	eventSearch := EventSearch{
-		Namespace:     namespace,
-		AggregateId:   id,
-		AggregateType: entityConfig.Name,
-		FromVersion:   aggregate.GetVersion(),
+	eventFilter := filters.Filter{
+		Where: []filters.WhereClause{
+			{
+				Column: "namespace",
+				Op:     "eq",
+				Args:   namespace,
+			},
+			{
+				Column: "aggregate_id",
+				Op:     "eq",
+				Args:   id,
+			},
+			{
+				Column: "aggregate_type",
+				Op:     "eq",
+				Args:   entityConfig.Name,
+			},
+			{
+				Column: "version",
+				Op:     "gt",
+				Args:   aggregate.GetVersion(),
+			},
+		},
 	}
-	originalEvents, err := s.data.GetEvents(ctx, entityConfig.Mapper, eventSearch)
+	// load up the events from the DB.
+	originalEvents, err := s.data.FindEvents(ctx, eventFilter)
 	if err != nil {
 		return nil, err
 	}

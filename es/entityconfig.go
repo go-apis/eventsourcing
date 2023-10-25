@@ -15,7 +15,6 @@ type EntityConfig struct {
 	Name             string
 	Type             reflect.Type
 	Factory          EntityFunc
-	Mapper           EventDataMapper
 	SnapshotRevision string
 	SnapshotEnabled  bool
 	SnapshotEvery    int
@@ -106,7 +105,6 @@ func NewEntityOptions(agg interface{}) []EntityOption {
 		EntityType(t),
 		EntityName(name),
 		EntityFactory(factory),
-		EntityEventHandles(agg),
 	}, tags...)
 }
 
@@ -146,37 +144,6 @@ func EntityType(t reflect.Type) EntityOption {
 		o.Type = t
 	}
 }
-func EntityEventTypes(objs ...interface{}) EntityOption {
-	mapper := NewEventDataFunc(objs...)
-
-	return func(o *EntityConfig) {
-		for k, v := range mapper {
-			o.Mapper[k] = v
-		}
-	}
-}
-func EntityEventHandles(obj interface{}) EntityOption {
-	applyHandles := NewEventHandles(obj)
-	mapper := make(EventDataMapper)
-
-	for _, h := range applyHandles {
-		t := h.eventType
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
-		mapper[t.Name()] = func() (interface{}, error) {
-			out := reflect.New(t).Interface()
-			return out, nil
-		}
-	}
-
-	return func(o *EntityConfig) {
-		o.Handles = applyHandles
-		for k, v := range mapper {
-			o.Mapper[k] = v
-		}
-	}
-}
 
 func NewEntityConfig(options []EntityOption) (*EntityConfig, error) {
 	// set defaults.
@@ -185,7 +152,6 @@ func NewEntityConfig(options []EntityOption) (*EntityConfig, error) {
 		Project:          true,
 		SnapshotEvery:    0,
 		SnapshotEnabled:  false,
-		Mapper:           make(EventDataMapper),
 	}
 
 	// apply options.

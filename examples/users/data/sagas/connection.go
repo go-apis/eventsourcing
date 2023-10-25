@@ -8,6 +8,7 @@ import (
 	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/data/commands"
 	"github.com/contextcloud/eventstore/examples/users/data/events"
+	"github.com/contextcloud/eventstore/examples/users/helpers"
 	"github.com/google/uuid"
 
 	"github.com/contextcloud/eventstore/es"
@@ -18,6 +19,11 @@ type ConnectionSaga struct {
 }
 
 func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt *es.Event, data *events.ConnectionAdded) ([]es.Command, error) {
+	skip := helpers.GetSkipSaga(ctx)
+	if skip {
+		return nil, nil
+	}
+
 	item := data.Connections.Value
 
 	id := uuid.NewSHA1(evt.AggregateId, []byte(item.UserId))

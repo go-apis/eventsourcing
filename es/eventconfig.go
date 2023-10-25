@@ -45,30 +45,6 @@ func NewEventConfig(evt interface{}) *EventConfig {
 	}
 }
 
-// EventDataMapper for creating event data from a given event name
-type EventDataMapper map[string]EventDataFunc
-
-func NewEventDataFunc(objs ...interface{}) EventDataMapper {
-	m := make(EventDataMapper)
-
-	for _, obj := range objs {
-		t := reflect.TypeOf(obj)
-		for t.Kind() == reflect.Ptr {
-			t = t.Elem()
-		}
-
-		m[t.Name()] = func() (interface{}, error) {
-			out := reflect.New(t).Interface()
-			return out, nil
-		}
-	}
-
-	return m
-}
-
-// EventDataFunc for creating a Data
-type EventDataFunc func() (interface{}, error)
-
 type EventPublish interface {
 	Publish()
 }

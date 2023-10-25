@@ -32,21 +32,19 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 	_, span := otel.Tracer("local").Start(ctx, "Begin")
 	defer span.End()
 
-	db := d.db
-
-	if committer, ok := db.Statement.ConnPool.(gorm.TxCommitter); ok && committer != nil {
+	if d.tx != nil {
 		var rollback RollbackFunc
 		var commitFunc CommitFunc
 
-		if !db.DisableNestedTransaction {
+		if !d.tx.DisableNestedTransaction {
 			// nested transaction
 			//create save point
 			spname := fmt.Sprintf("sp%p", d)
-			if err := db.SavePoint(spname).Error; err != nil {
+			if err := d.tx.SavePoint(spname).Error; err != nil {
 				return nil, err
 			}
 			rollback = func() error {
-				return db.RollbackTo(spname).Error
+				return d.tx.RollbackTo(spname).Error
 			}
 			//nested level do not need to commit
 			commitFunc = func() error {
@@ -55,16 +53,28 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 		}
 
 		return &transaction{
-			db:           db.WithContext(ctx),
 			rollbackFunc: rollback,
 			commitFunc:   commitFunc,
 		}, nil
 	}
 
-	if d.tx == nil {
-		d.tx = db.Begin()
+	d.tx = d.db.Begin()
+
+	var rollback = func() error {
+		err := d.tx.Rollback().Error
+		d.tx = nil
+		return err
 	}
-	return &transaction{db: d.tx}, d.tx.Error
+	var commitFunc = func() error {
+		err := d.tx.Commit().Error
+		d.tx = nil
+		return err
+	}
+
+	return &transaction{
+		rollbackFunc: rollback,
+		commitFunc:   commitFunc,
+	}, d.tx.Error
 }
 
 func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
@@ -126,13 +136,13 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	return out.Error
 }
 
-func (d *data) loadData(mappers es.EventDataMapper, evt *Event) (interface{}, error) {
-	mapper, ok := mappers[evt.Type]
-	if !ok {
+func (d *data) loadData(evt *Event) (interface{}, error) {
+	eventConfig, err := es.GlobalRegistry.GetEventConfig(evt.Type)
+	if err != nil {
 		return evt.Data, nil
 	}
 
-	data, err := mapper()
+	data, err := eventConfig.Factory()
 	if err != nil {
 		return nil, err
 	}
@@ -144,21 +154,37 @@ func (d *data) loadData(mappers es.EventDataMapper, evt *Event) (interface{}, er
 	return data, nil
 }
 
-func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search es.EventSearch) ([]*es.Event, error) {
+func (d *data) FindEvents(ctx context.Context, filter filters.Filter) ([]*es.Event, error) {
 	pctx, span := otel.Tracer("local").Start(ctx, "GetEvents")
 	defer span.End()
 
-	g := d.getDb().
-		WithContext(pctx)
-
-	rows, err := g.
+	q := d.getDb().
+		WithContext(pctx).
 		Model(&Event{}).
-		Where("service_name = ?", d.service).
-		Where("namespace = ?", search.Namespace).
-		Where("aggregate_type = ?", search.AggregateType).
-		Where("aggregate_id = ?", search.AggregateId).
-		Where("version > ?", search.FromVersion).
-		Order("version").
+		Where("service_name = ?", d.service)
+
+	if filter.Where != nil {
+		q = where(q, filter.Where)
+	}
+	if filter.Distinct != nil {
+		q = q.Distinct(filter.Distinct...)
+	}
+	if filter.Limit != nil {
+		q = q.Limit(*filter.Limit)
+	}
+	if filter.Offset != nil {
+		q = q.Offset(*filter.Offset)
+	}
+	for _, order := range filter.Order {
+		q = q.Order(clause.OrderByColumn{
+			Column: clause.Column{
+				Name: order.Column,
+			},
+			Desc: order.Desc,
+		})
+	}
+
+	rows, err := q.
 		Rows()
 	if err != nil {
 		return nil, err
@@ -169,12 +195,11 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 	for rows.Next() {
 		var evt Event
 		// ScanRows is a method of `gorm.DB`, it can be used to scan a row into a struct
-		if err := g.ScanRows(rows, &evt); err != nil {
+		if err := q.ScanRows(rows, &evt); err != nil {
 			return nil, err
 		}
 
-		// do something
-		data, err := d.loadData(mappers, &evt)
+		data, err := d.loadData(&evt)
 		if err != nil {
 			return nil, err
 		}

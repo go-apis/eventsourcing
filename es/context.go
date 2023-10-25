@@ -13,6 +13,7 @@ const (
 	NamespaceKey Key = iota
 	UnitKey
 	UserKey
+	SkipPublishKey
 )
 
 const defaultNamespace = "default"
@@ -57,6 +58,10 @@ func GetUnit(ctx context.Context) (Unit, error) {
 	}
 	return nil, ErrNotFound
 }
+func GetSkipPublish(ctx context.Context) bool {
+	skip, ok := ctx.Value(SkipPublishKey).(bool)
+	return ok && skip
+}
 
 func SetNamespace(ctx context.Context, namespace string) context.Context {
 	return context.WithValue(ctx, NamespaceKey, namespace)
@@ -66,4 +71,7 @@ func SetUnit(ctx context.Context, unit Unit) context.Context {
 }
 func SetUser(ctx context.Context, user User) context.Context {
 	return context.WithValue(ctx, UserKey, user)
+}
+func SetSkipPublish(ctx context.Context) context.Context {
+	return context.WithValue(ctx, SkipPublishKey, true)
 }

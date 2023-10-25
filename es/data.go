@@ -7,13 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type EventSearch struct {
-	Namespace     string
-	AggregateType string
-	AggregateId   uuid.UUID
-	FromVersion   int
-}
-
 type SnapshotSearch struct {
 	Namespace     string
 	AggregateType string
@@ -39,7 +32,7 @@ type Data interface {
 	LoadSnapshot(ctx context.Context, search SnapshotSearch, out AggregateSourced) error
 	SaveSnapshot(ctx context.Context, snapshot *Snapshot) error
 
-	GetEvents(ctx context.Context, mapper EventDataMapper, search EventSearch) ([]*Event, error)
+	// GetEvents(ctx context.Context, mapper EventDataMapper, search EventSearch) ([]*Event, error)
 	SaveEvents(ctx context.Context, events []*Event) error
 	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error
 	DeleteEntity(ctx context.Context, aggregateName string, entity Entity) error
@@ -48,4 +41,6 @@ type Data interface {
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error)
+
+	FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error)
 }

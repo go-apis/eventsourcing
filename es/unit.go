@@ -21,8 +21,7 @@ type Unit interface {
 	Delete(ctx context.Context, name string, aggregate Entity) error
 	Truncate(ctx context.Context, name string) error
 
-	Commit(ctx context.Context) error
-	Rollback(ctx context.Context) error
+	FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error)
 
 	Handle(ctx context.Context, events ...*Event) error
 	Dispatch(ctx context.Context, cmds ...Command) error
@@ -36,7 +35,6 @@ type unit struct {
 	dataStore DataStore
 	publisher Streamer
 
-	tx     Tx
 	events []*Event
 }
 
@@ -84,66 +82,44 @@ func (u *unit) Truncate(ctx context.Context, name string) error {
 	return u.dataStore.Truncate(ctx, name)
 }
 
-func (u *unit) Commit(ctx context.Context) error {
-	u.Lock()
-	defer u.Unlock()
-
-	if u.tx == nil {
-		return nil
-	}
-	if err := u.tx.Commit(ctx); err != nil {
-		return err
-	}
-	u.tx = nil
-
-	if err := u.publisher.Publish(ctx, u.events...); err != nil {
-		return err
-	}
-
-	u.events = nil
-	return nil
-}
-func (u *unit) Rollback(ctx context.Context) error {
-	u.Lock()
-	defer u.Unlock()
-
-	if u.tx == nil {
-		return nil
-	}
-	err := u.tx.Rollback(ctx)
-	if err != nil {
-		return err
-	}
-	u.tx = nil
-	return nil
+func (u *unit) FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error) {
+	return u.data.FindEvents(ctx, filter)
 }
 
 func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (err error) {
+	tx, err := u.data.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning transaction fail: %w", err)
+	}
+
+	skipPublish := GetSkipPublish(ctx)
+
 	defer func() {
 		if perr := recover(); perr != nil {
 			err = fmt.Errorf("panic: %v", perr)
 		}
 		if err != nil {
-			if rerr := u.Rollback(ctx); rerr != nil {
+			if rerr := tx.Rollback(ctx); rerr != nil {
 				err = fmt.Errorf("rolling back transaction fail: %s\n %w ", rerr.Error(), err)
 			}
 		}
 	}()
 
-	u.Lock()
-	tx, err := u.data.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("beginning transaction fail: %w", err)
-	}
-	u.tx = tx
-	u.Unlock()
-
-	if err = fn(ctx); err != nil {
+	sctx := SetSkipPublish(ctx)
+	if err = fn(sctx); err != nil {
 		return
 	}
 
-	if rerr := u.Commit(ctx); rerr != nil {
+	if rerr := tx.Commit(ctx); rerr != nil {
 		return fmt.Errorf("committing transaction fail: %w", rerr)
+	}
+
+	// publish events?
+	if !skipPublish {
+		if err := u.publisher.Publish(ctx, u.events...); err != nil {
+			return err
+		}
+		u.events = nil
 	}
 
 	return nil
@@ -173,6 +149,10 @@ func (u *unit) handle(ctx context.Context, evt *Event) error {
 	return nil
 }
 func (u *unit) Handle(ctx context.Context, events ...*Event) error {
+	if len(events) == 0 {
+		return nil
+	}
+
 	ctx = SetUnit(ctx, u)
 
 	return u.work(ctx, func(ctx context.Context) error {
@@ -211,6 +191,10 @@ func (u *unit) dispatch(ctx context.Context, cmd Command) error {
 	return nil
 }
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+
 	ctx = SetUnit(ctx, u)
 
 	return u.work(ctx, func(ctx context.Context) error {
@@ -246,6 +230,10 @@ func (u *unit) replay(ctx context.Context, cmd *ReplayCommand) error {
 	return nil
 }
 func (u *unit) Replay(ctx context.Context, cmds ...*ReplayCommand) error {
+	if len(cmds) == 0 {
+		return nil
+	}
+
 	ctx = SetUnit(ctx, u)
 
 	return u.work(ctx, func(ctx context.Context) error {
