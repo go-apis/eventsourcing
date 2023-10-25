@@ -18,6 +18,14 @@ import (
 type data struct {
 	service string
 	db      *gorm.DB
+	tx      *gorm.DB
+}
+
+func (d *data) getDb() *gorm.DB {
+	if d.tx != nil {
+		return d.tx
+	}
+	return d.db
 }
 
 func (d *data) Begin(ctx context.Context) (es.Tx, error) {
@@ -53,8 +61,10 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 		}, nil
 	}
 
-	tx := db.Begin()
-	return &transaction{db: tx}, tx.Error
+	if d.tx == nil {
+		d.tx = db.Begin()
+	}
+	return &transaction{db: d.tx}, d.tx.Error
 }
 
 func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
@@ -62,7 +72,7 @@ func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out e
 	defer span.End()
 
 	var snapshot Snapshot
-	r := d.db.
+	r := d.getDb().
 		WithContext(pctx).
 		Model(&Snapshot{}).
 		Where("service_name = ?", d.service).
@@ -107,7 +117,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 		Aggregate:     raw,
 	}
 
-	out := d.db.
+	out := d.getDb().
 		WithContext(pctx).
 		Clauses(clause.OnConflict{
 			UpdateAll: true,
@@ -138,7 +148,7 @@ func (d *data) GetEvents(ctx context.Context, mappers es.EventDataMapper, search
 	pctx, span := otel.Tracer("local").Start(ctx, "GetEvents")
 	defer span.End()
 
-	g := d.db.
+	g := d.getDb().
 		WithContext(pctx)
 
 	rows, err := g.
@@ -212,7 +222,7 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		}
 	}
 
-	out := d.db.
+	out := d.getDb().
 		WithContext(pctx).
 		Create(&evts)
 	return out.Error
@@ -222,7 +232,7 @@ func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Enti
 	defer span.End()
 
 	table := TableName(d.service, aggregateName)
-	out := d.db.
+	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
 		Clauses(clause.OnConflict{
@@ -237,7 +247,7 @@ func (d *data) DeleteEntity(ctx context.Context, aggregateName string, raw es.En
 	defer span.End()
 
 	table := TableName(d.service, aggregateName)
-	out := d.db.
+	out := d.getDb().
 		WithContext(pctx).
 		Table(table).
 		Delete(raw, "namespace = ?", raw.GetNamespace())
@@ -248,7 +258,7 @@ func (d *data) Truncate(ctx context.Context, aggregateName string) error {
 	defer span.End()
 
 	table := TableName(d.service, aggregateName)
-	out := d.db.
+	out := d.getDb().
 		WithContext(pctx).
 		Raw(fmt.Sprintf("TRUNCATE TABLE %s", table))
 	return out.Error
@@ -259,7 +269,7 @@ func (d *data) Get(ctx context.Context, aggregateName string, namespace string, 
 
 	table := TableName(d.service, aggregateName)
 
-	q := d.db.
+	q := d.getDb().
 		WithContext(pctx).
 		Table(table).
 		Where("id = ?", id)
@@ -279,7 +289,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 	defer span.End()
 
 	table := TableName(d.service, aggregateName)
-	q := d.db.
+	q := d.getDb().
 		WithContext(pctx).
 		Table(table)
 
@@ -320,7 +330,7 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	var totalRows int64
 
 	table := TableName(d.service, aggregateName)
-	q := d.db.
+	q := d.getDb().
 		WithContext(pctx).
 		Table(table)
 

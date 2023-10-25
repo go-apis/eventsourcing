@@ -173,7 +173,7 @@ func RegistryAdd(items ...interface{}) error {
 		if err != nil {
 			return err
 		}
-		h := NewSourcedAggregateHandler(entityConfig, nil)
+		h := NewAggregateHandler(entityConfig, nil)
 		h = UseCommandHandlerMiddleware(h, middlewares...)
 
 		if err := GlobalRegistry.AddEntity(entityConfig); err != nil {
@@ -198,7 +198,7 @@ func RegistryAdd(items ...interface{}) error {
 		}
 		// handles!
 		commandHandles := NewCommandHandles(agg)
-		h := NewSourcedAggregateHandler(entityConfig, commandHandles)
+		h := NewAggregateHandler(entityConfig, commandHandles)
 		h = UseCommandHandlerMiddleware(h, middlewares...)
 
 		if err := GlobalRegistry.AddEntity(entityConfig); err != nil {

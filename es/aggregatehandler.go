@@ -8,12 +8,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-type sourcedAggregateHandler struct {
+type aggregateHandler struct {
 	cfg     *EntityConfig
 	handles CommandHandles
 }
 
-func (b *sourcedAggregateHandler) inner(ctx context.Context, entity Entity, cmd Command) error {
+func (b *aggregateHandler) inner(ctx context.Context, entity Entity, cmd Command) error {
 	switch agg := entity.(type) {
 	case CommandHandler:
 		return agg.Handle(ctx, cmd)
@@ -24,7 +24,7 @@ func (b *sourcedAggregateHandler) inner(ctx context.Context, entity Entity, cmd 
 	return fmt.Errorf("no handler for command: %T", cmd)
 }
 
-func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error {
+func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
 	pctx, pspan := otel.Tracer("SourcedAggregateHandler").Start(ctx, "Handle")
 	defer pspan.End()
 
@@ -50,9 +50,6 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 		if err := b.inner(pctx, agg, cmd); err != nil {
 			return err
 		}
-
-		// what about owner
-		// what about parent
 	}
 
 	if err := unit.Save(pctx, b.cfg.Name, agg); err != nil {
@@ -61,8 +58,8 @@ func (b *sourcedAggregateHandler) Handle(ctx context.Context, cmd Command) error
 	return nil
 }
 
-func NewSourcedAggregateHandler(cfg *EntityConfig, handles CommandHandles) CommandHandler {
-	return &sourcedAggregateHandler{
+func NewAggregateHandler(cfg *EntityConfig, handles CommandHandles) CommandHandler {
+	return &aggregateHandler{
 		cfg:     cfg,
 		handles: handles,
 	}
