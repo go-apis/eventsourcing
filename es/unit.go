@@ -224,7 +224,7 @@ func (u *unit) replay(ctx context.Context, cmd *ReplayCommand) error {
 		attribute.String("id", cmd.GetAggregateId().String()),
 	)
 
-	if err := h.Handle(ctx, cmd); err != nil {
+	if err := h.Handle(pctx, cmd); err != nil {
 		return err
 	}
 	return nil
