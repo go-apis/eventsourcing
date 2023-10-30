@@ -3,6 +3,7 @@ package es
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.opentelemetry.io/otel/trace"
 )
@@ -14,6 +15,7 @@ const (
 	UnitKey
 	UserKey
 	SkipPublishKey
+	TimeKey
 )
 
 const defaultNamespace = "default"
@@ -62,7 +64,13 @@ func GetSkipPublish(ctx context.Context) bool {
 	skip, ok := ctx.Value(SkipPublishKey).(bool)
 	return ok && skip
 }
-
+func GetTime(ctx context.Context) time.Time {
+	t, ok := ctx.Value(TimeKey).(time.Time)
+	if ok {
+		return t
+	}
+	return time.Now()
+}
 func SetNamespace(ctx context.Context, namespace string) context.Context {
 	return context.WithValue(ctx, NamespaceKey, namespace)
 }
@@ -74,4 +82,7 @@ func SetUser(ctx context.Context, user User) context.Context {
 }
 func SetSkipPublish(ctx context.Context) context.Context {
 	return context.WithValue(ctx, SkipPublishKey, true)
+}
+func SetTime(ctx context.Context, t time.Time) context.Context {
+	return context.WithValue(ctx, TimeKey, t)
 }

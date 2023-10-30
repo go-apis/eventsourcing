@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
@@ -127,7 +126,7 @@ func (s *dataStore) saveSourced(ctx context.Context, entityConfig *EntityConfig,
 	version := aggregate.GetVersion()
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
-	timestamp := time.Now()
+	timestamp := GetTime(ctx)
 
 	events := make([]*Event, len(raw))
 	for i, data := range raw {
@@ -192,7 +191,7 @@ func (s *dataStore) saveAggregateHolder(ctx context.Context, entityConfig *Entit
 	namespace := GetNamespace(ctx)
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
-	timestamp := time.Now()
+	timestamp := GetTime(ctx)
 
 	events := make([]*Event, len(raw))
 	for i, data := range raw {
