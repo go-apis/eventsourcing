@@ -93,13 +93,12 @@ func (r *Registry) GetCommandHandler(command interface{}) (CommandHandler, error
 	}
 	return nil, fmt.Errorf("command handler %v: %w", t, ErrNotFound)
 }
-func (r *Registry) GetReplayHandler(command interface{}) (CommandHandler, error) {
-	t := utils.GetElemType(command)
-	n := strings.ToLower(t.Name())
+func (r *Registry) GetReplayHandler(command *ReplayCommand) (CommandHandler, error) {
+	n := strings.ToLower(command.AggregateName)
 	if h, ok := r.replayHandlers[n]; ok {
 		return h, nil
 	}
-	return nil, fmt.Errorf("command handler %v: %w", t, ErrNotFound)
+	return nil, fmt.Errorf("replay handler %s: %w", n, ErrNotFound)
 }
 func (r *Registry) GetEventHandlers(event interface{}) []EventHandler {
 	t := utils.GetElemType(event)
