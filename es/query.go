@@ -11,6 +11,10 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
+func toPage(limit, offset int) int {
+	return int(math.Floor(float64(offset)/float64(limit))) + 1
+}
+
 type Pagination[T any] struct {
 	Limit      int   `json:"limit"`
 	Page       int   `json:"page"`
@@ -119,7 +123,7 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 	totalPages := int(math.Ceil(float64(totalItems) / float64(*filter.Limit)))
 	return &Pagination[T]{
 		Limit:      *filter.Limit,
-		Page:       *filter.Offset + 1,
+		Page:       toPage(*filter.Limit, *filter.Offset),
 		TotalItems: int64(totalItems),
 		TotalPages: totalPages,
 		Items:      items,
