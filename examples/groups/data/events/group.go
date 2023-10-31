@@ -17,7 +17,7 @@ type UserAdded struct {
 }
 
 type GroupAdded struct {
-	es.BaseEventPublished `service:"users"`
+	es.BaseEvent `es:"service=users"`
 
 	Groups types.SliceItem[models.Group]
 }

@@ -12,6 +12,7 @@ import (
 
 func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) {
 	if err := es.RegistryAdd(
+		pcfg.Service,
 		&aggregates.StandardUser{},
 		&aggregates.User{},
 		&aggregates.ExternalUser{},

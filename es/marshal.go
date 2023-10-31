@@ -27,7 +27,7 @@ func UnmarshalEvent(ctx context.Context, b []byte) (*Event, error) {
 		return nil, fmt.Errorf("could not decode event: %w", err)
 	}
 
-	evtConfig, err := GlobalRegistry.GetEventConfig(out.Type)
+	evtConfig, err := GlobalRegistry.GetEventConfig(out.Service, out.Type)
 	if err != nil {
 		return nil, err
 	}

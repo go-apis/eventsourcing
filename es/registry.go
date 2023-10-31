@@ -8,18 +8,12 @@ import (
 	"github.com/contextcloud/eventstore/es/utils"
 )
 
-var GlobalRegistry = Registry{
-	entities:        map[string]*EntityConfig{},
-	commands:        map[string]*CommandConfig{},
-	events:          map[string]*EventConfig{},
-	commandHandlers: map[reflect.Type]CommandHandler{},
-	eventHandlers:   map[reflect.Type][]EventHandler{},
-	replayHandlers:  map[string]CommandHandler{},
-}
+var GlobalRegistry = NewRegistry()
 
 type Registry struct {
 	entities        map[string]*EntityConfig
 	commands        map[string]*CommandConfig
+	eventsByType    map[reflect.Type]*EventConfig
 	events          map[string]*EventConfig
 	commandHandlers map[reflect.Type]CommandHandler
 	eventHandlers   map[reflect.Type][]EventHandler
@@ -49,12 +43,8 @@ func (r *Registry) AddCommandHandler(commandConfig *CommandConfig, h CommandHand
 	return nil
 }
 func (r *Registry) AddEventHandler(eventConfig *EventConfig, h EventHandler) error {
-	name := strings.ToLower(eventConfig.Name)
-	if _, ok := r.events[name]; !ok {
-		r.events[name] = eventConfig
-	}
 	r.eventHandlers[eventConfig.Type] = append(r.eventHandlers[eventConfig.Type], h)
-	return nil
+	return r.AddEvent(eventConfig)
 }
 func (r *Registry) AddReplayHandler(entityConfig *EntityConfig, h CommandHandler) error {
 	name := strings.ToLower(entityConfig.Name)
@@ -65,15 +55,34 @@ func (r *Registry) AddReplayHandler(entityConfig *EntityConfig, h CommandHandler
 	return nil
 }
 func (r *Registry) AddEvent(eventConfig *EventConfig) error {
-	name := strings.ToLower(eventConfig.Name)
-	if _, ok := r.events[name]; !ok {
-		r.events[name] = eventConfig
+	if _, ok := r.eventsByType[eventConfig.Type]; ok {
+		// already registered.
+		return nil
 	}
+
+	name := strings.ToLower(eventConfig.Service + "__" + eventConfig.Name)
+	if _, ok := r.events[name]; ok {
+		return fmt.Errorf("duplicate event: %s", name)
+	}
+	r.events[name] = eventConfig
+
+	for _, alias := range eventConfig.Aliases {
+		aliasName := strings.ToLower(eventConfig.Service + "__" + alias)
+		if aliasName == name {
+			continue
+		}
+		if _, ok := r.events[aliasName]; ok {
+			return fmt.Errorf("duplicate event: %s - %s", name, aliasName)
+		}
+		r.events[aliasName] = eventConfig
+	}
+
+	r.eventsByType[eventConfig.Type] = eventConfig
 	return nil
 }
 
-func (r *Registry) GetEventConfig(eventType string) (*EventConfig, error) {
-	name := strings.ToLower(eventType)
+func (r *Registry) GetEventConfig(serviceName string, eventType string) (*EventConfig, error) {
+	name := strings.ToLower(serviceName + "__" + eventType)
 	if evt, ok := r.events[name]; ok {
 		return evt, nil
 	}
@@ -112,7 +121,19 @@ func (r *Registry) GetEntities() []*EntityConfig {
 	return out
 }
 
-func RegistryAdd(items ...interface{}) error {
+func NewRegistry() *Registry {
+	return &Registry{
+		entities:        map[string]*EntityConfig{},
+		commands:        map[string]*CommandConfig{},
+		events:          map[string]*EventConfig{},
+		eventsByType:    map[reflect.Type]*EventConfig{},
+		commandHandlers: map[reflect.Type]CommandHandler{},
+		eventHandlers:   map[reflect.Type][]EventHandler{},
+		replayHandlers:  map[string]CommandHandler{},
+	}
+}
+
+func RegistryAdd(service string, items ...interface{}) error {
 	var handlers []IsCommandHandler
 	var sagas []IsSaga
 	var projectors []IsProjector
@@ -133,6 +154,9 @@ func RegistryAdd(items ...interface{}) error {
 		case IsProjector:
 			projectors = append(projectors, raw)
 			continue
+		case IsEvent:
+			events = append(events, raw)
+
 		case Aggregate:
 			aggregates = append(aggregates, raw)
 			continue
@@ -145,10 +169,6 @@ func RegistryAdd(items ...interface{}) error {
 		case CommandHandlerMiddleware:
 			middlewares = append(middlewares, raw)
 			continue
-		case EventPublish:
-			events = append(events, raw)
-		case EventPublished:
-			events = append(events, raw)
 		default:
 			return fmt.Errorf("invalid item type: %T", item)
 		}
@@ -234,7 +254,7 @@ func RegistryAdd(items ...interface{}) error {
 		h := NewSagaEventHandler(handles, saga)
 
 		for t := range handles {
-			eventConfig := NewEventConfig(t)
+			eventConfig := NewEventConfig(service, t)
 			if err := GlobalRegistry.AddEventHandler(eventConfig, h); err != nil {
 				return err
 			}
@@ -260,7 +280,7 @@ func RegistryAdd(items ...interface{}) error {
 				return err
 			}
 			for evt, handles := range m {
-				eventConfig := NewEventConfig(evt)
+				eventConfig := NewEventConfig(service, evt)
 				h := NewProjectorEventHandler(entityConfig, handles, projector)
 
 				if err := GlobalRegistry.AddEventHandler(eventConfig, h); err != nil {
@@ -272,7 +292,7 @@ func RegistryAdd(items ...interface{}) error {
 
 	// events
 	for _, evt := range events {
-		evtConfig := NewEventConfig(evt)
+		evtConfig := NewEventConfig(service, evt)
 		if err := GlobalRegistry.AddEvent(evtConfig); err != nil {
 			return err
 		}

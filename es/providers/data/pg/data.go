@@ -137,7 +137,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 }
 
 func (d *data) loadData(evt *Event) (interface{}, error) {
-	eventConfig, err := es.GlobalRegistry.GetEventConfig(evt.Type)
+	eventConfig, err := es.GlobalRegistry.GetEventConfig(evt.ServiceName, evt.Type)
 	if err != nil {
 		return evt.Data, nil
 	}

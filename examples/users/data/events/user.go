@@ -27,7 +27,7 @@ type ConnectionUpdated struct {
 }
 
 type GroupAdded struct {
-	es.BaseEventPublish
+	es.BaseEvent `es:"publish"`
 
 	Groups types.SliceItem[models.Group]
 }
