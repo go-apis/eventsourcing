@@ -142,7 +142,7 @@ func Test(t *testing.T) {
 
 		require.Len(t, events, 1)
 
-		errD := unit.Handle(ctx, events...)
+		errD := unit.Handle(ctx, es.ExternalGroup, events...)
 		require.NoError(t, errD)
 	})
 

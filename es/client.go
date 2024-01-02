@@ -2,11 +2,26 @@ package es
 
 import (
 	"context"
-	"strings"
+
+	"github.com/google/uuid"
 )
 
 type Client interface {
 	Unit(ctx context.Context) (Unit, error)
+}
+
+type clientEventHandler struct {
+	client Client
+	group  string
+}
+
+func (h *clientEventHandler) Handle(ctx context.Context, evt *Event) error {
+	// create the unit.
+	unit, err := h.client.Unit(ctx)
+	if err != nil {
+		return err
+	}
+	return unit.Handle(ctx, h.group, evt)
 }
 
 type client struct {
@@ -29,39 +44,49 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 	return unit, nil
 }
 
-func NewClient(ctx context.Context, pcfg *ProviderConfig) (Client, error) {
-	conn, err := GetConn(ctx, pcfg)
-	if err != nil {
-		return nil, err
-	}
-
+func NewClient(ctx context.Context, pcfg *ProviderConfig) (cli Client, err error) {
 	streamer, err := GetStreamer(ctx, pcfg)
 	if err != nil {
 		return nil, err
 	}
 
-	cli := &client{
+	conn, err := GetConn(ctx, pcfg)
+	if err != nil {
+		return nil, err
+	}
+
+	cli = &client{
 		providerConfig: pcfg,
 		conn:           conn,
 		streamer:       streamer,
 	}
 
-	callback := func(ctx context.Context, evt *Event) error {
-		// we don't hand events from ourself
-		if strings.EqualFold(evt.Service, pcfg.Service) {
-			return nil
-		}
-
-		// create the unit.
-		unit, err := cli.Unit(ctx)
+	// close stuff if we have an error.
+	defer func() {
 		if err != nil {
-			return err
+			streamer.Close(ctx)
 		}
-		return unit.Handle(ctx, evt)
-	}
+	}()
 
-	if err := streamer.Start(ctx, callback); err != nil {
-		return nil, err
+	// get the groups.
+	groups := GlobalRegistry.GetEventHandlerGroups()
+	for _, group := range groups {
+		if group == InternalGroup {
+			continue
+		}
+
+		name := ""
+		if group == RandomGroup {
+			name = uuid.NewString()
+		}
+
+		handler := &clientEventHandler{
+			client: cli,
+			group:  group,
+		}
+		if err := streamer.AddHandler(ctx, name, handler); err != nil {
+			return nil, err
+		}
 	}
-	return cli, nil
+	return
 }

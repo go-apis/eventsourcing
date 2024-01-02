@@ -2,86 +2,147 @@ package gpub
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"log"
+	"sync"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/pkg/gcppubsub"
-	"go.opentelemetry.io/otel"
 )
 
-func wrapped(callback func(context.Context, []byte) error) func(ctx context.Context, msg *pubsub.Message) {
+type Unsubscribe func(ctx context.Context) error
+
+type streamer struct {
+	service string
+	client  *pubsub.Client
+	topic   *pubsub.Topic
+
+	cctx   context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
+	errCh chan error
+
+	registered   map[string]bool
+	registeredMu sync.RWMutex
+	unsubscribe  []Unsubscribe
+}
+
+func (s *streamer) createSubscription(ctx context.Context, subscriptionId string) (*pubsub.Subscription, Unsubscribe, error) {
+	existingSub := s.client.Subscription(subscriptionId)
+	exists, err := existingSub.Exists(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	if exists {
+		existingSub.ReceiveSettings.MaxOutstandingMessages = 100
+		return existingSub, nil, nil
+	}
+
+	sub, err := s.client.CreateSubscription(ctx, subscriptionId, pubsub.SubscriptionConfig{
+		Topic:                 s.topic,
+		AckDeadline:           10 * time.Second,
+		EnableMessageOrdering: true,
+		RetryPolicy: &pubsub.RetryPolicy{
+			MinimumBackoff: 10 * time.Millisecond,
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	sub.ReceiveSettings.MaxOutstandingMessages = 100
+	return sub, sub.Delete, nil
+}
+
+func (s *streamer) loop(sub *pubsub.Subscription, handler es.EventHandler) {
+	defer s.wg.Done()
+
+	for {
+		if err := sub.Receive(s.cctx, s.handle(handler)); err != nil {
+			err = fmt.Errorf("could not receive: %w", err)
+
+			select {
+			case s.errCh <- err:
+			default:
+				log.Printf("missed error in GCP event bus: %s", err)
+			}
+
+			// Retry the receive loop if there was an error.
+			time.Sleep(time.Second)
+			continue
+		}
+
+		return
+	}
+}
+
+func (s *streamer) handle(handler es.EventHandler) func(context.Context, *pubsub.Message) {
 	return func(ctx context.Context, msg *pubsub.Message) {
-		if err := callback(ctx, msg.Data); err != nil {
+		evt, err := es.UnmarshalEvent(ctx, msg.Data)
+		if err != nil {
+			err = fmt.Errorf("could not unmarshal event: %w", err)
+			select {
+			case s.errCh <- err:
+			default:
+				log.Printf("missed error in GCP event bus: %s", err)
+			}
+
 			msg.Nack()
 			return
 		}
+
+		// TODO add some matching stuff.
+
+		if err := handler.Handle(ctx, evt); err != nil {
+			err = fmt.Errorf("could not handle event: %w", err)
+			select {
+			case s.errCh <- err:
+			default:
+				log.Printf("missed error in GCP event bus: %s", err)
+			}
+
+			msg.Nack()
+			return
+		}
+
 		msg.Ack()
 	}
 }
 
-type streamer struct {
-	service string
-	p       *gcppubsub.Pub
+func (s *streamer) AddHandler(ctx context.Context, name string, handler es.EventHandler) error {
+	// Check handler existence.
+	s.registeredMu.Lock()
+	defer s.registeredMu.Unlock()
 
-	started bool
-}
-
-func (s *streamer) Start(ctx context.Context, callback es.EventCallback) error {
-	pctx, span := otel.Tracer("gpub").Start(ctx, "Start")
-	defer span.End()
-
-	if callback == nil {
-		return fmt.Errorf("callback is required")
+	if _, ok := s.registered[name]; ok {
+		return fmt.Errorf("handler already registered: %s", name)
 	}
 
-	sub, err := s.p.Subscription(pctx, s.service)
+	subscriptionId := s.service
+	if name != "" {
+		subscriptionId += "-" + name
+	}
+	sub, unsubscribe, err := s.createSubscription(ctx, subscriptionId)
 	if err != nil {
 		return err
 	}
 
-	sub.ReceiveSettings.MaxOutstandingMessages = 100
-
-	handle := func(ctx context.Context, data []byte) error {
-		pctx, span := otel.Tracer("gpub").Start(ctx, "Handle")
-		defer span.End()
-
-		evt, err := es.UnmarshalEvent(pctx, data)
-		if errors.Is(err, es.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		return callback(pctx, evt)
+	if unsubscribe != nil {
+		s.unsubscribe = append(s.unsubscribe, unsubscribe)
 	}
 
-	go func() {
-		ctx := context.Background()
-		pctx, span := otel.Tracer("gpub").Start(ctx, "Receive")
-		defer span.End()
+	// Register handler.
+	s.registered[name] = true
+	s.wg.Add(1)
 
-		if err := sub.Receive(pctx, wrapped(handle)); err != nil {
-			// no sure what to do here yet
-			panic(err)
-		}
-	}()
-
-	s.started = true
+	go s.loop(sub, handler)
 	return nil
 }
 
 func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
-	pctx, span := otel.Tracer("gpub").Start(ctx, "Publish")
-	defer span.End()
-
-	if !s.started {
-		return fmt.Errorf("streamer is not started")
-	}
-
-	messages := make([]*pubsub.Message, len(evts))
+	out := make([]string, len(evts))
 	for i, evt := range evts {
 		orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
 		data, err := es.MarshalEvent(ctx, evt)
@@ -93,28 +154,58 @@ func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
 			Data:        data,
 			OrderingKey: orderingKey,
 		}
-		messages[i] = msg
-	}
 
-	_, err := s.p.Publish(pctx, messages...)
-	if err != nil {
-		// todo add some logging
-		return err
+		rsp := s.topic.Publish(ctx, msg)
+		id, err := rsp.Get(ctx)
+		if err != nil {
+			return err
+		}
+		out[i] = id
 	}
-
+	// log?
 	return nil
 }
 
-func (s *streamer) Close(ctx context.Context) error {
-	_, span := otel.Tracer("gpub").Start(ctx, "Close")
-	defer span.End()
-
-	return s.p.Close()
+func (s *streamer) Errors() <-chan error {
+	return s.errCh
 }
 
-func NewStreamer(service string, p *gcppubsub.Pub) (es.Streamer, error) {
+func (s *streamer) Close(ctx context.Context) error {
+	s.topic.Stop()
+
+	s.cancel()
+	s.wg.Wait()
+
+	// unsubscribe any ephemeral subscribers we created.
+	for _, unsub := range s.unsubscribe {
+		if err := unsub(ctx); err != nil {
+			s.errCh <- err
+		}
+	}
+
+	return s.client.Close()
+}
+
+func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig) (es.Streamer, error) {
+	client, err := pubsub.NewClient(ctx, config.ProjectId)
+	if err != nil {
+		return nil, err
+	}
+
+	topic := client.Topic(config.TopicId)
+	topic.EnableMessageOrdering = true
+	topic.PublishSettings.ByteThreshold = 5000
+	topic.PublishSettings.CountThreshold = 10
+	topic.PublishSettings.DelayThreshold = 100 * time.Millisecond
+
+	cctx, cancel := context.WithCancel(ctx)
 	return &streamer{
-		service: service,
-		p:       p,
+		service:    service,
+		client:     client,
+		topic:      topic,
+		cctx:       cctx,
+		cancel:     cancel,
+		registered: make(map[string]bool),
+		errCh:      make(chan error, 100),
 	}, nil
 }

@@ -6,10 +6,9 @@ import (
 
 type StreamerFactory func(ctx context.Context, cfg *ProviderConfig) (Streamer, error)
 
-type EventCallback func(ctx context.Context, evt *Event) error
-
 type Streamer interface {
-	Start(ctx context.Context, callback EventCallback) error
+	AddHandler(ctx context.Context, name string, handler EventHandler) error
 	Publish(ctx context.Context, evt ...*Event) error
+	Errors() <-chan error
 	Close(ctx context.Context) error
 }

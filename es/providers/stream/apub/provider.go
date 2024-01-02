@@ -5,42 +5,23 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sns"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
 	if cfg.Stream.Type != "apub" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
-
-	awscfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Stream.AWS.Region))
-	if err != nil {
-		panic("configuration error, " + err.Error())
+	if cfg.Stream.AWS == nil {
+		return nil, fmt.Errorf("invalid aws config")
+	}
+	if cfg.Stream.AWS.Region == "" {
+		return nil, fmt.Errorf("invalid aws region")
+	}
+	if cfg.Stream.AWS.TopicArn == "" {
+		return nil, fmt.Errorf("invalid aws topic arn")
 	}
 
-	snsClient := sns.NewFromConfig(awscfg)
-	sqsClient := sqs.NewFromConfig(awscfg)
-
-	out, err := sqsClient.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
-		QueueName: aws.String(cfg.Stream.AWS.QueueName),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return NewStreamer(
-		cfg.Service,
-		snsClient,
-		sqsClient,
-		cfg.Stream.AWS.TopicARN,
-		*out.QueueUrl,
-		cfg.Stream.AWS.MaxNumberOfMessages,
-		cfg.Stream.AWS.WaitTimeSeconds,
-	)
+	return NewStreamer(ctx, cfg.Service, cfg.Stream.AWS)
 }
 
 func init() {

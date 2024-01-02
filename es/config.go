@@ -3,24 +3,30 @@ package es
 import (
 	"fmt"
 
-	"github.com/contextcloud/eventstore/pkg/gcppubsub"
-	"github.com/contextcloud/eventstore/pkg/natspubsub"
 	"github.com/contextcloud/goutils/xgorm"
 )
 
 type StreamConfig struct {
 	Type   string
-	PubSub *gcppubsub.Config
-	Nats   *natspubsub.Config
+	PubSub *GcpPubSubConfig
+	Nats   *NatsConfig
 	AWS    *AwsSnsConfig
 }
 
+type GcpPubSubConfig struct {
+	ProjectId string
+	TopicId   string
+}
+
+type NatsConfig struct {
+	Url     string
+	Subject string
+}
+
 type AwsSnsConfig struct {
-	Region              string
-	TopicARN            string
-	QueueName           string
-	MaxNumberOfMessages int
-	WaitTimeSeconds     int
+	Profile  string
+	Region   string
+	TopicArn string
 }
 
 type DataConfig struct {
@@ -62,11 +68,6 @@ func NewAggregateConfig(aggregate Aggregate, items ...interface{}) *AggregateCon
 		EntityOptions:  entityOptions,
 		CommandConfigs: commandConfigs,
 	}
-}
-
-type EventHandlerConfig struct {
-	handler      EventHandler
-	eventConfigs []*EventConfig
 }
 
 type CommandHandlerConfig struct {

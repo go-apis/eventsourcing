@@ -5,8 +5,6 @@ import (
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/examples/users/data"
-	"github.com/contextcloud/eventstore/pkg/gcppubsub"
-	"github.com/contextcloud/eventstore/pkg/natspubsub"
 	"github.com/contextcloud/goutils/xgorm"
 
 	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
@@ -45,20 +43,18 @@ func NewTester() (Tester, error) {
 		},
 		Stream: es.StreamConfig{
 			Type: "apub",
-			PubSub: &gcppubsub.Config{
+			PubSub: &es.GcpPubSubConfig{
 				ProjectId: "nordic-gaming",
 				TopicId:   "test_topic",
 			},
-			Nats: &natspubsub.Config{
+			Nats: &es.NatsConfig{
 				Url:     "nats://localhost:4222",
 				Subject: "test",
 			},
 			AWS: &es.AwsSnsConfig{
-				Region:              "us-east-1",
-				TopicARN:            "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
-				QueueName:           "worker.fifo",
-				MaxNumberOfMessages: 10,
-				WaitTimeSeconds:     10,
+				Region:   "us-east-1",
+				TopicArn: "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
+				Profile:  "Development",
 			},
 		},
 	}

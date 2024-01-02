@@ -23,7 +23,7 @@ type Unit interface {
 
 	FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error)
 
-	Handle(ctx context.Context, events ...*Event) error
+	Handle(ctx context.Context, group string, events ...*Event) error
 	Dispatch(ctx context.Context, cmds ...Command) error
 	Replay(ctx context.Context, cmds ...*ReplayCommand) error
 }
@@ -63,12 +63,11 @@ func (u *unit) Save(ctx context.Context, name string, aggregate Entity) error {
 	// do something with events.
 	u.events = append(u.events, evts...)
 
+	// TODO maybe move to the outbox pattern here.
 	for _, evt := range evts {
-		handlers := GlobalRegistry.GetEventHandlers(evt.Data)
-		for _, h := range handlers {
-			if err := h.Handle(ctx, evt); err != nil {
-				return err
-			}
+		handlers := GlobalRegistry.GetEventHandlers(InternalGroup, evt.Data)
+		if err := handlers.Handle(ctx, evt); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -125,14 +124,14 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 	return nil
 }
 
-func (u *unit) handle(ctx context.Context, evt *Event) error {
+func (u *unit) handle(ctx context.Context, group string, evt *Event) error {
 	pctx, pspan := otel.Tracer("unit").Start(ctx, "handle")
 	defer pspan.End()
 
 	// set the namespace
 	pctx = SetNamespace(pctx, evt.Namespace)
 
-	hs := GlobalRegistry.GetEventHandlers(evt.Data)
+	hs := GlobalRegistry.GetEventHandlers(group, evt.Data)
 	if len(hs) == 0 {
 		return nil
 	}
@@ -148,7 +147,7 @@ func (u *unit) handle(ctx context.Context, evt *Event) error {
 	}
 	return nil
 }
-func (u *unit) Handle(ctx context.Context, events ...*Event) error {
+func (u *unit) Handle(ctx context.Context, group string, events ...*Event) error {
 	if len(events) == 0 {
 		return nil
 	}
@@ -157,7 +156,7 @@ func (u *unit) Handle(ctx context.Context, events ...*Event) error {
 
 	return u.work(ctx, func(ctx context.Context) error {
 		for _, evt := range events {
-			if err := u.handle(ctx, evt); err != nil {
+			if err := u.handle(ctx, group, evt); err != nil {
 				return err
 			}
 		}

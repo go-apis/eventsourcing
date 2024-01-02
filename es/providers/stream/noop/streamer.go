@@ -9,10 +9,11 @@ import (
 )
 
 type streamer struct {
+	errCh chan error
 }
 
-func (s *streamer) Start(ctx context.Context, callback es.EventCallback) error {
-	_, span := otel.Tracer("noop").Start(ctx, "Start")
+func (s *streamer) AddHandler(ctx context.Context, name string, handler es.EventHandler) error {
+	_, span := otel.Tracer("noop").Start(ctx, "AddHandler")
 	defer span.End()
 
 	return nil
@@ -25,6 +26,10 @@ func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
 	return nil
 }
 
+func (s *streamer) Errors() <-chan error {
+	return s.errCh
+}
+
 func (s *streamer) Close(ctx context.Context) error {
 	_, span := otel.Tracer("noop").Start(ctx, "Close")
 	defer span.End()
@@ -33,5 +38,7 @@ func (s *streamer) Close(ctx context.Context) error {
 }
 
 func NewStreamer() (es.Streamer, error) {
-	return &streamer{}, nil
+	return &streamer{
+		errCh: make(chan error, 100),
+	}, nil
 }

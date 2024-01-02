@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/nats-io/nats.go"
 )
 
 func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
@@ -22,12 +21,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
 		return nil, fmt.Errorf("invalid nats subject")
 	}
 
-	conn, err := nats.Connect(cfg.Stream.Nats.Url)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewStreamer(cfg.Service, conn, cfg.Stream.Nats.Subject)
+	return NewStreamer(ctx, cfg.Service, cfg.Stream.Nats)
 }
 
 func init() {
