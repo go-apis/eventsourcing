@@ -30,14 +30,14 @@ func (BaseEventHandler) IsEventHandler() {}
 
 type eventHandler struct {
 	h       interface{}
-	handles EventHandles
+	handles EventHandlerHandles
 }
 
 func (h *eventHandler) Handle(ctx context.Context, evt *Event) error {
 	return h.handles.Handle(h.h, ctx, evt)
 }
 
-func NewEventHandler(h interface{}, handles EventHandles) EventHandler {
+func NewEventHandler(h interface{}, handles EventHandlerHandles) EventHandler {
 	return &eventHandler{
 		h:       h,
 		handles: handles,

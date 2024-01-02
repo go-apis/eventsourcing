@@ -290,7 +290,7 @@ func RegistryAdd(service string, items ...interface{}) error {
 	// eventhandlers
 	for _, eventHandler := range eventHandlers {
 		eventHandlerConfig := NewEventHandlerConfig(eventHandler)
-		handles := NewEventHandles(eventHandler)
+		handles := NewEventHandlerHandles(eventHandler)
 		h := NewEventHandler(eventHandler, handles)
 
 		for t := range handles {
