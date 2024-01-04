@@ -1,6 +1,8 @@
 package es
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -141,6 +143,46 @@ func (r *Registry) GetEntities() []*EntityConfig {
 		out = append(out, v)
 	}
 	return out
+}
+func (r *Registry) ParseEvent(ctx context.Context, msg []byte) (*Event, error) {
+	out := struct {
+		*Event
+		Data json.RawMessage `json:"data"`
+	}{}
+	if err := json.Unmarshal(msg, &out); err != nil {
+		return nil, fmt.Errorf("could not decode event: %w", err)
+	}
+
+	evtConfig, err := r.GetEventConfig(out.Service, out.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := evtConfig.Factory()
+	if err != nil {
+		return nil, fmt.Errorf("could not create event: %w", err)
+	}
+
+	if err := json.Unmarshal(out.Data, data); err != nil {
+		return nil, fmt.Errorf("could not decode event: %w", err)
+	}
+
+	metadata := out.Metadata
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+
+	return &Event{
+		Service:       out.Service,
+		Namespace:     out.Namespace,
+		AggregateId:   out.AggregateId,
+		AggregateType: out.AggregateType,
+		Version:       out.Version,
+		Type:          out.Type,
+		Timestamp:     out.Timestamp,
+		Metadata:      metadata,
+		Data:          data,
+	}, nil
 }
 
 func NewRegistry() *Registry {

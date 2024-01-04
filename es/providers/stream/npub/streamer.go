@@ -2,6 +2,7 @@ package npub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -94,31 +95,27 @@ func (s *streamer) loop(sub *nats.Subscription) {
 
 func (s *streamer) handle(handler es.EventHandler) nats.MsgHandler {
 	return func(msg *nats.Msg) {
-		evt, err := es.UnmarshalEvent(s.cctx, msg.Data)
-		if err != nil {
-			err = fmt.Errorf("could not unmarshal event: %w", err)
+		evt, err := es.GlobalRegistry.ParseEvent(s.cctx, msg.Data)
+		if err != nil && !errors.Is(err, es.ErrNotFound) {
 			select {
 			case s.errCh <- err:
 			default:
 				log.Printf("missed error in NATS event bus: %s", err)
 			}
-
 			msg.Nak()
 			return
 		}
 
-		// TODO add some matching stuff.
-
-		if err := handler.Handle(s.cctx, evt); err != nil {
-			err = fmt.Errorf("could not handle event: %w", err)
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in NATS event bus: %s", err)
+		if evt != nil {
+			if err := handler.Handle(s.cctx, evt); err != nil {
+				select {
+				case s.errCh <- err:
+				default:
+					log.Printf("missed error in NATS event bus: %s", err)
+				}
+				msg.Nak()
+				return
 			}
-
-			msg.Nak()
-			return
 		}
 
 		msg.AckSync()

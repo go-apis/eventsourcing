@@ -163,26 +163,27 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 
 func (s *streamer) handle(queueUrl *string, handler es.EventHandler) func(context.Context, *types.Message) {
 	return func(ctx context.Context, msg *types.Message) {
+		var raw []byte
 		if msg.Body != nil {
-			data := []byte(*msg.Body)
-			evt, err := es.UnmarshalEvent(ctx, data)
-			if err != nil {
-				err = fmt.Errorf("could not unmarshal event: %w", err)
-				select {
-				case s.errCh <- err:
-				default:
-					log.Printf("missed error in GCP event bus: %s", err)
-				}
-				return
-			}
+			raw = []byte(*msg.Body)
+		}
 
-			// TODO add some matching stuff.
+		evt, err := es.GlobalRegistry.ParseEvent(ctx, raw)
+		if err != nil && !errors.Is(err, es.ErrNotFound) {
+			select {
+			case s.errCh <- err:
+			default:
+				log.Printf("missed error in AWS event bus: %s", err)
+			}
+			return
+		}
+
+		if evt != nil {
 			if err := handler.Handle(ctx, evt); err != nil {
-				err = fmt.Errorf("could not handle event: %w", err)
 				select {
 				case s.errCh <- err:
 				default:
-					log.Printf("missed error in GCP event bus: %s", err)
+					log.Printf("missed error in AWS event bus: %s", err)
 				}
 				return
 			}
@@ -196,7 +197,7 @@ func (s *streamer) handle(queueUrl *string, handler es.EventHandler) func(contex
 			select {
 			case s.errCh <- err:
 			default:
-				log.Printf("missed error in GCP event bus: %s", err)
+				log.Printf("missed error in AWS event bus: %s", err)
 			}
 		}
 	}

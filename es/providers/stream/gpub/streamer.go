@@ -2,6 +2,7 @@ package gpub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -80,31 +81,27 @@ func (s *streamer) loop(sub *pubsub.Subscription, handler es.EventHandler) {
 
 func (s *streamer) handle(handler es.EventHandler) func(context.Context, *pubsub.Message) {
 	return func(ctx context.Context, msg *pubsub.Message) {
-		evt, err := es.UnmarshalEvent(ctx, msg.Data)
-		if err != nil {
-			err = fmt.Errorf("could not unmarshal event: %w", err)
+		evt, err := es.GlobalRegistry.ParseEvent(ctx, msg.Data)
+		if err != nil && !errors.Is(err, es.ErrNotFound) {
 			select {
 			case s.errCh <- err:
 			default:
 				log.Printf("missed error in GCP event bus: %s", err)
 			}
-
 			msg.Nack()
 			return
 		}
 
-		// TODO add some matching stuff.
-
-		if err := handler.Handle(ctx, evt); err != nil {
-			err = fmt.Errorf("could not handle event: %w", err)
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in GCP event bus: %s", err)
+		if evt != nil {
+			if err := handler.Handle(ctx, evt); err != nil {
+				select {
+				case s.errCh <- err:
+				default:
+					log.Printf("missed error in GCP event bus: %s", err)
+				}
+				msg.Nack()
+				return
 			}
-
-			msg.Nack()
-			return
 		}
 
 		msg.Ack()
