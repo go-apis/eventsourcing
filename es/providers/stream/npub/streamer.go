@@ -44,6 +44,7 @@ func wrapped(callback func(context.Context, []byte) error) func(msg *nats.Msg) {
 
 type streamer struct {
 	service    string
+	parser     es.EventParser
 	streamName string
 	conn       *nats.Conn
 	js         nats.JetStreamContext
@@ -95,7 +96,7 @@ func (s *streamer) loop(sub *nats.Subscription) {
 
 func (s *streamer) handle(handler es.EventHandler) nats.MsgHandler {
 	return func(msg *nats.Msg) {
-		evt, err := es.GlobalRegistry.ParseEvent(s.cctx, msg.Data)
+		evt, err := s.parser(s.cctx, msg.Data)
 		if err != nil && !errors.Is(err, es.ErrNotFound) {
 			select {
 			case s.errCh <- err:
@@ -157,20 +158,18 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Event
 	return nil
 }
 
-func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
+func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 	_, span := otel.Tracer("npub").Start(ctx, "Publish")
 	defer span.End()
 
-	for _, e := range evt {
-		data, err := es.MarshalEvent(ctx, e)
-		if err != nil {
-			return err
-		}
+	data, err := es.MarshalEvent(ctx, evt)
+	if err != nil {
+		return err
+	}
 
-		subject := fmt.Sprintf("%s.%s.%s", s.streamName, s.service, e.Type)
-		if err := s.conn.Publish(subject, data); err != nil {
-			return err
-		}
+	subject := fmt.Sprintf("%s.%s.%s", s.streamName, s.service, evt.Type)
+	if err := s.conn.Publish(subject, data); err != nil {
+		return err
 	}
 
 	return nil
@@ -198,7 +197,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.conn.LastError()
 }
 
-func NewStreamer(ctx context.Context, service string, natsConfig *es.NatsConfig) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, natsConfig *es.NatsConfig, parser es.EventParser) (es.Streamer, error) {
 	conn, err := nats.Connect(natsConfig.Url)
 	if err != nil {
 		return nil, err
@@ -217,6 +216,7 @@ func NewStreamer(ctx context.Context, service string, natsConfig *es.NatsConfig)
 	cctx, cancel := context.WithCancel(ctx)
 	return &streamer{
 		service:    service,
+		parser:     parser,
 		streamName: natsConfig.Subject,
 		conn:       conn,
 		js:         js,

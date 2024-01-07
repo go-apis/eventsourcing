@@ -25,23 +25,23 @@ func RegisterStreamProviders(name string, factory StreamerFactory) {
 	StreamProviders[name] = factory
 }
 
-func GetConn(ctx context.Context, cfg *ProviderConfig) (Conn, error) {
+func GetConn(ctx context.Context, cfg *ProviderConfig, reg Registry) (Conn, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if factory, ok := DataProviders[cfg.Data.Type]; ok {
-		return factory(ctx, cfg)
+		return factory(ctx, cfg, reg)
 	}
 
 	return nil, fmt.Errorf("data provider not found: %s", cfg.Data.Type)
 }
 
-func GetStreamer(ctx context.Context, cfg *ProviderConfig) (Streamer, error) {
+func GetStreamer(ctx context.Context, cfg *ProviderConfig, reg Registry) (Streamer, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if factory, ok := StreamProviders[cfg.Stream.Type]; ok {
-		return factory(ctx, cfg)
+		return factory(ctx, cfg, reg)
 	}
 
 	return nil, fmt.Errorf("streamer provider not found: %s", cfg.Stream.Type)

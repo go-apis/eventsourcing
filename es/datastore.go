@@ -31,8 +31,9 @@ type DataStore interface {
 }
 
 type dataStore struct {
-	service string
-	data    Data
+	service  string
+	data     Data
+	registry Registry
 }
 
 func (s *dataStore) applyEvents(ctx context.Context, entityConfig *EntityConfig, aggregate AggregateSourced, events []*Event) error {
@@ -228,7 +229,7 @@ func (s *dataStore) deleteEntity(ctx context.Context, entityConfig *EntityConfig
 }
 
 func (s *dataStore) Load(ctx context.Context, name string, id uuid.UUID, opts ...DataLoadOption) (Entity, error) {
-	entityConfig, err := GlobalRegistry.GetEntityConfig(name)
+	entityConfig, err := s.registry.GetEntityConfig(name)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +259,7 @@ func (s *dataStore) Load(ctx context.Context, name string, id uuid.UUID, opts ..
 	}
 }
 func (s *dataStore) Save(ctx context.Context, name string, entity Entity) ([]*Event, error) {
-	entityConfig, err := GlobalRegistry.GetEntityConfig(name)
+	entityConfig, err := s.registry.GetEntityConfig(name)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +274,7 @@ func (s *dataStore) Save(ctx context.Context, name string, entity Entity) ([]*Ev
 	}
 }
 func (s *dataStore) Delete(ctx context.Context, name string, entity Entity) error {
-	entityConfig, err := GlobalRegistry.GetEntityConfig(name)
+	entityConfig, err := s.registry.GetEntityConfig(name)
 	if err != nil {
 		return err
 	}
@@ -286,7 +287,7 @@ func (s *dataStore) Delete(ctx context.Context, name string, entity Entity) erro
 	}
 }
 func (s *dataStore) Truncate(ctx context.Context, name string) error {
-	entityConfig, err := GlobalRegistry.GetEntityConfig(name)
+	entityConfig, err := s.registry.GetEntityConfig(name)
 	if err != nil {
 		return err
 	}
@@ -294,10 +295,11 @@ func (s *dataStore) Truncate(ctx context.Context, name string) error {
 }
 
 // NewDataStore for creating stores
-func NewDataStore(service string, data Data) DataStore {
+func NewDataStore(service string, data Data, reg Registry) DataStore {
 	s := &dataStore{
-		service: service,
-		data:    data,
+		service:  service,
+		data:     data,
+		registry: reg,
 	}
 	return s
 }

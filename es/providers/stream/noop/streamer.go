@@ -19,7 +19,7 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Event
 	return nil
 }
 
-func (s *streamer) Publish(ctx context.Context, evt ...*es.Event) error {
+func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 	_, span := otel.Tracer("noop").Start(ctx, "Publish")
 	defer span.End()
 

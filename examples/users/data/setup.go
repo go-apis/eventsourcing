@@ -12,7 +12,7 @@ import (
 )
 
 func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) {
-	if err := es.RegistryAdd(
+	reg, err := es.NewRegistry(
 		pcfg.Service,
 		&aggregates.StandardUser{},
 		&aggregates.User{},
@@ -21,11 +21,12 @@ func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) 
 		projectors.NewUserProjector(),
 		eventhandlers.NewDemoHandler(),
 		&events.GroupAdded{},
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
 
-	cli, err := es.NewClient(ctx, pcfg)
+	cli, err := es.NewClient(ctx, pcfg, reg)
 	if err != nil {
 		return nil, err
 	}

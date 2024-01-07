@@ -10,7 +10,7 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 )
 
-func New(ctx context.Context, cfg *es.ProviderConfig) (es.Conn, error) {
+func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Conn, error) {
 	if cfg.Data.Type != "pg" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Data.Type)
 	}
@@ -35,7 +35,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig) (es.Conn, error) {
 		return nil, err
 	}
 
-	return NewConn(ctx, cfg.Service, gdb)
+	return NewConn(ctx, cfg.Service, gdb, reg)
 }
 
 func init() {

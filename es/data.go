@@ -14,7 +14,7 @@ type SnapshotSearch struct {
 	Revision      string
 }
 
-type ConnFactory func(ctx context.Context, cfg *ProviderConfig) (Conn, error)
+type ConnFactory func(ctx context.Context, cfg *ProviderConfig, reg Registry) (Conn, error)
 
 type Conn interface {
 	NewData(ctx context.Context) (Data, error)

@@ -31,9 +31,10 @@ type Unit interface {
 type unit struct {
 	sync.RWMutex
 
+	registry  Registry
 	data      Data
 	dataStore DataStore
-	publisher Streamer
+	publisher EventPublisher
 
 	events []*Event
 }
@@ -65,7 +66,7 @@ func (u *unit) Save(ctx context.Context, name string, aggregate Entity) error {
 
 	// TODO maybe move to the outbox pattern here.
 	for _, evt := range evts {
-		handlers := GlobalRegistry.GetEventHandlers(InternalGroup, evt.Data)
+		handlers := u.registry.GetEventHandlers(InternalGroup, evt.Data)
 		if err := handlers.Handle(ctx, evt); err != nil {
 			return err
 		}
@@ -115,9 +116,18 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 
 	// publish events?
 	if !skipPublish {
-		if err := u.publisher.Publish(ctx, u.events...); err != nil {
-			return err
+		for _, evt := range u.events {
+			// can we publish it?
+			cfg, err := u.registry.GetEventConfig(evt.Service, evt.Type)
+			if err != nil || cfg.Publish == false {
+				continue
+			}
+
+			if err := u.publisher.Publish(ctx, evt); err != nil {
+				return err
+			}
 		}
+
 		u.events = nil
 	}
 
@@ -131,7 +141,7 @@ func (u *unit) handle(ctx context.Context, group string, evt *Event) error {
 	// set the namespace
 	pctx = SetNamespace(pctx, evt.Namespace)
 
-	hs := GlobalRegistry.GetEventHandlers(group, evt.Data)
+	hs := u.registry.GetEventHandlers(group, evt.Data)
 	if len(hs) == 0 {
 		return nil
 	}
@@ -167,7 +177,7 @@ func (u *unit) dispatch(ctx context.Context, cmd Command) error {
 	pctx, pspan := otel.Tracer("unit").Start(ctx, "dispatch")
 	defer pspan.End()
 
-	h, err := GlobalRegistry.GetCommandHandler(cmd)
+	h, err := u.registry.GetCommandHandler(cmd)
 	if err != nil {
 		return err
 	}
@@ -209,7 +219,7 @@ func (u *unit) replay(ctx context.Context, cmd *ReplayCommand) error {
 	pctx, pspan := otel.Tracer("unit").Start(ctx, "dispatch")
 	defer pspan.End()
 
-	h, err := GlobalRegistry.GetReplayHandler(cmd)
+	h, err := u.registry.GetReplayHandler(cmd)
 	if err != nil {
 		return err
 	}
@@ -245,17 +255,17 @@ func (u *unit) Replay(ctx context.Context, cmds ...*ReplayCommand) error {
 	})
 }
 
-func newUnit(ctx context.Context, client *client) (Unit, error) {
-	data, err := client.conn.NewData(ctx)
+func newUnit(ctx context.Context, service string, registry Registry, conn Conn, publisher EventPublisher) (Unit, error) {
+	data, err := conn.NewData(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	ds := NewDataStore(client.providerConfig.Service, data)
+	ds := NewDataStore(service, data, registry)
 
 	return &unit{
 		data:      data,
 		dataStore: ds,
-		publisher: client.streamer,
+		publisher: publisher,
 	}, nil
 }

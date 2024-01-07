@@ -10,8 +10,9 @@ import (
 )
 
 type conn struct {
-	service string
-	db      *gorm.DB
+	service  string
+	registry es.Registry
+	db       *gorm.DB
 }
 
 func (c *conn) initialize(ctx context.Context) error {
@@ -22,7 +23,7 @@ func (c *conn) initialize(ctx context.Context) error {
 		return err
 	}
 
-	entities := es.GlobalRegistry.GetEntities()
+	entities := c.registry.GetEntities()
 	for _, opt := range entities {
 		obj, err := opt.Factory()
 		if err != nil {
@@ -46,7 +47,7 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	defer pspan.End()
 
 	db := c.db.WithContext(pctx)
-	return newData(c.service, db), nil
+	return newData(c.service, db, c.registry), nil
 }
 
 func (c *conn) Close(ctx context.Context) error {
@@ -60,10 +61,11 @@ func (c *conn) Close(ctx context.Context) error {
 	return sqlDB.Close()
 }
 
-func NewConn(ctx context.Context, service string, db *gorm.DB) (es.Conn, error) {
+func NewConn(ctx context.Context, service string, db *gorm.DB, registry es.Registry) (es.Conn, error) {
 	c := &conn{
-		service: service,
-		db:      db,
+		service:  service,
+		db:       db,
+		registry: registry,
 	}
 	if err := c.initialize(ctx); err != nil {
 		return nil, err

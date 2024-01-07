@@ -62,6 +62,7 @@ func queuePolicySNSToSQS(topicARN string) string {
 
 type streamer struct {
 	service    string
+	parser     es.EventParser
 	snsClient  *sns.Client
 	sqsClient  *sqs.Client
 	config     *es.AwsSnsConfig
@@ -168,7 +169,7 @@ func (s *streamer) handle(queueUrl *string, handler es.EventHandler) func(contex
 			raw = []byte(*msg.Body)
 		}
 
-		evt, err := es.GlobalRegistry.ParseEvent(ctx, raw)
+		evt, err := s.parser(ctx, raw)
 		if err != nil && !errors.Is(err, es.ErrNotFound) {
 			select {
 			case s.errCh <- err:
@@ -268,30 +269,24 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Event
 	return nil
 }
 
-func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
-	if len(s.service) == 0 {
-		return fmt.Errorf("streamer not started")
-	}
-
+func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 	_, span := otel.Tracer("apub").Start(ctx, "Publish")
 	defer span.End()
 
-	for _, evt := range evts {
-		messageDeduplicationId := fmt.Sprintf("%s:%s:%s:%s:%d", s.service, evt.Namespace, evt.AggregateType, evt.AggregateId.String(), evt.Version)
-		messageGroupId := fmt.Sprintf("%s:%s:%s:%s", s.service, evt.Namespace, evt.AggregateType, evt.AggregateId.String())
-		data, err := es.MarshalEvent(ctx, evt)
-		if err != nil {
-			return err
-		}
-		msg := &sns.PublishInput{
-			Message:                aws.String(string(data)),
-			TopicArn:               aws.String(s.config.TopicArn),
-			MessageDeduplicationId: aws.String(messageDeduplicationId),
-			MessageGroupId:         aws.String(messageGroupId),
-		}
-		if _, err := s.snsClient.Publish(ctx, msg); err != nil {
-			return err
-		}
+	messageDeduplicationId := fmt.Sprintf("%s:%s:%s:%s:%d", s.service, evt.Namespace, evt.AggregateType, evt.AggregateId.String(), evt.Version)
+	messageGroupId := fmt.Sprintf("%s:%s:%s:%s", s.service, evt.Namespace, evt.AggregateType, evt.AggregateId.String())
+	data, err := es.MarshalEvent(ctx, evt)
+	if err != nil {
+		return err
+	}
+	msg := &sns.PublishInput{
+		Message:                aws.String(string(data)),
+		TopicArn:               aws.String(s.config.TopicArn),
+		MessageDeduplicationId: aws.String(messageDeduplicationId),
+		MessageGroupId:         aws.String(messageGroupId),
+	}
+	if _, err := s.snsClient.Publish(ctx, msg); err != nil {
+		return err
 	}
 
 	return nil
@@ -318,7 +313,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return nil
 }
 
-func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, parser es.EventParser) (es.Streamer, error) {
 	awscfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Region), config.WithSharedConfigProfile(cfg.Profile))
 	if err != nil {
 		return nil, err
@@ -337,6 +332,7 @@ func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig) (es.
 	cctx, cancel := context.WithCancel(ctx)
 	return &streamer{
 		service:    service,
+		parser:     parser,
 		snsClient:  snsClient,
 		sqsClient:  sqsClient,
 		config:     cfg,

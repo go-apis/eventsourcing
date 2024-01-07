@@ -7,7 +7,7 @@ import (
 	"github.com/contextcloud/eventstore/es"
 )
 
-func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
+func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Streamer, error) {
 	if cfg.Stream.Type != "nats" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
@@ -21,7 +21,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
 		return nil, fmt.Errorf("invalid nats subject")
 	}
 
-	return NewStreamer(ctx, cfg.Service, cfg.Stream.Nats)
+	return NewStreamer(ctx, cfg.Service, cfg.Stream.Nats, reg.ParseEvent)
 }
 
 func init() {

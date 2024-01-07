@@ -16,6 +16,7 @@ type Unsubscribe func(ctx context.Context) error
 
 type streamer struct {
 	service string
+	parser  es.EventParser
 	client  *pubsub.Client
 	topic   *pubsub.Topic
 
@@ -81,7 +82,7 @@ func (s *streamer) loop(sub *pubsub.Subscription, handler es.EventHandler) {
 
 func (s *streamer) handle(handler es.EventHandler) func(context.Context, *pubsub.Message) {
 	return func(ctx context.Context, msg *pubsub.Message) {
-		evt, err := es.GlobalRegistry.ParseEvent(ctx, msg.Data)
+		evt, err := s.parser(ctx, msg.Data)
 		if err != nil && !errors.Is(err, es.ErrNotFound) {
 			select {
 			case s.errCh <- err:
@@ -138,28 +139,22 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Event
 	return nil
 }
 
-func (s *streamer) Publish(ctx context.Context, evts ...*es.Event) error {
-	out := make([]string, len(evts))
-	for i, evt := range evts {
-		orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
-		data, err := es.MarshalEvent(ctx, evt)
-		if err != nil {
-			return err
-		}
-
-		msg := &pubsub.Message{
-			Data:        data,
-			OrderingKey: orderingKey,
-		}
-
-		rsp := s.topic.Publish(ctx, msg)
-		id, err := rsp.Get(ctx)
-		if err != nil {
-			return err
-		}
-		out[i] = id
+func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
+	orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
+	data, err := es.MarshalEvent(ctx, evt)
+	if err != nil {
+		return err
 	}
-	// log?
+
+	msg := &pubsub.Message{
+		Data:        data,
+		OrderingKey: orderingKey,
+	}
+
+	rsp := s.topic.Publish(ctx, msg)
+	if _, err := rsp.Get(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -183,7 +178,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.client.Close()
 }
 
-func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig, parser es.EventParser) (es.Streamer, error) {
 	client, err := pubsub.NewClient(ctx, config.ProjectId)
 	if err != nil {
 		return nil, err
@@ -198,6 +193,7 @@ func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig
 	cctx, cancel := context.WithCancel(ctx)
 	return &streamer{
 		service:    service,
+		parser:     parser,
 		client:     client,
 		topic:      topic,
 		cctx:       cctx,

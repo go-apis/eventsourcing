@@ -11,7 +11,7 @@ import (
 )
 
 func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) {
-	if err := es.RegistryAdd(
+	reg, err := es.NewRegistry(
 		pcfg.Service,
 		&aggregates.Group{},
 		&aggregates.Demo{},
@@ -24,11 +24,12 @@ func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) 
 			&commands.CommunityNewCommand{},
 			&commands.CommunityDeleteCommand{},
 		),
-	); err != nil {
+	)
+	if err != nil {
 		return nil, err
 	}
 
-	cli, err := es.NewClient(ctx, pcfg)
+	cli, err := es.NewClient(ctx, pcfg, reg)
 	if err != nil {
 		return nil, err
 	}

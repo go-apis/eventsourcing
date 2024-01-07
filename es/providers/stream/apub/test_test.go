@@ -51,7 +51,8 @@ func TestIt(t *testing.T) {
 		Metadata:      make(map[string]interface{}),
 	}
 
-	if err := es.RegistryAdd(service, &FakeData{}); err != nil {
+	reg, err := es.NewRegistry(service, &FakeData{})
+	if err != nil {
 		t.Fatal(err)
 		return
 	}
@@ -65,7 +66,7 @@ func TestIt(t *testing.T) {
 		Profile:  "Development",
 		Region:   "us-east-1",
 		TopicArn: "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
-	})
+	}, reg.ParseEvent)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -86,7 +87,11 @@ func TestIt(t *testing.T) {
 	}
 
 	// publish it.
-	if err := streamer.Publish(ctx, evt1, evt2); err != nil {
+	if err := streamer.Publish(ctx, evt1); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if err := streamer.Publish(ctx, evt2); err != nil {
 		t.Fatal(err)
 		return
 	}

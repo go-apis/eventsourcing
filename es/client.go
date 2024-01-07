@@ -26,6 +26,7 @@ func (h *clientEventHandler) Handle(ctx context.Context, evt *Event) error {
 
 type client struct {
 	providerConfig *ProviderConfig
+	registry       Registry
 	conn           Conn
 	streamer       Streamer
 }
@@ -37,28 +38,17 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 	}
 
 	// create it.
-	unit, err := newUnit(ctx, c)
+	unit, err := newUnit(ctx, c.providerConfig.Service, c.registry, c.conn, c.streamer)
 	if err != nil {
 		return nil, err
 	}
 	return unit, nil
 }
 
-func NewClient(ctx context.Context, pcfg *ProviderConfig) (cli Client, err error) {
-	streamer, err := GetStreamer(ctx, pcfg)
+func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Client, err error) {
+	streamer, err := GetStreamer(ctx, pcfg, reg)
 	if err != nil {
 		return nil, err
-	}
-
-	conn, err := GetConn(ctx, pcfg)
-	if err != nil {
-		return nil, err
-	}
-
-	cli = &client{
-		providerConfig: pcfg,
-		conn:           conn,
-		streamer:       streamer,
 	}
 
 	// close stuff if we have an error.
@@ -67,9 +57,15 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig) (cli Client, err error
 			streamer.Close(ctx)
 		}
 	}()
+	go func() {
+		<-ctx.Done()
+		if streamer != nil {
+			streamer.Close(context.Background())
+		}
+	}()
 
 	// get the groups.
-	groups := GlobalRegistry.GetEventHandlerGroups()
+	groups := reg.GetEventHandlerGroups()
 	for _, group := range groups {
 		if group == InternalGroup {
 			continue
@@ -87,6 +83,18 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig) (cli Client, err error
 		if err := streamer.AddHandler(ctx, name, handler); err != nil {
 			return nil, err
 		}
+	}
+
+	conn, err := GetConn(ctx, pcfg, reg)
+	if err != nil {
+		return nil, err
+	}
+
+	cli = &client{
+		providerConfig: pcfg,
+		registry:       reg,
+		conn:           conn,
+		streamer:       streamer,
 	}
 	return
 }

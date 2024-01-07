@@ -7,7 +7,7 @@ import (
 	"github.com/contextcloud/eventstore/es"
 )
 
-func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
+func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Streamer, error) {
 	if cfg.Stream.Type != "apub" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
@@ -21,7 +21,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
 		return nil, fmt.Errorf("invalid aws topic arn")
 	}
 
-	return NewStreamer(ctx, cfg.Service, cfg.Stream.AWS)
+	return NewStreamer(ctx, cfg.Service, cfg.Stream.AWS, reg.ParseEvent)
 }
 
 func init() {

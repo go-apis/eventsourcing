@@ -16,9 +16,10 @@ import (
 )
 
 type data struct {
-	service string
-	db      *gorm.DB
-	tx      *gorm.DB
+	service  string
+	registry es.Registry
+	db       *gorm.DB
+	tx       *gorm.DB
 }
 
 func (d *data) getDb() *gorm.DB {
@@ -137,7 +138,7 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 }
 
 func (d *data) loadData(evt *Event) (interface{}, error) {
-	eventConfig, err := es.GlobalRegistry.GetEventConfig(evt.ServiceName, evt.Type)
+	eventConfig, err := d.registry.GetEventConfig(evt.ServiceName, evt.Type)
 	if err != nil {
 		return evt.Data, nil
 	}
@@ -373,10 +374,11 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	return int(totalRows), r.Error
 }
 
-func newData(service string, db *gorm.DB) es.Data {
+func newData(service string, db *gorm.DB, registry es.Registry) es.Data {
 	d := &data{
-		service: service,
-		db:      db,
+		service:  service,
+		db:       db,
+		registry: registry,
 	}
 	return d
 }
