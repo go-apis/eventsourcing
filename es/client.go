@@ -64,6 +64,18 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		}
 	}()
 
+	conn, err := GetConn(ctx, pcfg, reg)
+	if err != nil {
+		return nil, err
+	}
+
+	cli = &client{
+		providerConfig: pcfg,
+		registry:       reg,
+		conn:           conn,
+		streamer:       streamer,
+	}
+
 	// get the groups.
 	groups := reg.GetEventHandlerGroups()
 	for _, group := range groups {
@@ -83,18 +95,6 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		if err := streamer.AddHandler(ctx, name, handler); err != nil {
 			return nil, err
 		}
-	}
-
-	conn, err := GetConn(ctx, pcfg, reg)
-	if err != nil {
-		return nil, err
-	}
-
-	cli = &client{
-		providerConfig: pcfg,
-		registry:       reg,
-		conn:           conn,
-		streamer:       streamer,
 	}
 	return
 }
