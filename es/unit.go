@@ -265,6 +265,7 @@ func newUnit(ctx context.Context, service string, registry Registry, conn Conn, 
 
 	return &unit{
 		data:      data,
+		registry:  registry,
 		dataStore: ds,
 		publisher: publisher,
 	}, nil
