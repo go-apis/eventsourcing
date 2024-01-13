@@ -16,12 +16,17 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type lock func(ctx context.Context) error
+
+func (l lock) Unlock(ctx context.Context) error {
+	return l(ctx)
+}
+
 type data struct {
-	service       string
-	registry      es.Registry
-	notifications chan *Notification
-	db            *gorm.DB
-	tx            *gorm.DB
+	service  string
+	registry es.Registry
+	db       *gorm.DB
+	tx       *gorm.DB
 }
 
 func (d *data) getDb() *gorm.DB {
@@ -78,6 +83,21 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 		rollbackFunc: rollback,
 		commitFunc:   commitFunc,
 	}, d.tx.Error
+}
+
+func (d *data) Lock(ctx context.Context) (es.Lock, error) {
+	_, span := otel.Tracer("local").Start(ctx, "Lock")
+	defer span.End()
+
+	db := d.getDb().WithContext(ctx).Exec("SELECT pg_advisory_lock(hashtext($1))", d.service)
+	if db.Error != nil {
+		return nil, db.Error
+	}
+	doit := func(ctx context.Context) error {
+		return db.Exec("SELECT pg_advisory_unlock(hashtext($1))", d.service).Error
+	}
+
+	return lock(doit), nil
 }
 
 func (d *data) LoadSnapshot(ctx context.Context, search es.SnapshotSearch, out es.AggregateSourced) error {
@@ -183,12 +203,26 @@ func (d *data) SavePersistedCommand(ctx context.Context, cmd *es.PersistedComman
 		Create(obj)
 	return out.Error
 }
+func (d *data) DeletePersistedCommand(ctx context.Context, cmd *es.PersistedCommand) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "DeletePersistedCommand")
+	defer span.End()
+
+	out := d.getDb().
+		WithContext(pctx).
+		Delete(&PersistedCommand{
+			ServiceName: d.service,
+			Namespace:   cmd.Namespace,
+			Id:          cmd.Id,
+		})
+	return out.Error
+}
 func (d *data) FindPersistedCommands(ctx context.Context, filter filters.Filter) ([]*es.PersistedCommand, error) {
 	pctx, span := otel.Tracer("local").Start(ctx, "FindPersistedCommands")
 	defer span.End()
 
 	q := d.getDb().
 		WithContext(pctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Model(&PersistedCommand{}).
 		Where("service_name = ?", d.service)
 
@@ -245,40 +279,31 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter filters.Filter)
 
 	return cmds, nil
 }
+
 func (d *data) NewScheduledCommandNotifier(ctx context.Context) (*es.ScheduledCommandNotifier, error) {
 	inner, cancel := context.WithCancel(ctx)
 
 	ch := make(chan time.Time)
-	notifier := es.NewScheduledCommandNotifier(ch, cancel)
+	notifier := es.NewScheduledCommandNotifier(ch, func() {
+		cancel()
+		close(ch)
+	})
 
 	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-inner.Done():
 				return
-			case n := <-d.notifications:
-				t, err := time.Parse(time.RFC3339, n.Payload)
-				if err != nil {
-					fmt.Printf("error parsing time: %v\n", err)
-					continue
-				}
+			case t := <-ticker.C:
 				ch <- t
 			}
 		}
 	}()
 
-	var persisted *PersistedCommand
-	q := d.db.
-		Model(&PersistedCommand{}).
-		Where("execute_after IS NOT NULL").
-		Order("execute_after ASC").
-		Limit(1).
-		First(persisted)
-	if persisted != nil {
-		ch <- persisted.ExecuteAfter
-	}
-
-	return notifier, q.Error
+	return notifier, nil
 }
 
 func (d *data) loadEventData(evt *Event) (interface{}, error) {
@@ -518,12 +543,11 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	return int(totalRows), r.Error
 }
 
-func newData(service string, db *gorm.DB, registry es.Registry, notifications chan *Notification) es.Data {
+func newData(service string, db *gorm.DB, registry es.Registry) es.Data {
 	d := &data{
-		service:       service,
-		db:            db,
-		registry:      registry,
-		notifications: notifications,
+		service:  service,
+		db:       db,
+		registry: registry,
 	}
 	return d
 }

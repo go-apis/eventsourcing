@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/contextcloud/eventstore/es/filters"
@@ -56,6 +57,12 @@ func (c *commandScheduler) Close(ctx context.Context) error {
 }
 
 func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
+	lock, err := c.data.Lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock(ctx)
+
 	filter := filters.Filter{
 		Where: filters.WhereClause{
 			Column: "execute_after",
@@ -70,6 +77,9 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 
 	for _, persistedCommand := range persistedCommands {
 		if err := c.handler.HandleCommand(ctx, persistedCommand.Command); err != nil {
+			return err
+		}
+		if err := c.data.DeletePersistedCommand(ctx, persistedCommand); err != nil {
 			return err
 		}
 	}
@@ -90,6 +100,7 @@ func (c *commandScheduler) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case t := <-notifier.C:
+			fmt.Printf("scheduled command at %v\n", t)
 			if err := c.handle(ctx, t); err != nil {
 				c.errCh <- err
 			}

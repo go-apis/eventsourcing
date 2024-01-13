@@ -62,17 +62,23 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 }
 
 func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Client, err error) {
-	groupMessageHandler := &clientGroupMessageHandler{
-		cli:      cli,
-		registry: reg,
-	}
-	commandHandler := &clientCommandHandler{
-		cli: cli,
-	}
-
 	conn, err := GetConn(ctx, pcfg, reg)
 	if err != nil {
 		return nil, err
+	}
+
+	client := &client{
+		providerConfig: pcfg,
+		registry:       reg,
+		conn:           conn,
+	}
+
+	groupMessageHandler := &clientGroupMessageHandler{
+		cli:      client,
+		registry: reg,
+	}
+	commandHandler := &clientCommandHandler{
+		cli: client,
 	}
 
 	scheduler, err := NewCommandScheduler(ctx, reg, conn, commandHandler)
@@ -85,12 +91,7 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		return nil, err
 	}
 
-	cli = &client{
-		providerConfig: pcfg,
-		registry:       reg,
-		conn:           conn,
-		publisher:      streamer,
-	}
+	client.publisher = streamer
 
 	// close stuff if we have an error.
 	defer func() {
@@ -121,5 +122,5 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		}
 	}()
 
-	return
+	return client, nil
 }

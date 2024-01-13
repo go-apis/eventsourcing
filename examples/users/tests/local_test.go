@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
@@ -58,16 +59,19 @@ func Test(t *testing.T) {
 				},
 				Username: "aaaaaaaaaa",
 			},
-			&commands.CreateUser{
-				BaseCommand: es.BaseCommand{
-					AggregateId: userId2,
+			es.NewScheduledCommand(
+				&commands.CreateUser{
+					BaseCommand: es.BaseCommand{
+						AggregateId: userId2,
+					},
+					BaseNamespaceCommand: es.BaseNamespaceCommand{
+						Namespace: "other",
+					},
+					Username: "calvin.harris",
+					Password: "12345678",
 				},
-				BaseNamespaceCommand: es.BaseNamespaceCommand{
-					Namespace: "other",
-				},
-				Username: "calvin.harris",
-				Password: "12345678",
-			},
+				time.Now().Add(15*time.Second),
+			),
 			&commands.DeleteUser{
 				BaseCommand: es.BaseCommand{
 					AggregateId: userId2,
@@ -108,9 +112,6 @@ func Test(t *testing.T) {
 		log.Printf("user: %+v", user)
 		log.Printf("users: %+v", users)
 		log.Printf("total: %+v", total)
-
-		done := make(chan bool, 1)
-		<-done
 	})
 
 	t.Run("run-saga", func(t *testing.T) {

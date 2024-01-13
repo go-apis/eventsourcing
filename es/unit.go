@@ -173,6 +173,7 @@ func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 				if _, err := u.schedule(ctx, scheduled.GetCommand(), scheduled.ExecuteAfter()); err != nil {
 					return err
 				}
+				return nil
 			}
 
 			if err := u.registry.HandleCommand(ctx, cmd); err != nil {

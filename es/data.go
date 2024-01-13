@@ -26,13 +26,19 @@ type Tx interface {
 	Rollback(ctx context.Context) error
 }
 
+type Lock interface {
+	Unlock(ctx context.Context) error
+}
+
 type Data interface {
 	Begin(ctx context.Context) (Tx, error)
+	Lock(ctx context.Context) (Lock, error)
 
 	LoadSnapshot(ctx context.Context, search SnapshotSearch, out AggregateSourced) error
 	SaveSnapshot(ctx context.Context, snapshot *Snapshot) error
 
 	SavePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
+	DeletePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
 	FindPersistedCommands(ctx context.Context, filter filters.Filter) ([]*PersistedCommand, error)
 	NewScheduledCommandNotifier(ctx context.Context) (*ScheduledCommandNotifier, error)
 

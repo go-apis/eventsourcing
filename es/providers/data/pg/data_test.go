@@ -33,9 +33,7 @@ func Test_It(t *testing.T) {
 		return
 	}
 
-	notifications := make(chan *Notification)
-
-	data := newData(service, db, reg, notifications)
+	data := newData(service, db, reg)
 	notifier, err := data.NewScheduledCommandNotifier(ctx)
 	if err != nil {
 		t.Fatal(err)
