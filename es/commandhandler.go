@@ -6,7 +6,7 @@ import (
 )
 
 type CommandHandler interface {
-	Handle(ctx context.Context, cmd Command) error
+	HandleCommand(ctx context.Context, cmd Command) error
 }
 
 // CommandHandlerFunc is a function that can be used as a command handler.
@@ -31,7 +31,7 @@ type commandHandler struct {
 	handles CommandHandles
 }
 
-func (h *commandHandler) Handle(ctx context.Context, cmd Command) error {
+func (h *commandHandler) HandleCommand(ctx context.Context, cmd Command) error {
 	if h.handles == nil {
 		return fmt.Errorf("no handler for command: %T", cmd)
 	}

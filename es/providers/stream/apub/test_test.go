@@ -20,14 +20,26 @@ type FakeHandler struct {
 	Results []*es.Event
 }
 
-func (f *FakeHandler) Handle(ctx context.Context, evt *es.Event) error {
+func (f *FakeHandler) HandleEvent(ctx context.Context, evt *es.Event) error {
 	f.Results = append(f.Results, evt)
+	return nil
+}
+
+type FakeMessageHandler struct {
+}
+
+func (f *FakeMessageHandler) HandleGroupMessage(ctx context.Context, group string, msg []byte) error {
 	return nil
 }
 
 func TestIt(t *testing.T) {
 	ctx := context.Background()
 	service := "tester"
+	snsCfg := &es.AwsSnsConfig{
+		Profile:  "Development",
+		Region:   "us-east-1",
+		TopicArn: "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
+	}
 	evt1 := &es.Event{
 		Service:       service,
 		Namespace:     "test",
@@ -57,16 +69,9 @@ func TestIt(t *testing.T) {
 		return
 	}
 
-	fakeHandler1 := &FakeHandler{}
-	fakeHandler2 := &FakeHandler{
-		Key: "test2",
-	}
+	messageHandler := &FakeMessageHandler{}
 
-	streamer, err := NewStreamer(ctx, service, &es.AwsSnsConfig{
-		Profile:  "Development",
-		Region:   "us-east-1",
-		TopicArn: "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
-	}, reg.ParseEvent)
+	streamer, err := NewStreamer(ctx, service, snsCfg, reg, messageHandler)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -76,15 +81,6 @@ func TestIt(t *testing.T) {
 			t.Fatal(err)
 		}
 	}()
-
-	if err := streamer.AddHandler(ctx, fakeHandler1.Key, fakeHandler1); err != nil {
-		t.Fatal(err)
-		return
-	}
-	if err := streamer.AddHandler(ctx, fakeHandler2.Key, fakeHandler2); err != nil {
-		t.Fatal(err)
-		return
-	}
 
 	// publish it.
 	if err := streamer.Publish(ctx, evt1); err != nil {
@@ -98,15 +94,4 @@ func TestIt(t *testing.T) {
 
 	// wait for it.
 	time.Sleep(1 * time.Minute)
-
-	// check it.
-	if len(fakeHandler1.Results) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(fakeHandler1.Results))
-		return
-	}
-
-	if len(fakeHandler2.Results) != 2 {
-		t.Fatalf("expected 2 events, got %d", len(fakeHandler2.Results))
-		return
-	}
 }

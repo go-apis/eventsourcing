@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
+	"github.com/google/uuid"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -61,12 +62,13 @@ func queuePolicySNSToSQS(topicARN string) string {
 }
 
 type streamer struct {
-	service    string
-	parser     es.EventParser
-	snsClient  *sns.Client
-	sqsClient  *sqs.Client
-	config     *es.AwsSnsConfig
-	attributes map[string]string
+	service             string
+	registry            es.Registry
+	groupMessageHandler es.GroupMessageHandler
+	snsClient           *sns.Client
+	sqsClient           *sqs.Client
+	config              *es.AwsSnsConfig
+	attributes          map[string]string
 
 	cctx   context.Context
 	cancel context.CancelFunc
@@ -162,32 +164,20 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 	return createQueueRsp.QueueUrl, unsubscribe, nil
 }
 
-func (s *streamer) handle(queueUrl *string, handler es.EventHandler) func(context.Context, *types.Message) {
+func (s *streamer) handle(queueUrl *string, group string) func(context.Context, *types.Message) {
 	return func(ctx context.Context, msg *types.Message) {
 		var raw []byte
 		if msg.Body != nil {
 			raw = []byte(*msg.Body)
 		}
 
-		evt, err := s.parser(ctx, raw)
-		if err != nil && !errors.Is(err, es.ErrNotFound) {
+		if err := s.groupMessageHandler.HandleGroupMessage(ctx, group, raw); err != nil {
 			select {
 			case s.errCh <- err:
 			default:
 				log.Printf("missed error in AWS event bus: %s", err)
 			}
 			return
-		}
-
-		if evt != nil {
-			if err := handler.Handle(ctx, evt); err != nil {
-				select {
-				case s.errCh <- err:
-				default:
-					log.Printf("missed error in AWS event bus: %s", err)
-				}
-				return
-			}
 		}
 
 		if _, err := s.sqsClient.DeleteMessage(ctx, &sqs.DeleteMessageInput{
@@ -204,10 +194,10 @@ func (s *streamer) handle(queueUrl *string, handler es.EventHandler) func(contex
 	}
 }
 
-func (s *streamer) loop(input *sqs.ReceiveMessageInput, handler es.EventHandler) {
+func (s *streamer) loop(input *sqs.ReceiveMessageInput, group string) {
 	defer s.wg.Done()
 
-	h := s.handle(input.QueueUrl, handler)
+	h := s.handle(input.QueueUrl, group)
 
 	for {
 		select {
@@ -238,16 +228,28 @@ func (s *streamer) loop(input *sqs.ReceiveMessageInput, handler es.EventHandler)
 	}
 }
 
-func (s *streamer) AddHandler(ctx context.Context, name string, handler es.EventHandler) error {
+func (s *streamer) addGroup(ctx context.Context, group string) error {
 	// Check handler existence.
 	s.registeredMu.Lock()
 	defer s.registeredMu.Unlock()
 
-	if _, ok := s.registered[name]; ok {
-		return fmt.Errorf("handler already registered: %s", name)
+	if _, ok := s.registered[group]; ok {
+		return fmt.Errorf("handler already registered: %s", group)
 	}
 
-	sub, unsubscribe, err := s.createSubscription(ctx, name)
+	suffix := ""
+	switch group {
+	case es.InternalGroup:
+		return fmt.Errorf("invalid group name: %s", group)
+	case es.ExternalGroup:
+		suffix = ""
+	case es.RandomGroup:
+		suffix = uuid.NewString()
+	default:
+		suffix = group
+	}
+
+	sub, unsubscribe, err := s.createSubscription(ctx, suffix)
 	if err != nil {
 		return err
 	}
@@ -257,7 +259,7 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Event
 	}
 
 	// Register handler.
-	s.registered[name] = true
+	s.registered[group] = true
 	s.wg.Add(1)
 
 	input := &sqs.ReceiveMessageInput{
@@ -265,7 +267,7 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Event
 		MaxNumberOfMessages: int32(10),
 		WaitTimeSeconds:     int32(20),
 	}
-	go s.loop(input, handler)
+	go s.loop(input, group)
 	return nil
 }
 
@@ -313,7 +315,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return nil
 }
 
-func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, parser es.EventParser) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, reg es.Registry, groupMessageHandler es.GroupMessageHandler) (es.Streamer, error) {
 	awscfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Region), config.WithSharedConfigProfile(cfg.Profile))
 	if err != nil {
 		return nil, err
@@ -330,16 +332,29 @@ func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, pars
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
-	return &streamer{
-		service:    service,
-		parser:     parser,
-		snsClient:  snsClient,
-		sqsClient:  sqsClient,
-		config:     cfg,
-		attributes: out.Attributes,
-		cctx:       cctx,
-		cancel:     cancel,
-		registered: make(map[string]bool),
-		errCh:      make(chan error, 100),
-	}, nil
+	s := &streamer{
+		service:             service,
+		registry:            reg,
+		groupMessageHandler: groupMessageHandler,
+		snsClient:           snsClient,
+		sqsClient:           sqsClient,
+		config:              cfg,
+		attributes:          out.Attributes,
+		cctx:                cctx,
+		cancel:              cancel,
+		registered:          make(map[string]bool),
+		errCh:               make(chan error, 100),
+	}
+
+	for _, group := range reg.GetGroups() {
+		if group == es.InternalGroup {
+			continue
+		}
+
+		if err := s.addGroup(ctx, group); err != nil {
+			return nil, err
+		}
+	}
+
+	return s, nil
 }

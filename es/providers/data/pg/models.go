@@ -10,6 +10,12 @@ import (
 	"gorm.io/datatypes"
 )
 
+type Notification struct {
+	PID     uint32
+	Channel string
+	Payload string
+}
+
 type Event struct {
 	ServiceName   string            `json:"service_name" gorm:"primaryKey"`
 	Namespace     string            `json:"namespace" gorm:"primaryKey"`
@@ -35,6 +41,16 @@ type Snapshot struct {
 type Entity struct {
 	Namespace string `gorm:"primaryKey"`
 	Id        string `gorm:"primaryKey;type:uuid"`
+}
+
+type PersistedCommand struct {
+	ServiceName  string          `json:"service_name" gorm:"primaryKey"`
+	Namespace    string          `json:"namespace" gorm:"primaryKey"`
+	Id           uuid.UUID       `json:"id" gorm:"primaryKey;type:uuid"`
+	Type         string          `json:"type"`
+	Data         json.RawMessage `json:"data" gorm:"type:jsonb"`
+	ExecuteAfter time.Time       `json:"execute_after"`
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 func TableName(service string, aggregateName string) string {

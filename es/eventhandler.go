@@ -6,9 +6,9 @@ import (
 
 type EventHandlers []EventHandler
 
-func (h EventHandlers) Handle(ctx context.Context, evt *Event) error {
-	for _, h := range h {
-		if err := h.Handle(ctx, evt); err != nil {
+func (hs EventHandlers) Handle(ctx context.Context, evt *Event) error {
+	for _, h := range hs {
+		if err := h.HandleEvent(ctx, evt); err != nil {
 			return err
 		}
 	}
@@ -16,7 +16,15 @@ func (h EventHandlers) Handle(ctx context.Context, evt *Event) error {
 }
 
 type EventHandler interface {
-	Handle(ctx context.Context, evt *Event) error
+	HandleEvent(ctx context.Context, evt *Event) error
+}
+
+type GroupEventHandler interface {
+	HandleGroupEvent(ctx context.Context, group string, evt *Event) error
+}
+
+type GroupMessageHandler interface {
+	HandleGroupMessage(ctx context.Context, group string, msg []byte) error
 }
 
 type IsEventHandler interface {
@@ -33,7 +41,7 @@ type eventHandler struct {
 	handles EventHandlerHandles
 }
 
-func (h *eventHandler) Handle(ctx context.Context, evt *Event) error {
+func (h *eventHandler) HandleEvent(ctx context.Context, evt *Event) error {
 	return h.handles.Handle(h.h, ctx, evt)
 }
 

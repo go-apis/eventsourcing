@@ -1,6 +1,10 @@
 package es
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 func Commands(cmds ...Command) []Command {
 	return cmds
@@ -10,8 +14,15 @@ type Command interface {
 	GetAggregateId() uuid.UUID
 }
 
-type CommandPerms interface {
-	GetPerms() string
+type ScheduledCommand interface {
+	Command
+
+	ExecuteAfter() time.Time
+	GetCommand() Command
+}
+
+type ReplayCommand interface {
+	GetAggregateName() string
 }
 
 type NamespaceCommand interface {
@@ -37,20 +48,54 @@ func (c BaseCommand) GetAggregateId() uuid.UUID {
 	return c.AggregateId
 }
 
-// ReplayCommand a command that load and reply events ontop of an aggregate.
-type ReplayCommand struct {
+type scheduledCommand struct {
+	Command
+
+	t time.Time
+}
+
+func (c *scheduledCommand) ExecuteAfter() time.Time {
+	return c.t
+}
+
+func (c *scheduledCommand) GetCommand() Command {
+	return c.Command
+}
+
+func NewScheduledCommand(cmd Command, t time.Time) ScheduledCommand {
+	return &scheduledCommand{
+		Command: cmd,
+		t:       t,
+	}
+}
+
+type replayCommand struct {
 	BaseCommand
 	BaseNamespaceCommand
 
 	AggregateName string
 }
 
+func (c replayCommand) GetAggregateName() string {
+	return c.AggregateName
+}
+
+func NewReplayCommand(namespace string, aggregateId uuid.UUID, aggregateName string) ReplayCommand {
+	return &replayCommand{
+		BaseCommand: BaseCommand{
+			AggregateId: aggregateId,
+		},
+		BaseNamespaceCommand: BaseNamespaceCommand{
+			Namespace: namespace,
+		},
+		AggregateName: aggregateName,
+	}
+}
+
 func IsReplayCommand(cmd Command) bool {
 	// handle the command
 	switch cmd.(type) {
 	case ReplayCommand:
-		return true
-	case *ReplayCommand:
 		return true
 	default:
 		return false

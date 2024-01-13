@@ -13,7 +13,7 @@ type projectorEventHandler struct {
 	projector IsProjector
 }
 
-func (p *projectorEventHandler) Handle(ctx context.Context, evt *Event) error {
+func (p *projectorEventHandler) HandleEvent(ctx context.Context, evt *Event) error {
 	unit, err := GetUnit(ctx)
 	if err != nil {
 		return err

@@ -5,9 +5,6 @@ import (
 	"fmt"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/goutils/xgorm"
-	"github.com/contextcloud/goutils/xlog"
-	gormlogger "gorm.io/gorm/logger"
 )
 
 func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Conn, error) {
@@ -17,25 +14,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Conn,
 	if cfg.Data.Pg == nil {
 		return nil, fmt.Errorf("invalid pg config")
 	}
-
-	log := xlog.Logger(ctx)
-
-	dbops := []xgorm.Option{
-		xgorm.WithLogger(log.ZapLogger(), gormlogger.Info),
-		xgorm.WithTracing(),
-		xgorm.WithDisableNestedTransaction(),
-		xgorm.WithSkipDefaultTransaction(),
-	}
-	if cfg.Data.Reset {
-		dbops = append(dbops, xgorm.WithRecreate())
-	}
-
-	gdb, err := xgorm.NewDb(ctx, cfg.Data.Pg, dbops...)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewConn(ctx, cfg.Service, gdb, reg)
+	return NewConn(ctx, cfg.Service, cfg.Data.Pg, cfg.Data.Reset, reg)
 }
 
 func init() {

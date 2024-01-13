@@ -2,33 +2,49 @@ package es
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
-type Client interface {
-	Unit(ctx context.Context) (Unit, error)
+type clientGroupMessageHandler struct {
+	cli      Client
+	registry Registry
 }
 
-type clientEventHandler struct {
-	client Client
-	group  string
-}
-
-func (h *clientEventHandler) Handle(ctx context.Context, evt *Event) error {
-	// create the unit.
-	unit, err := h.client.Unit(ctx)
+func (c *clientGroupMessageHandler) HandleGroupMessage(ctx context.Context, group string, msg []byte) error {
+	evt, err := c.registry.ParseEvent(ctx, msg)
 	if err != nil {
 		return err
 	}
-	return unit.Handle(ctx, h.group, evt)
+
+	// create the unit.
+	unit, err := c.cli.Unit(ctx)
+	if err != nil {
+		return err
+	}
+	return unit.Handle(ctx, group, evt)
+}
+
+type clientCommandHandler struct {
+	cli Client
+}
+
+func (c *clientCommandHandler) HandleCommand(ctx context.Context, cmd Command) error {
+	// create the unit.
+	unit, err := c.cli.Unit(ctx)
+	if err != nil {
+		return err
+	}
+	return unit.Dispatch(ctx, cmd)
+}
+
+type Client interface {
+	Unit(ctx context.Context) (Unit, error)
 }
 
 type client struct {
 	providerConfig *ProviderConfig
 	registry       Registry
 	conn           Conn
-	streamer       Streamer
+	publisher      EventPublisher
 }
 
 func (c *client) Unit(ctx context.Context) (Unit, error) {
@@ -38,7 +54,7 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 	}
 
 	// create it.
-	unit, err := newUnit(ctx, c.providerConfig.Service, c.registry, c.conn, c.streamer)
+	unit, err := newUnit(ctx, c.providerConfig.Service, c.registry, c.conn, c.publisher)
 	if err != nil {
 		return nil, err
 	}
@@ -46,25 +62,25 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 }
 
 func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Client, err error) {
-	streamer, err := GetStreamer(ctx, pcfg, reg)
+	groupMessageHandler := &clientGroupMessageHandler{
+		cli:      cli,
+		registry: reg,
+	}
+	commandHandler := &clientCommandHandler{
+		cli: cli,
+	}
+
+	conn, err := GetConn(ctx, pcfg, reg)
 	if err != nil {
 		return nil, err
 	}
 
-	// close stuff if we have an error.
-	defer func() {
-		if err != nil {
-			streamer.Close(ctx)
-		}
-	}()
-	go func() {
-		<-ctx.Done()
-		if streamer != nil {
-			streamer.Close(context.Background())
-		}
-	}()
+	scheduler, err := NewCommandScheduler(ctx, reg, conn, commandHandler)
+	if err != nil {
+		return nil, err
+	}
 
-	conn, err := GetConn(ctx, pcfg, reg)
+	streamer, err := GetStreamer(ctx, pcfg, reg, groupMessageHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -73,28 +89,37 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		providerConfig: pcfg,
 		registry:       reg,
 		conn:           conn,
-		streamer:       streamer,
+		publisher:      streamer,
 	}
 
-	// get the groups.
-	groups := reg.GetEventHandlerGroups()
-	for _, group := range groups {
-		if group == InternalGroup {
-			continue
+	// close stuff if we have an error.
+	defer func() {
+		if err != nil {
+			if streamer != nil {
+				streamer.Close(ctx)
+			}
+			if conn != nil {
+				conn.Close(ctx)
+			}
+			if scheduler != nil {
+				scheduler.Close(ctx)
+			}
 		}
+	}()
+	go func() {
+		<-ctx.Done()
 
-		name := ""
-		if group == RandomGroup {
-			name = uuid.NewString()
+		ctx := context.Background()
+		if streamer != nil {
+			streamer.Close(ctx)
 		}
+		if conn != nil {
+			conn.Close(ctx)
+		}
+		if scheduler != nil {
+			scheduler.Close(ctx)
+		}
+	}()
 
-		handler := &clientEventHandler{
-			client: cli,
-			group:  group,
-		}
-		if err := streamer.AddHandler(ctx, name, handler); err != nil {
-			return nil, err
-		}
-	}
 	return
 }

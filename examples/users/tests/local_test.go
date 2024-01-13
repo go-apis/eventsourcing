@@ -108,6 +108,9 @@ func Test(t *testing.T) {
 		log.Printf("user: %+v", user)
 		log.Printf("users: %+v", users)
 		log.Printf("total: %+v", total)
+
+		done := make(chan bool, 1)
+		<-done
 	})
 
 	t.Run("run-saga", func(t *testing.T) {
@@ -145,5 +148,4 @@ func Test(t *testing.T) {
 		errD := unit.Handle(ctx, es.ExternalGroup, events...)
 		require.NoError(t, errD)
 	})
-
 }

@@ -16,7 +16,7 @@ type aggregateHandler struct {
 func (b *aggregateHandler) inner(ctx context.Context, entity Entity, cmd Command) error {
 	switch agg := entity.(type) {
 	case CommandHandler:
-		return agg.Handle(ctx, cmd)
+		return agg.HandleCommand(ctx, cmd)
 	}
 	if b.handles != nil {
 		return b.handles.Handle(entity, ctx, cmd)
@@ -24,7 +24,7 @@ func (b *aggregateHandler) inner(ctx context.Context, entity Entity, cmd Command
 	return fmt.Errorf("no handler for command: %T", cmd)
 }
 
-func (b *aggregateHandler) Handle(ctx context.Context, cmd Command) error {
+func (b *aggregateHandler) HandleCommand(ctx context.Context, cmd Command) error {
 	pctx, pspan := otel.Tracer("SourcedAggregateHandler").Start(ctx, "Handle")
 	defer pspan.End()
 

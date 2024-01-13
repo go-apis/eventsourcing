@@ -11,7 +11,8 @@ import (
 )
 
 func whereClauseQuery(c filters.WhereClause) string {
-	switch strings.ToLower(c.Op) {
+	op := string(c.Op)
+	switch strings.ToLower(op) {
 	case `eq`:
 		return fmt.Sprintf(`%s = ?`, c.Column)
 	case `not.eq`:

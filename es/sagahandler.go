@@ -9,7 +9,7 @@ type sagaEventHandler struct {
 	saga    IsSaga
 }
 
-func (b *sagaEventHandler) Handle(ctx context.Context, evt *Event) error {
+func (b *sagaEventHandler) HandleEvent(ctx context.Context, evt *Event) error {
 	unit, err := GetUnit(ctx)
 	if err != nil {
 		return err

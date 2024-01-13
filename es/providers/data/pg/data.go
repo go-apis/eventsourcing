@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/eventstore/es/filters"
@@ -16,10 +17,11 @@ import (
 )
 
 type data struct {
-	service  string
-	registry es.Registry
-	db       *gorm.DB
-	tx       *gorm.DB
+	service       string
+	registry      es.Registry
+	notifications chan *Notification
+	db            *gorm.DB
+	tx            *gorm.DB
 }
 
 func (d *data) getDb() *gorm.DB {
@@ -137,7 +139,149 @@ func (d *data) SaveSnapshot(ctx context.Context, snapshot *es.Snapshot) error {
 	return out.Error
 }
 
-func (d *data) loadData(evt *Event) (interface{}, error) {
+func (d *data) loadCommand(persisted *PersistedCommand) (es.Command, error) {
+	commandConfig, err := d.registry.GetCommandConfig(persisted.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd, err := commandConfig.Factory()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(persisted.Data, cmd); err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
+}
+func (d *data) SavePersistedCommand(ctx context.Context, cmd *es.PersistedCommand) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SavePersistedCommand")
+	defer span.End()
+
+	raw, err := json.Marshal(cmd.Command)
+	if err != nil {
+		return err
+	}
+
+	obj := &PersistedCommand{
+		ServiceName:  d.service,
+		Namespace:    cmd.Namespace,
+		Id:           cmd.Id,
+		Type:         cmd.CommandType,
+		Data:         raw,
+		ExecuteAfter: cmd.ExecuteAfter,
+		CreatedAt:    cmd.CreatedAt,
+	}
+
+	out := d.getDb().
+		WithContext(pctx).
+		Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).
+		Create(obj)
+	return out.Error
+}
+func (d *data) FindPersistedCommands(ctx context.Context, filter filters.Filter) ([]*es.PersistedCommand, error) {
+	pctx, span := otel.Tracer("local").Start(ctx, "FindPersistedCommands")
+	defer span.End()
+
+	q := d.getDb().
+		WithContext(pctx).
+		Model(&PersistedCommand{}).
+		Where("service_name = ?", d.service)
+
+	if filter.Where != nil {
+		q = where(q, filter.Where)
+	}
+	if filter.Distinct != nil {
+		q = q.Distinct(filter.Distinct...)
+	}
+	if filter.Limit != nil {
+		q = q.Limit(*filter.Limit)
+	}
+	if filter.Offset != nil {
+		q = q.Offset(*filter.Offset)
+	}
+	for _, order := range filter.Order {
+		q = q.Order(clause.OrderByColumn{
+			Column: clause.Column{
+				Name: order.Column,
+			},
+			Desc: order.Desc,
+		})
+	}
+
+	rows, err := q.
+		Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cmds []*es.PersistedCommand
+	for rows.Next() {
+		var scanned PersistedCommand
+		// ScanRows is a method of `gorm.DB`, it can be used to scan a row into a struct
+		if err := q.ScanRows(rows, &scanned); err != nil {
+			return nil, err
+		}
+
+		data, err := d.loadCommand(&scanned)
+		if err != nil {
+			return nil, err
+		}
+
+		cmds = append(cmds, &es.PersistedCommand{
+			Id:           scanned.Id,
+			Namespace:    scanned.Namespace,
+			Command:      data,
+			CommandType:  scanned.Type,
+			ExecuteAfter: scanned.ExecuteAfter,
+			CreatedAt:    scanned.CreatedAt,
+		})
+	}
+
+	return cmds, nil
+}
+func (d *data) NewScheduledCommandNotifier(ctx context.Context) (*es.ScheduledCommandNotifier, error) {
+	inner, cancel := context.WithCancel(ctx)
+
+	ch := make(chan time.Time)
+	notifier := es.NewScheduledCommandNotifier(ch, cancel)
+
+	go func() {
+		for {
+			select {
+			case <-inner.Done():
+				return
+			case n := <-d.notifications:
+				t, err := time.Parse(time.RFC3339, n.Payload)
+				if err != nil {
+					fmt.Printf("error parsing time: %v\n", err)
+					continue
+				}
+				ch <- t
+			}
+		}
+	}()
+
+	var persisted *PersistedCommand
+	q := d.db.
+		Model(&PersistedCommand{}).
+		Where("execute_after IS NOT NULL").
+		Order("execute_after ASC").
+		Limit(1).
+		First(persisted)
+	if persisted != nil {
+		ch <- persisted.ExecuteAfter
+	}
+
+	return notifier, q.Error
+}
+
+func (d *data) loadEventData(evt *Event) (interface{}, error) {
 	eventConfig, err := d.registry.GetEventConfig(evt.ServiceName, evt.Type)
 	if err != nil {
 		return evt.Data, nil
@@ -200,7 +344,7 @@ func (d *data) FindEvents(ctx context.Context, filter filters.Filter) ([]*es.Eve
 			return nil, err
 		}
 
-		data, err := d.loadData(&evt)
+		data, err := d.loadEventData(&evt)
 		if err != nil {
 			return nil, err
 		}
@@ -374,11 +518,12 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	return int(totalRows), r.Error
 }
 
-func newData(service string, db *gorm.DB, registry es.Registry) es.Data {
+func newData(service string, db *gorm.DB, registry es.Registry, notifications chan *Notification) es.Data {
 	d := &data{
-		service:  service,
-		db:       db,
-		registry: registry,
+		service:       service,
+		db:            db,
+		registry:      registry,
+		notifications: notifications,
 	}
 	return d
 }

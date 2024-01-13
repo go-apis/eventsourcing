@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/contextcloud/eventstore/es/filters"
+	"github.com/contextcloud/eventstore/es/utils"
 	"github.com/google/uuid"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 type Unit interface {
@@ -25,7 +25,6 @@ type Unit interface {
 
 	Handle(ctx context.Context, group string, events ...*Event) error
 	Dispatch(ctx context.Context, cmds ...Command) error
-	Replay(ctx context.Context, cmds ...*ReplayCommand) error
 }
 
 type unit struct {
@@ -35,6 +34,7 @@ type unit struct {
 	data      Data
 	dataStore DataStore
 	publisher EventPublisher
+	scheduler CommandScheduler
 
 	events []*Event
 }
@@ -66,8 +66,7 @@ func (u *unit) Save(ctx context.Context, name string, aggregate Entity) error {
 
 	// TODO maybe move to the outbox pattern here.
 	for _, evt := range evts {
-		handlers := u.registry.GetEventHandlers(InternalGroup, evt.Data)
-		if err := handlers.Handle(ctx, evt); err != nil {
+		if err := u.registry.HandleGroupEvent(ctx, InternalGroup, evt); err != nil {
 			return err
 		}
 	}
@@ -117,12 +116,6 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 	// publish events?
 	if !skipPublish {
 		for _, evt := range u.events {
-			// can we publish it?
-			cfg, err := u.registry.GetEventConfig(evt.Service, evt.Type)
-			if err != nil || cfg.Publish == false {
-				continue
-			}
-
 			if err := u.publisher.Publish(ctx, evt); err != nil {
 				return err
 			}
@@ -134,29 +127,22 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 	return nil
 }
 
-func (u *unit) handle(ctx context.Context, group string, evt *Event) error {
-	pctx, pspan := otel.Tracer("unit").Start(ctx, "handle")
-	defer pspan.End()
-
-	// set the namespace
-	pctx = SetNamespace(pctx, evt.Namespace)
-
-	hs := u.registry.GetEventHandlers(group, evt.Data)
-	if len(hs) == 0 {
-		return nil
+func (u *unit) schedule(ctx context.Context, cmd Command, executeAfter time.Time) (uuid.UUID, error) {
+	persistedCommand := &PersistedCommand{
+		Id:           uuid.New(),
+		Namespace:    GetNamespace(ctx),
+		CommandType:  utils.GetTypeName(cmd),
+		Command:      cmd,
+		ExecuteAfter: executeAfter,
+		CreatedAt:    time.Now(),
+	}
+	if err := u.data.SavePersistedCommand(ctx, persistedCommand); err != nil {
+		return uuid.Nil, err
 	}
 
-	pspan.SetAttributes(
-		attribute.String("id", evt.AggregateId.String()),
-	)
-
-	for _, h := range hs {
-		if err := h.Handle(pctx, evt); err != nil {
-			return err
-		}
-	}
-	return nil
+	return persistedCommand.Id, nil
 }
+
 func (u *unit) Handle(ctx context.Context, group string, events ...*Event) error {
 	if len(events) == 0 {
 		return nil
@@ -166,38 +152,12 @@ func (u *unit) Handle(ctx context.Context, group string, events ...*Event) error
 
 	return u.work(ctx, func(ctx context.Context) error {
 		for _, evt := range events {
-			if err := u.handle(ctx, group, evt); err != nil {
+			if err := u.registry.HandleGroupEvent(ctx, group, evt); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
-}
-func (u *unit) dispatch(ctx context.Context, cmd Command) error {
-	pctx, pspan := otel.Tracer("unit").Start(ctx, "dispatch")
-	defer pspan.End()
-
-	h, err := u.registry.GetCommandHandler(cmd)
-	if err != nil {
-		return err
-	}
-
-	// check if we have a namespace command
-	if nsCmd, ok := cmd.(NamespaceCommand); ok {
-		ns := nsCmd.GetNamespace()
-		if ns != "" {
-			pctx = SetNamespace(pctx, ns)
-		}
-	}
-
-	pspan.SetAttributes(
-		attribute.String("id", cmd.GetAggregateId().String()),
-	)
-
-	if err := h.Handle(pctx, cmd); err != nil {
-		return err
-	}
-	return nil
 }
 func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 	if len(cmds) == 0 {
@@ -208,46 +168,14 @@ func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 
 	return u.work(ctx, func(ctx context.Context) error {
 		for _, cmd := range cmds {
-			if err := u.dispatch(ctx, cmd); err != nil {
-				return err
+			scheduled, ok := cmd.(ScheduledCommand)
+			if ok {
+				if _, err := u.schedule(ctx, scheduled.GetCommand(), scheduled.ExecuteAfter()); err != nil {
+					return err
+				}
 			}
-		}
-		return nil
-	})
-}
-func (u *unit) replay(ctx context.Context, cmd *ReplayCommand) error {
-	pctx, pspan := otel.Tracer("unit").Start(ctx, "dispatch")
-	defer pspan.End()
 
-	h, err := u.registry.GetReplayHandler(cmd)
-	if err != nil {
-		return err
-	}
-
-	ns := cmd.GetNamespace()
-	if ns != "" {
-		pctx = SetNamespace(pctx, ns)
-	}
-
-	pspan.SetAttributes(
-		attribute.String("id", cmd.GetAggregateId().String()),
-	)
-
-	if err := h.Handle(pctx, cmd); err != nil {
-		return err
-	}
-	return nil
-}
-func (u *unit) Replay(ctx context.Context, cmds ...*ReplayCommand) error {
-	if len(cmds) == 0 {
-		return nil
-	}
-
-	ctx = SetUnit(ctx, u)
-
-	return u.work(ctx, func(ctx context.Context) error {
-		for _, cmd := range cmds {
-			if err := u.replay(ctx, cmd); err != nil {
+			if err := u.registry.HandleCommand(ctx, cmd); err != nil {
 				return err
 			}
 		}

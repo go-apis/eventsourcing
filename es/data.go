@@ -32,6 +32,10 @@ type Data interface {
 	LoadSnapshot(ctx context.Context, search SnapshotSearch, out AggregateSourced) error
 	SaveSnapshot(ctx context.Context, snapshot *Snapshot) error
 
+	SavePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
+	FindPersistedCommands(ctx context.Context, filter filters.Filter) ([]*PersistedCommand, error)
+	NewScheduledCommandNotifier(ctx context.Context) (*ScheduledCommandNotifier, error)
+
 	SaveEvents(ctx context.Context, events []*Event) error
 	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error
 	DeleteEntity(ctx context.Context, aggregateName string, entity Entity) error
