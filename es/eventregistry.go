@@ -42,7 +42,9 @@ func (r *eventRegistry) HandleGroupEvent(ctx context.Context, group string, evt 
 	if !ok {
 		return nil
 	}
-	return handlers.Handle(ctx, evt)
+
+	withNs := SetNamespace(ctx, evt.Namespace)
+	return handlers.Handle(withNs, evt)
 }
 
 func (r *eventRegistry) AddEvent(eventConfig *EventConfig) error {
