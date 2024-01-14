@@ -22,6 +22,8 @@ type ScheduledCommand interface {
 }
 
 type ReplayCommand interface {
+	Command
+
 	GetAggregateName() string
 }
 
