@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/contextcloud/eventstore/es/filters"
-	"github.com/contextcloud/eventstore/es/utils"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 )
@@ -131,8 +130,12 @@ func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagi
 }
 
 func NewQuery[T Entity](options ...QueryOption) Query[T] {
-	var item T
-	typeOf := utils.GetElemType(item)
+	var entity [0]T
+	opts := NewEntityOptions(entity)
+	entityConfig, err := NewEntityConfig(opts)
+	if err != nil {
+		panic(err)
+	}
 
 	o := DefaultQueryOptions()
 	for _, option := range options {
@@ -141,6 +144,6 @@ func NewQuery[T Entity](options ...QueryOption) Query[T] {
 
 	return &query[T]{
 		options: o,
-		name:    typeOf.Name(),
+		name:    entityConfig.Name,
 	}
 }

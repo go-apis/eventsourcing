@@ -89,6 +89,10 @@ func NewEntityOptions(agg interface{}) []EntityOption {
 	name := t.Name()
 	factory := func() (Entity, error) {
 		out := reflect.New(t).Interface().(Entity)
+		if agg == nil {
+			return out, nil
+		}
+
 		if err := copier.Copy(out, agg); err != nil {
 			return nil, err
 		}
