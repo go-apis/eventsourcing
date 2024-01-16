@@ -74,6 +74,8 @@ func NewEntityOptionsFromTag(t reflect.Type) ([]EntityOption, error) {
 func NewEntityOptions(agg interface{}) []EntityOption {
 	var t reflect.Type
 
+	isNil := true
+
 	switch raw := agg.(type) {
 	case reflect.Type:
 		t = raw
@@ -83,13 +85,14 @@ func NewEntityOptions(agg interface{}) []EntityOption {
 	}
 
 	for t.Kind() == reflect.Ptr {
+		isNil = reflect.ValueOf(agg).IsNil()
 		t = t.Elem()
 	}
 
 	name := t.Name()
 	factory := func() (Entity, error) {
 		out := reflect.New(t).Interface().(Entity)
-		if agg == nil {
+		if isNil {
 			return out, nil
 		}
 
