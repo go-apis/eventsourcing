@@ -129,7 +129,7 @@ func (q *query[T]) Pagination(ctx context.Context, filter Filter) (*Pagination[T
 }
 
 func NewQuery[T Entity](options ...QueryOption) Query[T] {
-	var entity [0]T
+	var entity T
 	opts := NewEntityOptions(entity)
 	entityConfig, err := NewEntityConfig(opts)
 	if err != nil {
