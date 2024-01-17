@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/data/commands"
 	"github.com/contextcloud/eventstore/examples/users/helpers"
@@ -92,15 +91,15 @@ func Test(t *testing.T) {
 		user, err := userQuery.Get(ctx, userId1)
 		require.NoError(t, err)
 
-		filter := filters.Filter{
-			Where: filters.WhereClause{
+		filter := es.Filter{
+			Where: es.WhereClause{
 				Column: "username",
 				Op:     "eq",
 				Args:   []interface{}{"chris.kolenko"},
 			},
-			Order:  []filters.Order{{Column: "username"}},
-			Limit:  filters.Limit(1),
-			Offset: filters.Offset(0),
+			Order:  []es.Order{{Column: "username"}},
+			Limit:  es.Limit(1),
+			Offset: es.Offset(0),
 		}
 
 		users, err := userQuery.Find(ctx, filter)
@@ -123,8 +122,8 @@ func Test(t *testing.T) {
 
 		ctx = es.SetUnit(ctx, unit)
 
-		events, err := unit.FindEvents(ctx, filters.Filter{
-			Where: []filters.WhereClause{
+		events, err := unit.FindEvents(ctx, es.Filter{
+			Where: []es.WhereClause{
 				{
 					Column: "aggregate_id",
 					Op:     "eq",

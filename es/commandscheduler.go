@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 )
 
@@ -63,10 +62,10 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 	}
 	defer lock.Unlock(ctx)
 
-	filter := filters.Filter{
-		Where: filters.WhereClause{
+	filter := Filter{
+		Where: WhereClause{
 			Column: "execute_after",
-			Op:     filters.OpLessThan,
+			Op:     OpLessThan,
 			Args:   t,
 		},
 	}

@@ -5,12 +5,11 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/contextcloud/eventstore/es/filters"
-
+	"github.com/contextcloud/eventstore/es"
 	"gorm.io/gorm"
 )
 
-func whereClauseQuery(c filters.WhereClause) string {
+func whereClauseQuery(c es.WhereClause) string {
 	op := string(c.Op)
 	switch strings.ToLower(op) {
 	case `eq`:
@@ -63,7 +62,7 @@ func isNil(a interface{}) bool {
 	return a == nil || reflect.ValueOf(a).IsNil()
 }
 
-func whereQuery(q *gorm.DB, c filters.WhereClause) *gorm.DB {
+func whereQuery(q *gorm.DB, c es.WhereClause) *gorm.DB {
 	query := whereClauseQuery(c)
 	if isNil(c.Args) {
 		return q.Where(query)
@@ -71,23 +70,23 @@ func whereQuery(q *gorm.DB, c filters.WhereClause) *gorm.DB {
 	return q.Where(query, c.Args)
 }
 
-func where(q *gorm.DB, filter filters.Where) *gorm.DB {
+func where(q *gorm.DB, filter es.Where) *gorm.DB {
 	switch w := filter.(type) {
-	case []filters.Where:
+	case []es.Where:
 		o := q.Session(&gorm.Session{NewDB: true})
 		for _, inner := range w {
 			o = where(o, inner)
 		}
 		return q.Where(o)
-	case []filters.WhereClause:
+	case []es.WhereClause:
 		o := q.Session(&gorm.Session{NewDB: true})
 		for _, inner := range w {
 			o = where(o, inner)
 		}
 		return q.Where(o)
-	case filters.WhereClause:
+	case es.WhereClause:
 		return whereQuery(q, w)
-	case filters.WhereOr:
+	case es.WhereOr:
 		o := q.Session(&gorm.Session{NewDB: true})
 		return q.Or(where(o, w.Where))
 	default:

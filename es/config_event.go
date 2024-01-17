@@ -3,6 +3,8 @@ package es
 import (
 	"reflect"
 	"strings"
+
+	"github.com/contextcloud/eventstore/es/utils"
 )
 
 func IsTrue(str string) bool {
@@ -62,7 +64,7 @@ func NewEventConfig(thisService string, evt interface{}) *EventConfig {
 		return cfg
 	}
 
-	items := strings.Split(tag, ";")
+	items := utils.SplitTag(tag)
 	for _, item := range items {
 		split := strings.Split(item, "=")
 		part1 := split[0]

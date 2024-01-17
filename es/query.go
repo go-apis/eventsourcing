@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 )
@@ -24,9 +23,9 @@ type Pagination[T any] struct {
 
 type Query[T Entity] interface {
 	Get(ctx context.Context, id uuid.UUID) (T, error)
-	Find(ctx context.Context, filter filters.Filter) ([]T, error)
-	Count(ctx context.Context, filter filters.Filter) (int, error)
-	Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error)
+	Find(ctx context.Context, filter Filter) ([]T, error)
+	Count(ctx context.Context, filter Filter) (int, error)
+	Pagination(ctx context.Context, filter Filter) (*Pagination[T], error)
 }
 
 type query[T Entity] struct {
@@ -61,7 +60,7 @@ func (q *query[T]) Get(ctx context.Context, id uuid.UUID) (T, error) {
 	return item, nil
 }
 
-func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error) {
+func (q *query[T]) Find(ctx context.Context, filter Filter) ([]T, error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Find")
 	defer pspan.End()
 
@@ -79,7 +78,7 @@ func (q *query[T]) Find(ctx context.Context, filter filters.Filter) ([]T, error)
 	return items, nil
 }
 
-func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error) {
+func (q *query[T]) Count(ctx context.Context, filter Filter) (int, error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Count")
 	defer pspan.End()
 
@@ -92,7 +91,7 @@ func (q *query[T]) Count(ctx context.Context, filter filters.Filter) (int, error
 	return unit.Count(pctx, q.name, namespace, filter)
 }
 
-func (q *query[T]) Pagination(ctx context.Context, filter filters.Filter) (*Pagination[T], error) {
+func (q *query[T]) Pagination(ctx context.Context, filter Filter) (*Pagination[T], error) {
 	pctx, pspan := otel.Tracer("Query").Start(ctx, "Pagination")
 	defer pspan.End()
 

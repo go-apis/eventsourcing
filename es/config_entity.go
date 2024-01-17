@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/contextcloud/eventstore/es/utils"
 	"github.com/jinzhu/copier"
 )
 
@@ -38,7 +39,7 @@ func NewEntityOptionsFromTag(t reflect.Type) ([]EntityOption, error) {
 	var options []EntityOption
 
 	// parse fields
-	items := strings.Split(tag, ",")
+	items := utils.SplitTag(tag)
 	for _, item := range items {
 		split := strings.Split(item, "=")
 		part1 := split[0]

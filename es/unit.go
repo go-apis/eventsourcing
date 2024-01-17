@@ -6,22 +6,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/es/utils"
 	"github.com/google/uuid"
 )
 
 type Unit interface {
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
-	Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
-	Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error)
+	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
+	Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error)
 
 	Load(ctx context.Context, name string, id uuid.UUID, opts ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, aggregate Entity) error
 	Delete(ctx context.Context, name string, aggregate Entity) error
 	Truncate(ctx context.Context, name string) error
 
-	FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error)
+	FindEvents(ctx context.Context, filter Filter) ([]*Event, error)
 
 	Handle(ctx context.Context, group string, events ...*Event) error
 	Dispatch(ctx context.Context, cmds ...Command) error
@@ -43,11 +42,11 @@ func (u *unit) Get(ctx context.Context, aggregateName string, namespace string, 
 	return u.data.Get(ctx, aggregateName, namespace, id, out)
 }
 
-func (u *unit) Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
+func (u *unit) Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error {
 	return u.data.Find(ctx, aggregateName, namespace, filter, out)
 }
 
-func (u *unit) Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error) {
+func (u *unit) Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error) {
 	return u.data.Count(ctx, aggregateName, namespace, filter)
 }
 
@@ -81,7 +80,7 @@ func (u *unit) Truncate(ctx context.Context, name string) error {
 	return u.dataStore.Truncate(ctx, name)
 }
 
-func (u *unit) FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error) {
+func (u *unit) FindEvents(ctx context.Context, filter Filter) ([]*Event, error) {
 	return u.data.FindEvents(ctx, filter)
 }
 

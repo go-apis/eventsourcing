@@ -3,6 +3,8 @@ package es
 import (
 	"reflect"
 	"strings"
+
+	"github.com/contextcloud/eventstore/es/utils"
 )
 
 // EventOptions represents the configuration options
@@ -52,7 +54,7 @@ func NewEventHandlerConfig(h interface{}) *EventHandlerConfig {
 			continue
 		}
 
-		items := strings.Split(tag, ";")
+		items := utils.SplitTag(tag)
 		for _, item := range items {
 			split := strings.Split(item, "=")
 			part1 := split[0]

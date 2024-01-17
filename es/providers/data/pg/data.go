@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 
@@ -216,7 +215,7 @@ func (d *data) DeletePersistedCommand(ctx context.Context, cmd *es.PersistedComm
 		})
 	return out.Error
 }
-func (d *data) FindPersistedCommands(ctx context.Context, filter filters.Filter) ([]*es.PersistedCommand, error) {
+func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*es.PersistedCommand, error) {
 	pctx, span := otel.Tracer("local").Start(ctx, "FindPersistedCommands")
 	defer span.End()
 
@@ -324,7 +323,7 @@ func (d *data) loadEventData(evt *Event) (interface{}, error) {
 	return data, nil
 }
 
-func (d *data) FindEvents(ctx context.Context, filter filters.Filter) ([]*es.Event, error) {
+func (d *data) FindEvents(ctx context.Context, filter es.Filter) ([]*es.Event, error) {
 	pctx, span := otel.Tracer("local").Start(ctx, "GetEvents")
 	defer span.End()
 
@@ -479,7 +478,7 @@ func (d *data) Get(ctx context.Context, aggregateName string, namespace string, 
 	}
 	return r.Error
 }
-func (d *data) Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error {
+func (d *data) Find(ctx context.Context, aggregateName string, namespace string, filter es.Filter, out interface{}) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Find")
 	defer span.End()
 
@@ -518,7 +517,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 		Find(out)
 	return r.Error
 }
-func (d *data) Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error) {
+func (d *data) Count(ctx context.Context, aggregateName string, namespace string, filter es.Filter) (int, error) {
 	pctx, span := otel.Tracer("local").Start(ctx, "Count")
 	defer span.End()
 

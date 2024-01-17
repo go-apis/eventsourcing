@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
 	"github.com/contextcloud/eventstore/examples/users/data/commands"
 	"github.com/contextcloud/eventstore/examples/users/data/events"
@@ -29,7 +28,7 @@ func (s *ConnectionSaga) HandleConnectionAdded(ctx context.Context, evt *es.Even
 	id := uuid.NewSHA1(evt.AggregateId, []byte(item.UserId))
 
 	q := es.NewQuery[*aggregates.User]()
-	all, err := q.Find(ctx, filters.Filter{})
+	all, err := q.Find(ctx, es.Filter{})
 	if err != nil {
 		return nil, err
 	}

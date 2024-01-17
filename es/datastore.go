@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 )
 
@@ -77,8 +76,8 @@ func (s *dataStore) loadSourced(ctx context.Context, entityConfig *EntityConfig,
 		}
 	}
 
-	eventFilter := filters.Filter{
-		Where: []filters.WhereClause{
+	eventFilter := Filter{
+		Where: []WhereClause{
 			{
 				Column: "namespace",
 				Op:     "eq",

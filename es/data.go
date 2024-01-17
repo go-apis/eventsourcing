@@ -3,7 +3,6 @@ package es
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es/filters"
 	"github.com/google/uuid"
 )
 
@@ -39,7 +38,7 @@ type Data interface {
 
 	SavePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
 	DeletePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
-	FindPersistedCommands(ctx context.Context, filter filters.Filter) ([]*PersistedCommand, error)
+	FindPersistedCommands(ctx context.Context, filter Filter) ([]*PersistedCommand, error)
 	NewScheduledCommandNotifier(ctx context.Context) (*ScheduledCommandNotifier, error)
 
 	SaveEvents(ctx context.Context, events []*Event) error
@@ -48,8 +47,8 @@ type Data interface {
 	Truncate(ctx context.Context, aggregateName string) error
 
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
-	Find(ctx context.Context, aggregateName string, namespace string, filter filters.Filter, out interface{}) error
-	Count(ctx context.Context, aggregateName string, namespace string, filter filters.Filter) (int, error)
+	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
+	Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error)
 
-	FindEvents(ctx context.Context, filter filters.Filter) ([]*Event, error)
+	FindEvents(ctx context.Context, filter Filter) ([]*Event, error)
 }
