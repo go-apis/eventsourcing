@@ -115,6 +115,14 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 	// publish events?
 	if !skipPublish {
 		for _, evt := range u.events {
+			evtConfig, err := u.registry.GetEventConfig(evt.Service, evt.Type)
+			if err != nil {
+				continue
+			}
+			if !evtConfig.Publish {
+				continue
+			}
+
 			if err := u.publisher.Publish(ctx, evt); err != nil {
 				return err
 			}
