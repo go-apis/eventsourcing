@@ -33,9 +33,9 @@ type streamer struct {
 }
 
 func (s *streamer) createSubscription(ctx context.Context, suffix string) (*pubsub.Subscription, Unsubscribe, error) {
-	subscriptionId := s.service
+	subscriptionId := s.topic.ID() + "__" + s.service
 	if suffix != "" {
-		subscriptionId = fmt.Sprintf("%s-%s", s.service, suffix)
+		subscriptionId += "-" + suffix
 	}
 
 	existingSub := s.client.Subscription(subscriptionId)
