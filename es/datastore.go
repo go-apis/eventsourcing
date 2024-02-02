@@ -127,6 +127,7 @@ func (s *dataStore) saveSourced(ctx context.Context, entityConfig *EntityConfig,
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
 	timestamp := GetTime(ctx)
+	actor := GetActor(ctx)
 
 	events := make([]*Event, len(raw))
 	for i, data := range raw {
@@ -146,6 +147,7 @@ func (s *dataStore) saveSourced(ctx context.Context, entityConfig *EntityConfig,
 			Type:          name,
 			Version:       v,
 			Data:          data,
+			By:            actor,
 			Timestamp:     timestamp,
 			Metadata:      metadata,
 		}
@@ -192,6 +194,7 @@ func (s *dataStore) saveAggregateHolder(ctx context.Context, entityConfig *Entit
 	id := aggregate.GetId()
 	raw := aggregate.GetEvents()
 	timestamp := GetTime(ctx)
+	actor := GetActor(ctx)
 
 	events := make([]*Event, len(raw))
 	for i, data := range raw {
@@ -209,6 +212,7 @@ func (s *dataStore) saveAggregateHolder(ctx context.Context, entityConfig *Entit
 			AggregateType: entityConfig.Name,
 			Type:          name,
 			Data:          data,
+			By:            actor,
 			Timestamp:     timestamp,
 			Metadata:      metadata,
 		}

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/contextcloud/eventstore/es"
 	"github.com/google/uuid"
 	"github.com/jinzhu/inflection"
 	"gorm.io/datatypes"
@@ -23,6 +24,7 @@ type Event struct {
 	AggregateType string            `json:"aggregate_type" gorm:"primaryKey"`
 	Version       int               `json:"version" gorm:"primaryKey"`
 	Type          string            `json:"type" gorm:"primaryKey"`
+	By            *es.Actor         `json:"by" gorm:"type:jsonb;serializer:json"`
 	Timestamp     time.Time         `json:"timestamp"`
 	Data          json.RawMessage   `json:"data" gorm:"type:jsonb"`
 	Metadata      datatypes.JSONMap `json:"metadata" gorm:"type:jsonb;serializer:json"`

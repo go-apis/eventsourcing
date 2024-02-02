@@ -381,6 +381,7 @@ func (d *data) FindEvents(ctx context.Context, filter es.Filter) ([]*es.Event, e
 			Type:          evt.Type,
 			Version:       evt.Version,
 			Timestamp:     evt.Timestamp,
+			By:            evt.By,
 			Data:          data,
 			Metadata:      evt.Metadata,
 		})
@@ -411,6 +412,7 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 			Type:          evt.Type,
 			Version:       evt.Version,
 			Timestamp:     evt.Timestamp,
+			By:            evt.By,
 			Data:          raw,
 			Metadata:      evt.Metadata,
 		}

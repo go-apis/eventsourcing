@@ -13,7 +13,7 @@ type Key int
 const (
 	NamespaceKey Key = iota
 	UnitKey
-	UserKey
+	ActorKey
 	SkipPublishKey
 	TimeKey
 )
@@ -29,10 +29,10 @@ func GetNamespace(ctx context.Context) string {
 	}
 	return defaultNamespace
 }
-func GetUser(ctx context.Context) User {
-	user, ok := ctx.Value(UnitKey).(User)
+func GetActor(ctx context.Context) *Actor {
+	actor, ok := ctx.Value(ActorKey).(*Actor)
 	if ok {
-		return user
+		return actor
 	}
 	return nil
 }
@@ -45,11 +45,6 @@ func GetMetadata(ctx context.Context) map[string]interface{} {
 	}
 	if span != nil && span.SpanContext().HasTraceID() {
 		m["span.trace_id"] = span.SpanContext().TraceID().String()
-	}
-
-	user := GetUser(ctx)
-	if user != nil {
-		m["user.id"] = user.Id().String()
 	}
 	return m
 }
@@ -71,14 +66,15 @@ func GetTime(ctx context.Context) time.Time {
 	}
 	return time.Now()
 }
+
 func SetNamespace(ctx context.Context, namespace string) context.Context {
 	return context.WithValue(ctx, NamespaceKey, namespace)
 }
 func SetUnit(ctx context.Context, unit Unit) context.Context {
 	return context.WithValue(ctx, UnitKey, unit)
 }
-func SetUser(ctx context.Context, user User) context.Context {
-	return context.WithValue(ctx, UserKey, user)
+func SetActor(ctx context.Context, actor *Actor) context.Context {
+	return context.WithValue(ctx, ActorKey, actor)
 }
 func SetSkipPublish(ctx context.Context) context.Context {
 	return context.WithValue(ctx, SkipPublishKey, true)

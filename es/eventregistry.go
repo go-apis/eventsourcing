@@ -118,6 +118,7 @@ func (r *eventRegistry) ParseEvent(ctx context.Context, msg []byte) (*Event, err
 		AggregateType: out.AggregateType,
 		Version:       out.Version,
 		Type:          out.Type,
+		By:            out.By,
 		Timestamp:     out.Timestamp,
 		Metadata:      metadata,
 		Data:          data,
