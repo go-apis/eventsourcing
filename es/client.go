@@ -15,12 +15,17 @@ func (c *clientGroupMessageHandler) HandleGroupMessage(ctx context.Context, grou
 		return err
 	}
 
+	innerCtx := ctx
+	if evt.By != nil {
+		innerCtx = SetActor(ctx, evt.By)
+	}
+
 	// create the unit.
-	unit, err := c.cli.Unit(ctx)
+	unit, err := c.cli.Unit(innerCtx)
 	if err != nil {
 		return err
 	}
-	return unit.Handle(ctx, group, evt)
+	return unit.Handle(innerCtx, group, evt)
 }
 
 type clientCommandHandler struct {
