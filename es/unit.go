@@ -135,6 +135,7 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 }
 
 func (u *unit) schedule(ctx context.Context, cmd Command, executeAfter time.Time) (uuid.UUID, error) {
+	by := GetActor(ctx)
 	persistedCommand := &PersistedCommand{
 		Id:           uuid.New(),
 		Namespace:    GetNamespace(ctx),
@@ -142,6 +143,7 @@ func (u *unit) schedule(ctx context.Context, cmd Command, executeAfter time.Time
 		Command:      cmd,
 		ExecuteAfter: executeAfter,
 		CreatedAt:    time.Now(),
+		By:           by,
 	}
 	if err := u.data.SavePersistedCommand(ctx, persistedCommand); err != nil {
 		return uuid.Nil, err

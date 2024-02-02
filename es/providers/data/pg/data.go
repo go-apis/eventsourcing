@@ -192,6 +192,7 @@ func (d *data) SavePersistedCommand(ctx context.Context, cmd *es.PersistedComman
 		Data:         raw,
 		ExecuteAfter: cmd.ExecuteAfter,
 		CreatedAt:    cmd.CreatedAt,
+		By:           cmd.By,
 	}
 
 	out := d.getDb().

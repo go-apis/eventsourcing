@@ -53,6 +53,7 @@ type PersistedCommand struct {
 	Data         json.RawMessage `json:"data" gorm:"type:jsonb"`
 	ExecuteAfter time.Time       `json:"execute_after"`
 	CreatedAt    time.Time       `json:"created_at"`
+	By           *es.Actor       `json:"by" gorm:"type:jsonb;serializer:json"`
 }
 
 func TableName(service string, aggregateName string) string {

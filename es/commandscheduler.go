@@ -75,10 +75,12 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 	}
 
 	for _, persistedCommand := range persistedCommands {
-		if err := c.handler.HandleCommand(ctx, persistedCommand.Command); err != nil {
+		inner := SetActor(ctx, persistedCommand.By)
+
+		if err := c.handler.HandleCommand(inner, persistedCommand.Command); err != nil {
 			return err
 		}
-		if err := c.data.DeletePersistedCommand(ctx, persistedCommand); err != nil {
+		if err := c.data.DeletePersistedCommand(inner, persistedCommand); err != nil {
 			return err
 		}
 	}

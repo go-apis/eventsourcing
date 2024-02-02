@@ -13,4 +13,5 @@ type PersistedCommand struct {
 	CommandType  string    `json:"command_type" required:"true"`
 	ExecuteAfter time.Time `json:"execute_after" required:"true"`
 	CreatedAt    time.Time `json:"created_at" required:"true"`
+	By           *Actor    `json:"by"`
 }
