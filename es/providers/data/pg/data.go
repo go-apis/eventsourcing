@@ -274,6 +274,7 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*
 			CommandType:  scanned.Type,
 			ExecuteAfter: scanned.ExecuteAfter,
 			CreatedAt:    scanned.CreatedAt,
+			By:           scanned.By,
 		})
 	}
 
