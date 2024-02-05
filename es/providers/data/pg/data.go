@@ -243,7 +243,7 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*
 			Column: clause.Column{
 				Name: order.Column,
 			},
-			Desc: order.Desc,
+			Desc: order.Direction == es.OrderDesc,
 		})
 	}
 
@@ -351,7 +351,7 @@ func (d *data) FindEvents(ctx context.Context, filter es.Filter) ([]*es.Event, e
 			Column: clause.Column{
 				Name: order.Column,
 			},
-			Desc: order.Desc,
+			Desc: order.Direction == es.OrderDesc,
 		})
 	}
 
@@ -513,7 +513,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 			Column: clause.Column{
 				Name: order.Column,
 			},
-			Desc: order.Desc,
+			Desc: order.Direction == es.OrderDesc,
 		})
 	}
 

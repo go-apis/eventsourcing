@@ -8,14 +8,16 @@ import (
 	"github.com/google/uuid"
 )
 
-type TestWhere struct {
-	Name    *string      `where:"name,eq"`
-	HasName *bool        `where:"name,not.is.null"`
-	Ids     *[]uuid.UUID `where:"id,in"`
+type TestFilters struct {
+	Name      *string      `where:"name,eq"`
+	HasName   *bool        `where:"name,not.is.null"`
+	Ids       *[]uuid.UUID `where:"id,in"`
+	CreatedAt *string      `order:"created_at,desc"`
+	NameOrder *string      `order:"name"`
 }
 
-func Test_It(t *testing.T) {
-	factory, err := NewWhereFactory[*TestWhere]()
+func Test_Where(t *testing.T) {
+	factory, err := NewWhereFactory[*TestFilters]()
 	if err != nil {
 		t.Errorf("err: %v", err)
 		return
@@ -31,39 +33,39 @@ func Test_It(t *testing.T) {
 	var foo = "foo"
 	var foo2 = "foo2"
 	data := []struct {
-		obj        *TestWhere
+		obj        *TestFilters
 		whereCount int
 		hasName    bool
 		name       string
 		ids        []uuid.UUID
 	}{
 		{
-			obj:        &TestWhere{},
+			obj:        &TestFilters{},
 			whereCount: 0,
 		},
 		{
-			obj: &TestWhere{
+			obj: &TestFilters{
 				Ids: &noIds,
 			},
 			whereCount: 1,
 			ids:        noIds,
 		},
 		{
-			obj: &TestWhere{
+			obj: &TestFilters{
 				Ids: &ids,
 			},
 			whereCount: 1,
 			ids:        ids,
 		},
 		{
-			obj: &TestWhere{
+			obj: &TestFilters{
 				Name: &foo,
 			},
 			whereCount: 1,
 			name:       foo,
 		},
 		{
-			obj: &TestWhere{
+			obj: &TestFilters{
 				HasName: &no,
 				Name:    &foo2,
 			},
@@ -72,7 +74,7 @@ func Test_It(t *testing.T) {
 			name:       foo2,
 		},
 		{
-			obj: &TestWhere{
+			obj: &TestFilters{
 				HasName: &yes,
 				Name:    &foo2,
 			},
@@ -112,6 +114,55 @@ func Test_It(t *testing.T) {
 				}
 
 				t.Errorf("issue with column %s op %s args %v", clause.Column, clause.Op, clause.Args)
+			}
+		})
+	}
+}
+
+func Test_Order(t *testing.T) {
+	factory, err := NewOrderFactory[*TestFilters]()
+	if err != nil {
+		t.Errorf("err: %v", err)
+		return
+	}
+
+	var nameOrder = "asc"
+	data := []struct {
+		obj            *TestFilters
+		orderCount     int
+		nameOrder      *string
+		createdAtOrder string
+	}{
+		{
+			obj: &TestFilters{
+				NameOrder: &nameOrder,
+			},
+			orderCount:     2,
+			nameOrder:      &nameOrder,
+			createdAtOrder: "desc",
+		},
+	}
+
+	for i, d := range data {
+		t.Run(fmt.Sprintf("data[%d]", i), func(t *testing.T) {
+			order := factory(d.obj)
+			if order == nil {
+				t.Errorf("order is nil")
+				return
+			}
+			if len(order) != d.orderCount {
+				t.Errorf("len(order) != %d", d.orderCount)
+				return
+			}
+			for _, order := range order {
+				if order.Column == "name" && d.nameOrder != nil && order.Direction == OrderDirection(*d.nameOrder) {
+					continue
+				}
+				if order.Column == "created_at" && order.Direction == OrderDirection(d.createdAtOrder) {
+					continue
+				}
+
+				t.Errorf("issue with order %s direction %s", order.Column, order.Direction)
 			}
 		})
 	}

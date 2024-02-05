@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	boolType = reflect.TypeOf(true)
+	boolType      = reflect.TypeOf(true)
+	directionType = reflect.TypeOf("")
 )
 
 var ErrInvalidTag = errors.New(`invalid tag`)
@@ -21,9 +22,16 @@ type Filter struct {
 	Offset   *int
 }
 
+type OrderDirection string
+
+const (
+	OrderAsc  OrderDirection = `asc`
+	OrderDesc OrderDirection = `desc`
+)
+
 type Order struct {
-	Column string
-	Desc   bool
+	Column    string
+	Direction OrderDirection
 }
 
 type Where interface{}
@@ -114,6 +122,14 @@ func IsBoolType(t reflect.Type) bool {
 		ref = t.Elem()
 	}
 	return ref == boolType
+}
+
+func IsDirection(t reflect.Type) bool {
+	ref := t
+	if t.Kind() == reflect.Ptr {
+		ref = t.Elem()
+	}
+	return ref == directionType
 }
 
 type WhereHandle[T any] struct {
@@ -215,5 +231,112 @@ func NewWhereFactory[T any]() (WhereFactory[T], error) {
 			}
 		}
 		return columns
+	}, nil
+}
+
+type OrderHandle[T any] struct {
+	FieldName string
+	Col       string
+	Direction *OrderDirection
+}
+
+func (w OrderHandle[T]) value(obj T) *string {
+	t := reflect.ValueOf(obj)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	field := t.FieldByName(w.FieldName)
+	for field.Kind() == reflect.Ptr {
+		if field.IsNil() {
+			return nil
+		}
+
+		field = field.Elem()
+	}
+
+	str := field.String()
+	return &str
+}
+
+func (w OrderHandle[T]) Resolve(obj T) *Order {
+	value := w.value(obj)
+	if value == nil && w.Direction == nil {
+		return nil
+	}
+
+	var direction OrderDirection
+	if w.Direction != nil {
+		direction = *w.Direction
+	}
+	if value != nil {
+		v := *value
+		direction = OrderDirection(v)
+	}
+
+	return &Order{
+		Column:    w.Col,
+		Direction: direction,
+	}
+}
+
+type OrderFactory[T any] func(T) []Order
+
+func NewOrderFactory[T any]() (OrderFactory[T], error) {
+	var obj T
+	t := reflect.TypeOf(obj)
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	var handles []OrderHandle[T]
+
+	count := t.NumField()
+	for i := 0; i < count; i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get(`order`)
+		if tag == `` {
+			continue
+		}
+
+		fieldName := field.Name
+		name := field.Name
+		var direction *OrderDirection
+
+		// do stuff.
+		split := utils.SplitTag(tag)
+		switch len(split) {
+		case 1:
+			name = split[0]
+		case 2:
+			d := OrderDirection(split[1])
+
+			name = split[0]
+			direction = &d
+		default:
+			return nil, ErrInvalidTag
+		}
+
+		// validate it.
+		if !IsDirection(field.Type) {
+			return nil, ErrInvalidTag
+		}
+
+		handles = append(handles, OrderHandle[T]{
+			FieldName: fieldName,
+			Col:       name,
+			Direction: direction,
+		})
+	}
+
+	return func(obj T) []Order {
+		var orders []Order
+		for _, handle := range handles {
+			order := handle.Resolve(obj)
+			if order != nil {
+				orders = append(orders, *order)
+			}
+		}
+		return orders
 	}, nil
 }
