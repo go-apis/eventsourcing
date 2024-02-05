@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.6
 	github.com/aws/aws-sdk-go-v2/service/sns v1.22.0
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.24.5
-	github.com/contextcloud/goutils v0.1.38
+	github.com/contextcloud/goutils v0.1.37
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/jinzhu/inflection v1.0.0
@@ -81,7 +81,7 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.2 // indirect
-	gorm.io/driver/postgres v1.5.5 // indirect
+	gorm.io/driver/postgres v1.5.4 // indirect
 	gorm.io/plugin/opentelemetry v0.1.4 // indirect
 	moul.io/zapgorm2 v1.3.0 // indirect
 )
