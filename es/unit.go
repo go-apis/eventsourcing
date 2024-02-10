@@ -12,6 +12,7 @@ import (
 
 type Unit interface {
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
+	One(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error)
 
@@ -40,6 +41,10 @@ type unit struct {
 
 func (u *unit) Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {
 	return u.data.Get(ctx, aggregateName, namespace, id, out)
+}
+
+func (u *unit) One(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error {
+	return u.data.One(ctx, aggregateName, namespace, filter, out)
 }
 
 func (u *unit) Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error {
