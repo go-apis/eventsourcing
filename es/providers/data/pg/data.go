@@ -482,6 +482,32 @@ func (d *data) Get(ctx context.Context, aggregateName string, namespace string, 
 	}
 	return r.Error
 }
+func (d *data) One(ctx context.Context, aggregateName string, namespace string, filter es.Filter, out interface{}) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "Load")
+	defer span.End()
+
+	table := TableName(d.service, aggregateName)
+
+	q := d.getDb().
+		WithContext(pctx).
+		Table(table)
+
+	q = where(q, filter.Where)
+
+	if namespace != "" {
+		q = q.Where("namespace = ?", namespace)
+	}
+
+	if filter.Distinct != nil {
+		q = q.Distinct(filter.Distinct...)
+	}
+
+	r := q.Limit(1).Find(out)
+	if r.RowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return r.Error
+}
 func (d *data) Find(ctx context.Context, aggregateName string, namespace string, filter es.Filter, out interface{}) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "Find")
 	defer span.End()

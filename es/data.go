@@ -47,6 +47,7 @@ type Data interface {
 	Truncate(ctx context.Context, aggregateName string) error
 
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
+	One(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error)
 
