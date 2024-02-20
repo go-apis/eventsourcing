@@ -2,7 +2,6 @@ package utils
 
 import (
 	"reflect"
-	"strings"
 )
 
 func GetElemType(source interface{}) reflect.Type {
@@ -20,8 +19,20 @@ func GetTypeName(source interface{}) string {
 }
 
 func SplitTag(tag string) []string {
-	split := func(r rune) bool {
-		return r == ';' || r == ','
+	var token []byte
+	var tokens []string
+	for i := 0; i < len(tag); i++ {
+		if tag[i] == ',' || tag[i] == ';' {
+			tokens = append(tokens, string(token))
+			token = token[:0]
+			continue
+		} else if tag[i] == '\\' && i+1 < len(tag) {
+			i++
+			token = append(token, tag[i])
+		} else {
+			token = append(token, tag[i])
+		}
 	}
-	return strings.FieldsFunc(tag, split)
+	tokens = append(tokens, string(token))
+	return tokens
 }

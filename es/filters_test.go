@@ -9,11 +9,12 @@ import (
 )
 
 type TestFilters struct {
-	Name      *string      `where:"name,eq"`
-	HasName   *bool        `where:"name,not.is.null"`
-	Ids       *[]uuid.UUID `where:"id,in"`
-	CreatedAt *string      `order:"created_at,desc"`
-	NameOrder *string      `order:"name"`
+	Name         *string      `where:"name,eq"`
+	HasName      *bool        `where:"name,not.is.null"`
+	Ids          *[]uuid.UUID `where:"id,in"`
+	CreatedAt    *string      `order:"created_at,desc"`
+	NameOrder    *string      `order:"name"`
+	VersionOrder *string      `order:"string_to_array(version\\, '.')::int[]"`
 }
 
 func Test_Where(t *testing.T) {
@@ -132,14 +133,17 @@ func Test_Order(t *testing.T) {
 		orderCount     int
 		nameOrder      *string
 		createdAtOrder string
+		versionOrder   *string
 	}{
 		{
 			obj: &TestFilters{
-				NameOrder: &nameOrder,
+				NameOrder:    &nameOrder,
+				VersionOrder: &nameOrder,
 			},
-			orderCount:     2,
+			orderCount:     3,
 			nameOrder:      &nameOrder,
 			createdAtOrder: "desc",
+			versionOrder:   &nameOrder,
 		},
 	}
 
@@ -155,14 +159,17 @@ func Test_Order(t *testing.T) {
 				return
 			}
 			for _, order := range order {
-				if order.Column == "name" && d.nameOrder != nil && order.Direction == OrderDirection(*d.nameOrder) {
+				if order.Expression == "name" && d.nameOrder != nil && order.Direction == OrderDirection(*d.nameOrder) {
 					continue
 				}
-				if order.Column == "created_at" && order.Direction == OrderDirection(d.createdAtOrder) {
+				if order.Expression == "created_at" && order.Direction == OrderDirection(d.createdAtOrder) {
+					continue
+				}
+				if order.Expression == "string_to_array(version, '.')::int[]" && d.versionOrder != nil && order.Direction == OrderDirection(*d.versionOrder) {
 					continue
 				}
 
-				t.Errorf("issue with order %s direction %s", order.Column, order.Direction)
+				t.Errorf("issue with order %s direction %s", order.Expression, order.Direction)
 			}
 		})
 	}

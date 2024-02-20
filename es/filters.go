@@ -30,8 +30,8 @@ const (
 )
 
 type Order struct {
-	Column    string
-	Direction OrderDirection
+	Expression string
+	Direction  OrderDirection
 }
 
 type Where interface{}
@@ -235,9 +235,9 @@ func NewWhereFactory[T any]() (WhereFactory[T], error) {
 }
 
 type OrderHandle[T any] struct {
-	FieldName string
-	Col       string
-	Direction *OrderDirection
+	FieldName  string
+	Expression string
+	Direction  *OrderDirection
 }
 
 func (w OrderHandle[T]) value(obj T) *string {
@@ -275,8 +275,8 @@ func (w OrderHandle[T]) Resolve(obj T) *Order {
 	}
 
 	return &Order{
-		Column:    w.Col,
-		Direction: direction,
+		Expression: w.Expression,
+		Direction:  direction,
 	}
 }
 
@@ -323,9 +323,9 @@ func NewOrderFactory[T any]() (OrderFactory[T], error) {
 		}
 
 		handles = append(handles, OrderHandle[T]{
-			FieldName: fieldName,
-			Col:       name,
-			Direction: direction,
+			FieldName:  fieldName,
+			Expression: name,
+			Direction:  direction,
 		})
 	}
 

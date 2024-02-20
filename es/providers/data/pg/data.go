@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/contextcloud/eventstore/es"
@@ -239,12 +240,7 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*
 		q = q.Offset(*filter.Offset)
 	}
 	for _, order := range filter.Order {
-		q = q.Order(clause.OrderByColumn{
-			Column: clause.Column{
-				Name: order.Column,
-			},
-			Desc: order.Direction == es.OrderDesc,
-		})
+		q = q.Order(fmt.Sprintf("%s %s", order.Expression, strings.ToUpper(string(order.Direction))))
 	}
 
 	rows, err := q.
@@ -347,12 +343,7 @@ func (d *data) FindEvents(ctx context.Context, filter es.Filter) ([]*es.Event, e
 		q = q.Offset(*filter.Offset)
 	}
 	for _, order := range filter.Order {
-		q = q.Order(clause.OrderByColumn{
-			Column: clause.Column{
-				Name: order.Column,
-			},
-			Desc: order.Direction == es.OrderDesc,
-		})
+		q = q.Order(fmt.Sprintf("%s %s", order.Expression, strings.ToUpper(string(order.Direction))))
 	}
 
 	rows, err := q.
@@ -535,12 +526,7 @@ func (d *data) Find(ctx context.Context, aggregateName string, namespace string,
 	}
 
 	for _, order := range filter.Order {
-		q = q.Order(clause.OrderByColumn{
-			Column: clause.Column{
-				Name: order.Column,
-			},
-			Desc: order.Direction == es.OrderDesc,
-		})
+		q = q.Order(fmt.Sprintf("%s %s", order.Expression, strings.ToUpper(string(order.Direction))))
 	}
 
 	r := q.
