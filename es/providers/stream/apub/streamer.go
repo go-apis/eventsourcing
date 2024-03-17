@@ -82,9 +82,18 @@ type streamer struct {
 }
 
 func (s *streamer) createSubscription(ctx context.Context, suffix string) (*string, Unsubscribe, error) {
-	queueName := s.service + ".fifo"
+	queueName := s.service
+	if s.config.QueueName != "" {
+		queueName = s.config.QueueName
+	}
+	if strings.HasSuffix(queueName, ".fifo") {
+		queueName = strings.TrimSuffix(queueName, ".fifo")
+	}
 	if suffix != "" {
-		queueName = fmt.Sprintf("%s-%s.fifo", s.service, suffix)
+		queueName = fmt.Sprintf("%s-%s", queueName, suffix)
+	}
+	if !strings.HasSuffix(queueName, ".fifo") {
+		queueName = queueName + ".fifo"
 	}
 
 	queueUrlRsp, err := s.sqsClient.GetQueueUrl(ctx, &sqs.GetQueueUrlInput{
@@ -128,6 +137,7 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 	if err != nil {
 		return nil, nil, fmt.Errorf("getting attributes for SQS queue %q: %w", queueName, err)
 	}
+
 	queueARNKey := string(types.QueueAttributeNameQueueArn)
 	queueARN := queueAttributes.Attributes[queueARNKey]
 	if queueARN == "" {
@@ -316,7 +326,14 @@ func (s *streamer) Close(ctx context.Context) error {
 }
 
 func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, reg es.Registry, groupMessageHandler es.GroupMessageHandler) (es.Streamer, error) {
-	awscfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(cfg.Region), config.WithSharedConfigProfile(cfg.Profile))
+	awsOpts := []func(*config.LoadOptions) error{}
+	if cfg.Region != "" {
+		awsOpts = append(awsOpts, config.WithRegion(cfg.Region))
+	}
+	if cfg.Profile != "" {
+		awsOpts = append(awsOpts, config.WithSharedConfigProfile(cfg.Profile))
+	}
+	awscfg, err := config.LoadDefaultConfig(ctx, awsOpts...)
 	if err != nil {
 		return nil, err
 	}

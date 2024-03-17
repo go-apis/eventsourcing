@@ -16,11 +16,13 @@ type FakeData struct {
 }
 
 type FakeHandler struct {
+	es.BaseEventHandler `es:"group=external"`
+
 	Key     string
 	Results []*es.Event
 }
 
-func (f *FakeHandler) HandleEvent(ctx context.Context, evt *es.Event) error {
+func (f *FakeHandler) HandleEvent(ctx context.Context, evt *es.Event, data *FakeData) error {
 	f.Results = append(f.Results, evt)
 	return nil
 }
@@ -36,9 +38,9 @@ func TestIt(t *testing.T) {
 	ctx := context.Background()
 	service := "tester"
 	snsCfg := &es.AwsSnsConfig{
-		Profile:  "Development",
-		Region:   "us-east-1",
-		TopicArn: "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
+		Profile:   "Production",
+		TopicArn:  "arn:aws:sns:us-east-1:211125614781:prod-events.fifo",
+		QueueName: "noops-prod-identity-events.fifo",
 	}
 	evt1 := &es.Event{
 		Service:       service,
@@ -63,7 +65,7 @@ func TestIt(t *testing.T) {
 		Metadata:      make(map[string]interface{}),
 	}
 
-	reg, err := es.NewRegistry(service, &FakeData{})
+	reg, err := es.NewRegistry(service, &FakeData{}, &FakeHandler{})
 	if err != nil {
 		t.Fatal(err)
 		return

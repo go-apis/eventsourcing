@@ -24,9 +24,10 @@ type NatsConfig struct {
 }
 
 type AwsSnsConfig struct {
-	Profile  string
-	Region   string
-	TopicArn string
+	Profile   string
+	Region    string
+	TopicArn  string
+	QueueName string
 }
 
 type DataConfig struct {

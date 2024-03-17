@@ -14,9 +14,6 @@ func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry, groupMess
 	if cfg.Stream.AWS == nil {
 		return nil, fmt.Errorf("invalid aws config")
 	}
-	if cfg.Stream.AWS.Region == "" {
-		return nil, fmt.Errorf("invalid aws region")
-	}
 	if cfg.Stream.AWS.TopicArn == "" {
 		return nil, fmt.Errorf("invalid aws topic arn")
 	}

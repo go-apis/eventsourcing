@@ -97,7 +97,9 @@ func Test(t *testing.T) {
 				Op:     "eq",
 				Args:   []interface{}{"chris.kolenko"},
 			},
-			Order:  []es.Order{{Column: "username"}},
+			Order: []es.Order{{
+				Expression: "username",
+			}},
 			Limit:  es.Limit(1),
 			Offset: es.Offset(0),
 		}
