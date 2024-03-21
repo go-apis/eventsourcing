@@ -22,7 +22,7 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-type Unsubscribe func(ctx context.Context) error
+type CleanUp func(ctx context.Context) error
 
 func IsQueueDoesNotExist(err error) bool {
 	for {
@@ -78,10 +78,10 @@ type streamer struct {
 
 	registered   map[string]bool
 	registeredMu sync.RWMutex
-	unsubscribe  []Unsubscribe
+	cleanups     []CleanUp
 }
 
-func (s *streamer) createSubscription(ctx context.Context, suffix string) (*string, Unsubscribe, error) {
+func (s *streamer) createSubscription(ctx context.Context, suffix string) (*string, CleanUp, error) {
 	queueName := s.service
 	if s.config.QueueName != "" {
 		queueName = s.config.QueueName
@@ -157,7 +157,7 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 		return nil, nil, fmt.Errorf("subscribing SQS queue %q to SNS topic %q: %w", queueName, s.config.TopicArn, err)
 	}
 
-	unsubscribe := func(ctx context.Context) error {
+	cleanup := func(ctx context.Context) error {
 		if _, err := s.snsClient.Unsubscribe(ctx, &sns.UnsubscribeInput{
 			SubscriptionArn: subscribeOutput.SubscriptionArn,
 		}); err != nil {
@@ -171,7 +171,7 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 		}
 		return nil
 	}
-	return createQueueRsp.QueueUrl, unsubscribe, nil
+	return createQueueRsp.QueueUrl, cleanup, nil
 }
 
 func (s *streamer) handle(queueUrl *string, group string) func(context.Context, *types.Message) {
@@ -259,13 +259,13 @@ func (s *streamer) addGroup(ctx context.Context, group string) error {
 		suffix = group
 	}
 
-	sub, unsubscribe, err := s.createSubscription(ctx, suffix)
+	sub, cleanup, err := s.createSubscription(ctx, suffix)
 	if err != nil {
 		return err
 	}
 
-	if unsubscribe != nil {
-		s.unsubscribe = append(s.unsubscribe, unsubscribe)
+	if cleanup != nil {
+		s.cleanups = append(s.cleanups, cleanup)
 	}
 
 	// Register handler.
@@ -316,8 +316,8 @@ func (s *streamer) Close(ctx context.Context) error {
 	s.wg.Wait()
 
 	// unsubscribe any ephemeral subscribers we created.
-	for _, unsub := range s.unsubscribe {
-		if err := unsub(ctx); err != nil {
+	for _, cleanup := range s.cleanups {
+		if err := cleanup(ctx); err != nil {
 			s.errCh <- err
 		}
 	}

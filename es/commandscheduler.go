@@ -2,7 +2,6 @@ package es
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -101,7 +100,6 @@ func (c *commandScheduler) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case t := <-notifier.C:
-			fmt.Printf("scheduled command at %v\n", t)
 			if err := c.handle(ctx, t); err != nil {
 				c.errCh <- err
 			}
