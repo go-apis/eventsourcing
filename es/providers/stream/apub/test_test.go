@@ -2,6 +2,7 @@ package apub
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"testing"
@@ -18,14 +19,10 @@ type FakeData struct {
 }
 
 type FakeHandler struct {
-	es.BaseEventHandler `es:"group=random"`
-
-	Key     string
-	Results []*es.Event
+	es.BaseEventHandler `es:"group=external"`
 }
 
 func (f *FakeHandler) HandleEvent(ctx context.Context, evt *es.Event, data *FakeData) error {
-	f.Results = append(f.Results, evt)
 	return nil
 }
 
@@ -33,6 +30,7 @@ type FakeMessageHandler struct {
 }
 
 func (f *FakeMessageHandler) HandleGroupMessage(ctx context.Context, group string, msg []byte) error {
+	fmt.Printf("group: %s, message: %s\n", group, string(msg))
 	return nil
 }
 
@@ -46,7 +44,7 @@ func TestIt(t *testing.T) {
 		QueueName: "noops-prod-test-events.fifo",
 	}
 
-	reg, err := es.NewRegistry(service, &FakeData{})
+	reg, err := es.NewRegistry(service, &FakeData{}, &FakeHandler{})
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -92,6 +90,6 @@ func TestIt(t *testing.T) {
 			t.Fatal(err)
 			return
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }

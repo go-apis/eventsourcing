@@ -232,9 +232,7 @@ func (s *streamer) loop(input *sqs.ReceiveMessageInput, group string) {
 			for _, msg := range output.Messages {
 				h(s.cctx, &msg)
 			}
-
 		}
-		return
 	}
 }
 
@@ -275,7 +273,7 @@ func (s *streamer) addGroup(ctx context.Context, group string) error {
 	input := &sqs.ReceiveMessageInput{
 		QueueUrl:            sub,
 		MaxNumberOfMessages: int32(10),
-		WaitTimeSeconds:     int32(20),
+		WaitTimeSeconds:     int32(10),
 	}
 	go s.loop(input, group)
 	return nil
