@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 

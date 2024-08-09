@@ -3,11 +3,11 @@ package data
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/groups/data/aggregates"
-	"github.com/contextcloud/eventstore/examples/groups/data/commands"
-	"github.com/contextcloud/eventstore/examples/groups/data/handlers"
-	"github.com/contextcloud/eventstore/examples/groups/data/sagas"
+	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/eventsourcing/examples/groups/data/aggregates"
+	"github.com/go-apis/eventsourcing/examples/groups/data/commands"
+	"github.com/go-apis/eventsourcing/examples/groups/data/handlers"
+	"github.com/go-apis/eventsourcing/examples/groups/data/sagas"
 )
 
 func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) {

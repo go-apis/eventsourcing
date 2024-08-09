@@ -3,7 +3,7 @@ package noop
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 
 	"go.opentelemetry.io/otel"
 )

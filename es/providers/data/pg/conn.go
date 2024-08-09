@@ -3,9 +3,9 @@ package pg
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
 	"github.com/contextcloud/goutils/xgorm"
 	"github.com/contextcloud/goutils/xlog"
+	"github.com/go-apis/eventsourcing/es"
 	"go.opentelemetry.io/otel"
 
 	"gorm.io/gorm"

@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/data/events"
+	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/eventsourcing/examples/users/data/events"
 )
 
 type demoHandler struct {

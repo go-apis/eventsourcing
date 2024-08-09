@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/contextcloud/eventstore/es/utils"
+	"github.com/go-apis/eventsourcing/es/utils"
 	"github.com/jinzhu/copier"
 )
 

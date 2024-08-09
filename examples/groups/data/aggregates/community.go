@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 	"github.com/google/uuid"
 
-	"github.com/contextcloud/eventstore/examples/groups/data/commands"
-	"github.com/contextcloud/eventstore/examples/groups/data/events"
-	"github.com/contextcloud/eventstore/examples/groups/models"
+	"github.com/go-apis/eventsourcing/examples/groups/data/commands"
+	"github.com/go-apis/eventsourcing/examples/groups/data/events"
+	"github.com/go-apis/eventsourcing/examples/groups/models"
 )
 
 var (

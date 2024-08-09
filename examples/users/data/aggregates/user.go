@@ -1,7 +1,7 @@
 package aggregates
 
 import (
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 )
 
 type User struct {

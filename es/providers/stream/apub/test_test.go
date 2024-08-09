@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 	"github.com/google/uuid"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 )
 
 func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Conn, error) {

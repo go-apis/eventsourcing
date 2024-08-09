@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/noop"
+	_ "github.com/go-apis/eventsourcing/es/providers/data/pg"
+	_ "github.com/go-apis/eventsourcing/es/providers/stream/noop"
 )
 
 func Test(t *testing.T) {

@@ -1,6 +1,6 @@
 package aggregates
 
-import "github.com/contextcloud/eventstore/es"
+import "github.com/go-apis/eventsourcing/es"
 
 type Demo struct {
 	es.BaseAggregateHolder

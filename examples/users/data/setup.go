@@ -3,12 +3,12 @@ package data
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
-	"github.com/contextcloud/eventstore/examples/users/data/eventhandlers"
-	"github.com/contextcloud/eventstore/examples/users/data/events"
-	"github.com/contextcloud/eventstore/examples/users/data/projectors"
-	"github.com/contextcloud/eventstore/examples/users/data/sagas"
+	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/eventsourcing/examples/users/data/aggregates"
+	"github.com/go-apis/eventsourcing/examples/users/data/eventhandlers"
+	"github.com/go-apis/eventsourcing/examples/users/data/events"
+	"github.com/go-apis/eventsourcing/examples/users/data/projectors"
+	"github.com/go-apis/eventsourcing/examples/users/data/sagas"
 )
 
 func NewClient(ctx context.Context, pcfg *es.ProviderConfig) (es.Client, error) {

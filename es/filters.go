@@ -4,7 +4,7 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/contextcloud/eventstore/es/utils"
+	"github.com/go-apis/eventsourcing/es/utils"
 )
 
 var (

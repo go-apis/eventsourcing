@@ -3,15 +3,15 @@ package tests
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/data"
 	"github.com/contextcloud/goutils/xgorm"
+	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/eventsourcing/examples/users/data"
 
-	_ "github.com/contextcloud/eventstore/es/providers/data/pg"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/apub"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/gpub"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/noop"
-	_ "github.com/contextcloud/eventstore/es/providers/stream/npub"
+	_ "github.com/go-apis/eventsourcing/es/providers/data/pg"
+	_ "github.com/go-apis/eventsourcing/es/providers/stream/apub"
+	_ "github.com/go-apis/eventsourcing/es/providers/stream/gpub"
+	_ "github.com/go-apis/eventsourcing/es/providers/stream/noop"
+	_ "github.com/go-apis/eventsourcing/es/providers/stream/npub"
 )
 
 type Tester interface {

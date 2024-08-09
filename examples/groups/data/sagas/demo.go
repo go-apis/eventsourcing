@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/contextcloud/eventstore/examples/groups/data/events"
+	"github.com/go-apis/eventsourcing/examples/groups/data/events"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 )
 
 type demoSaga struct {

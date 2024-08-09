@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 	"github.com/google/uuid"
 )
 

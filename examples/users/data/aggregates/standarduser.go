@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/contextcloud/eventstore/es/types"
-	"github.com/contextcloud/eventstore/examples/users/data/commands"
-	"github.com/contextcloud/eventstore/examples/users/data/events"
-	"github.com/contextcloud/eventstore/examples/users/models"
+	"github.com/go-apis/eventsourcing/es/types"
+	"github.com/go-apis/eventsourcing/examples/users/data/commands"
+	"github.com/go-apis/eventsourcing/examples/users/data/events"
+	"github.com/go-apis/eventsourcing/examples/users/models"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 )
 
 type StandardUser struct {

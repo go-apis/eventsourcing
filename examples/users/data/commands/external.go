@@ -1,6 +1,6 @@
 package commands
 
-import "github.com/contextcloud/eventstore/es"
+import "github.com/go-apis/eventsourcing/es"
 
 type CreateExternalUser struct {
 	es.BaseCommand

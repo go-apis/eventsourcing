@@ -3,10 +3,10 @@ package aggregates
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/examples/users/data/commands"
-	"github.com/contextcloud/eventstore/examples/users/data/events"
+	"github.com/go-apis/eventsourcing/examples/users/data/commands"
+	"github.com/go-apis/eventsourcing/examples/users/data/events"
 
-	"github.com/contextcloud/eventstore/es"
+	"github.com/go-apis/eventsourcing/es"
 )
 
 type ExternalUser struct {

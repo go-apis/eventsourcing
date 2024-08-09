@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/contextcloud/eventstore/es/utils"
+	"github.com/go-apis/eventsourcing/es/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 )

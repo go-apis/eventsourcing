@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 
-	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/groups/data/aggregates"
-	"github.com/contextcloud/eventstore/examples/groups/data/commands"
-	"github.com/contextcloud/eventstore/examples/groups/data/events"
+	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/eventsourcing/examples/groups/data/aggregates"
+	"github.com/go-apis/eventsourcing/examples/groups/data/commands"
+	"github.com/go-apis/eventsourcing/examples/groups/data/events"
 )
 
 type demoHandler struct {

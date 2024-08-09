@@ -1,4 +1,4 @@
-module github.com/contextcloud/eventstore
+module github.com/go-apis/eventsourcing
 
 go 1.21.0
 

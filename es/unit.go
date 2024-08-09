@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/contextcloud/eventstore/es/utils"
+	"github.com/go-apis/eventsourcing/es/utils"
 	"github.com/google/uuid"
 )
 

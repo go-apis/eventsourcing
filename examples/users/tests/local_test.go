@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/contextcloud/eventstore/es"
-	"github.com/contextcloud/eventstore/examples/users/data/aggregates"
-	"github.com/contextcloud/eventstore/examples/users/data/commands"
-	"github.com/contextcloud/eventstore/examples/users/helpers"
+	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/eventsourcing/examples/users/data/aggregates"
+	"github.com/go-apis/eventsourcing/examples/users/data/commands"
+	"github.com/go-apis/eventsourcing/examples/users/helpers"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )

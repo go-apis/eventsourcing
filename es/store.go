@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/contextcloud/eventstore/es/utils"
+	"github.com/go-apis/eventsourcing/es/utils"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 )
