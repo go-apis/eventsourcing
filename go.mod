@@ -1,8 +1,6 @@
 module github.com/go-apis/eventsourcing
 
-go 1.21.0
-
-toolchain go1.21.1
+go 1.22.5
 
 require (
 	cloud.google.com/go/pubsub v1.37.0
