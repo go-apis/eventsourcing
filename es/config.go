@@ -3,7 +3,7 @@ package es
 import (
 	"fmt"
 
-	"github.com/contextcloud/goutils/xgorm"
+	"github.com/go-apis/utils/xgorm"
 )
 
 type StreamConfig struct {

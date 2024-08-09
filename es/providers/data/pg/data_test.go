@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/contextcloud/goutils/xgorm"
 	"github.com/go-apis/eventsourcing/es"
+	"github.com/go-apis/utils/xgorm"
 )
 
 func Test_It(t *testing.T) {

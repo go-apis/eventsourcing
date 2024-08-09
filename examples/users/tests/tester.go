@@ -3,9 +3,9 @@ package tests
 import (
 	"context"
 
-	"github.com/contextcloud/goutils/xgorm"
 	"github.com/go-apis/eventsourcing/es"
 	"github.com/go-apis/eventsourcing/examples/users/data"
+	"github.com/go-apis/utils/xgorm"
 
 	_ "github.com/go-apis/eventsourcing/es/providers/data/pg"
 	_ "github.com/go-apis/eventsourcing/es/providers/stream/apub"
