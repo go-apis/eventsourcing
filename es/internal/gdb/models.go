@@ -1,4 +1,4 @@
-package pg
+package gdb
 
 import (
 	"encoding/json"
@@ -18,12 +18,12 @@ type Notification struct {
 }
 
 type Event struct {
-	ServiceName   string            `json:"service_name" gorm:"primaryKey"`
-	Namespace     string            `json:"namespace" gorm:"primaryKey"`
-	AggregateId   uuid.UUID         `json:"aggregate_id" gorm:"primaryKey;type:uuid"`
-	AggregateType string            `json:"aggregate_type" gorm:"primaryKey"`
-	Version       int               `json:"version" gorm:"primaryKey"`
-	Type          string            `json:"type" gorm:"primaryKey"`
+	ServiceName   string            `json:"service_name" gorm:"primaryKey" dynmgrm:"pk"`
+	Namespace     string            `json:"namespace" gorm:"primaryKey" dynmgrm:"sk"`
+	AggregateId   uuid.UUID         `json:"aggregate_id" gorm:"primaryKey;type:uuid" dynmgrm:"sk"`
+	AggregateType string            `json:"aggregate_type" gorm:"primaryKey" dynmgrm:"sk"`
+	Version       int               `json:"version" gorm:"primaryKey" dynmgrm:"sk"`
+	Type          string            `json:"type" gorm:"primaryKey" dynmgrm:"sk"`
 	By            *es.Actor         `json:"by" gorm:"type:jsonb;serializer:json"`
 	Timestamp     time.Time         `json:"timestamp"`
 	Data          json.RawMessage   `json:"data" gorm:"type:jsonb"`

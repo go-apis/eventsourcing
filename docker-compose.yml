@@ -1,107 +1,25 @@
-version: "3.7"
 services:
-  zipkin:
-    image: openzipkin/zipkin-slim:latest
-    ports:
-      - "9411:9411"
-    networks:
-      - es
-  db:
+  postgres:
     image: postgres
-    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=mysecret
+      - POSTGRES_DB=postgres
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_USER: es_user
-      POSTGRES_PASSWORD: es_pass
-      POSTGRES_DB: es_db
-    networks:
-      - es
+    volumes:
+      - db:/var/lib/postgresql/data
   nats:
     image: nats
-    restart: always
+    volumes:
+      - nats:/etc/nats
+    command: -js
     ports:
       - "4222:4222"
-    networks:
-      - es
-
-  server:
-    image: golang:1.19
-    volumes:
-      - .:/workspace/eventstore
-    working_dir: /workspace/eventstore/server
-    command: go run server/main.go
-    environment:
-      - SERVICE_NAME=server
-    env_file:
-      - ./.env/db.env
-      - ./.env/streaming.env
-      - ./.env/tracing.env
-    networks:
-      - es
-    depends_on:
-      - zipkin
-      - nats
-      - db
-  admin:
-    image: golang:1.19
-    volumes:
-      - .:/workspace/eventstore
-    working_dir: /workspace/eventstore/admin
-    command: go run server/main.go
-    environment:
-      - SERVICE_NAME=admin
-    env_file:
-      - ./.env/db.env
-      - ./.env/tracing.env
-    ports:
-      - "8080:8080"
-    networks:
-      - es
-    depends_on:
-      - zipkin
-      - server
-
-  examples_groups:
-    image: golang:1.19
-    volumes:
-      - .:/workspace/eventstore
-    working_dir: /workspace/eventstore/examples/groups
-    command: go run server/main.go
-    environment:
-      - SERVICE_NAME=groups
-    env_file:
-      - ./.env/db.env
-      - ./.env/streaming.env
-      - ./.env/tracing.env
-    ports:
-      - "8090:8080"
-    networks:
-      - es
-    depends_on:
-      - zipkin
-      - db
-      - nats
-  examples_users:
-    image: golang:1.19
-    volumes:
-      - .:/workspace/eventstore
-    working_dir: /workspace/eventstore/examples/users
-    command: go run server/main.go
-    environment:
-      - SERVICE_NAME=users
-    env_file:
-      - ./.env/db.env
-      - ./.env/streaming.env
-      - ./.env/tracing.env
-    ports:
-      - "8091:8080"
-    networks:
-      - es
-    depends_on:
-      - zipkin
-      - db
-      - nats
-
-networks:
-  es:
+      - "6222:6222"
+      - "8222:8222"
+volumes:
+  db:
+    driver: local
+  nats:
+    driver: local

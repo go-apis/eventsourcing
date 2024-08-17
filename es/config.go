@@ -30,10 +30,16 @@ type AwsSnsConfig struct {
 	QueueName string
 }
 
+type SqliteConfig struct {
+	File   string
+	Memory bool
+}
+
 type DataConfig struct {
-	Type  string
-	Pg    *xgorm.DbConfig
-	Reset bool
+	Type   string
+	Pg     *xgorm.DbConfig
+	Sqlite *SqliteConfig
+	Reset  bool
 }
 
 type ProviderConfig struct {

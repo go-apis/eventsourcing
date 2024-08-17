@@ -1,18 +1,15 @@
-package pg
+package gdb
 
 import (
 	"context"
 
 	"github.com/go-apis/eventsourcing/es"
-	"github.com/go-apis/utils/xgorm"
-	"github.com/go-apis/utils/xlog"
 	"go.opentelemetry.io/otel"
 
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 )
 
-func initialize(ctx context.Context, db *gorm.DB, service string, reg es.Registry) error {
+func AutoMigrate(ctx context.Context, db *gorm.DB, service string, reg es.Registry) error {
 	_, pspan := otel.Tracer("local").Start(ctx, "Initialize")
 	defer pspan.End()
 
@@ -64,28 +61,7 @@ func (c *conn) Close(ctx context.Context) error {
 	return sqlDB.Close()
 }
 
-func NewConn(ctx context.Context, service string, cfg *xgorm.DbConfig, reset bool, registry es.Registry) (es.Conn, error) {
-	log := xlog.Logger(ctx)
-
-	dbops := []xgorm.Option{
-		xgorm.WithLogger(log.ZapLogger(), gormlogger.Info),
-		xgorm.WithTracing(),
-		xgorm.WithDisableNestedTransaction(),
-		xgorm.WithSkipDefaultTransaction(),
-	}
-	if reset {
-		dbops = append(dbops, xgorm.WithRecreate())
-	}
-
-	db, err := xgorm.NewDb(ctx, cfg, dbops...)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := initialize(ctx, db, service, registry); err != nil {
-		return nil, err
-	}
-
+func NewConn(ctx context.Context, service string, db *gorm.DB, registry es.Registry) (es.Conn, error) {
 	return &conn{
 		service:  service,
 		db:       db,
