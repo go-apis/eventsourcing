@@ -25,7 +25,6 @@ func NewRegistry(service string, items ...interface{}) (Registry, error) {
 	var aggregates []Aggregate
 	var entities []Entity
 	var events []interface{}
-	var middlewares []CommandHandlerMiddleware
 
 	for _, item := range items {
 		switch raw := item.(type) {
@@ -48,9 +47,6 @@ func NewRegistry(service string, items ...interface{}) (Registry, error) {
 			continue
 		case Entity:
 			entities = append(entities, raw)
-			continue
-		case CommandHandlerMiddleware:
-			middlewares = append(middlewares, raw)
 			continue
 		default:
 			return nil, fmt.Errorf("invalid item type: %T", item)

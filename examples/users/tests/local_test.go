@@ -30,6 +30,7 @@ func Test(t *testing.T) {
 
 		userId1 := uuid.MustParse("05de3d57-9c15-484c-aa9b-acf1002daa7c")
 		userId2 := uuid.MustParse("175fa613-0e28-411d-8eae-6b55f26bf561")
+
 		cmds := []es.Command{
 			&commands.CreateUser{
 				BaseCommand: es.BaseCommand{

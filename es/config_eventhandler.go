@@ -21,10 +21,8 @@ func NewEventHandlerConfig(h interface{}) *EventHandlerConfig {
 	switch raw := h.(type) {
 	case reflect.Type:
 		t = raw
-		break
 	default:
 		t = reflect.TypeOf(raw)
-		break
 	}
 
 	for t.Kind() == reflect.Ptr {

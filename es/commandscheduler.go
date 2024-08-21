@@ -3,32 +3,7 @@ package es
 import (
 	"context"
 	"time"
-
-	"github.com/google/uuid"
 )
-
-type scheduled struct {
-	id            uuid.UUID
-	ctx           context.Context
-	cmd           Command
-	executedAfter time.Time
-}
-
-type ScheduledCommandNotifier struct {
-	C       <-chan time.Time // The channel on which the ticks are delivered.
-	stopper func()
-}
-
-func (n *ScheduledCommandNotifier) Stop() {
-	n.stopper()
-}
-
-func NewScheduledCommandNotifier(c chan time.Time, stopper func()) *ScheduledCommandNotifier {
-	return &ScheduledCommandNotifier{
-		C:       c,
-		stopper: stopper,
-	}
-}
 
 type CommandScheduler interface {
 	Errors() <-chan error
@@ -36,9 +11,10 @@ type CommandScheduler interface {
 }
 
 type commandScheduler struct {
-	registry Registry
-	data     Data
-	handler  CommandHandler
+	cctx   context.Context
+	cancel context.CancelFunc
+
+	client *client
 
 	errCh chan error
 }
@@ -51,11 +27,17 @@ func (c *commandScheduler) Errors() <-chan error {
 
 // Close closes the command scheduler.
 func (c *commandScheduler) Close(ctx context.Context) error {
+	c.cancel()
 	return nil
 }
 
 func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
-	lock, err := c.data.Lock(ctx)
+	unit, err := c.client.Unit(ctx)
+	if err != nil {
+		return err
+	}
+
+	lock, err := unit.Data().Lock(ctx)
 	if err != nil {
 		return err
 	}
@@ -68,7 +50,7 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 			Args:   t,
 		},
 	}
-	persistedCommands, err := c.data.FindPersistedCommands(ctx, filter)
+	persistedCommands, err := unit.Data().FindPersistedCommands(ctx, filter)
 	if err != nil {
 		return err
 	}
@@ -76,10 +58,10 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 	for _, persistedCommand := range persistedCommands {
 		inner := SetActor(ctx, persistedCommand.By)
 
-		if err := c.handler.HandleCommand(inner, persistedCommand.Command); err != nil {
+		if err := unit.Dispatch(inner, persistedCommand.Command); err != nil {
 			return err
 		}
-		if err := c.data.DeletePersistedCommand(inner, persistedCommand); err != nil {
+		if err := unit.Data().DeletePersistedCommand(inner, persistedCommand); err != nil {
 			return err
 		}
 	}
@@ -88,7 +70,7 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 }
 
 func (c *commandScheduler) run(ctx context.Context) {
-	notifier, err := c.data.NewScheduledCommandNotifier(ctx)
+	notifier, err := NewScheduledCommandNotifier(ctx)
 	if err != nil {
 		c.errCh <- err
 		return
@@ -107,18 +89,15 @@ func (c *commandScheduler) run(ctx context.Context) {
 	}
 }
 
-func NewCommandScheduler(ctx context.Context, registry Registry, conn Conn, handler CommandHandler) (CommandScheduler, error) {
-	data, err := conn.NewData(ctx)
-	if err != nil {
-		return nil, err
-	}
+func NewCommandScheduler(ctx context.Context, client *client) (CommandScheduler, error) {
+	cctx, cancel := context.WithCancel(ctx)
 
 	c := &commandScheduler{
-		registry: registry,
-		data:     data,
-		handler:  handler,
-		errCh:    make(chan error, 100),
+		cctx:   cctx,
+		cancel: cancel,
+		client: client,
+		errCh:  make(chan error, 100),
 	}
-	go c.run(ctx)
+	go c.run(cctx)
 	return c, nil
 }

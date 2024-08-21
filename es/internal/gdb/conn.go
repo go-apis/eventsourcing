@@ -37,9 +37,10 @@ func AutoMigrate(ctx context.Context, db *gorm.DB, service string, reg es.Regist
 }
 
 type conn struct {
-	service  string
-	registry es.Registry
-	db       *gorm.DB
+	service        string
+	registry       es.Registry
+	db             *gorm.DB
+	disableLocking bool
 }
 
 func (c *conn) NewData(ctx context.Context) (es.Data, error) {
@@ -47,7 +48,7 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	defer pspan.End()
 
 	db := c.db.WithContext(pctx)
-	return newData(c.service, db, c.registry), nil
+	return newData(c.service, db, c.registry, c.disableLocking), nil
 }
 
 func (c *conn) Close(ctx context.Context) error {
@@ -61,10 +62,11 @@ func (c *conn) Close(ctx context.Context) error {
 	return sqlDB.Close()
 }
 
-func NewConn(ctx context.Context, service string, db *gorm.DB, registry es.Registry) (es.Conn, error) {
+func NewConn(ctx context.Context, service string, db *gorm.DB, registry es.Registry, disableLocking bool) (es.Conn, error) {
 	return &conn{
-		service:  service,
-		db:       db,
-		registry: registry,
+		service:        service,
+		db:             db,
+		registry:       registry,
+		disableLocking: disableLocking,
 	}, nil
 }

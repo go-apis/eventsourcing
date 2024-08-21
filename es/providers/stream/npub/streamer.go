@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-apis/eventsourcing/es"
-	"github.com/google/uuid"
 
 	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/otel"
@@ -30,26 +29,12 @@ func GetOrCreateStream(js nats.JetStreamContext, streamName string) (*nats.Strea
 	return js.AddStream(streamConfig)
 }
 
-func wrapped(callback func(context.Context, []byte) error) func(msg *nats.Msg) {
-	return func(msg *nats.Msg) {
-		ctx := context.Background()
-
-		if err := callback(ctx, msg.Data); err != nil {
-			msg.Nak()
-			return
-		}
-		msg.Ack()
-	}
-}
-
 type streamer struct {
-	service             string
-	registry            es.Registry
-	groupMessageHandler es.GroupMessageHandler
-	streamName          string
-	conn                *nats.Conn
-	js                  nats.JetStreamContext
-	stream              *nats.StreamInfo
+	service    string
+	streamName string
+	conn       *nats.Conn
+	js         nats.JetStreamContext
+	stream     *nats.StreamInfo
 
 	cctx   context.Context
 	cancel context.CancelFunc
@@ -62,13 +47,13 @@ type streamer struct {
 	unsubscribe  []Unsubscribe
 }
 
-func (s *streamer) createQueueSubscriber(subject string, group string, suffix string) (*nats.Subscription, Unsubscribe, error) {
+func (s *streamer) createQueueSubscriber(subject string, suffix string, handler nats.MsgHandler) (*nats.Subscription, Unsubscribe, error) {
 	consumerName := s.service
 	if suffix != "" {
 		consumerName = fmt.Sprintf("%s-%s", s.service, suffix)
 	}
 
-	sub, err := s.js.QueueSubscribe(subject, consumerName, s.handle(group),
+	sub, err := s.js.QueueSubscribe(subject, consumerName, handler,
 		nats.DeliverNew(),
 		nats.ManualAck(),
 		nats.AckExplicit(),
@@ -88,35 +73,13 @@ func (s *streamer) createQueueSubscriber(subject string, group string, suffix st
 func (s *streamer) loop(sub *nats.Subscription) {
 	defer s.wg.Done()
 
-	for {
-		select {
-		case <-s.cctx.Done():
-			if s.cctx.Err() != context.Canceled {
-				log.Printf("context error in NATS event bus: %s", s.cctx.Err())
-			}
-
-			return
-		}
+	<-s.cctx.Done()
+	if s.cctx.Err() != context.Canceled {
+		log.Printf("context error in NATS event bus: %s", s.cctx.Err())
 	}
 }
 
-func (s *streamer) handle(group string) nats.MsgHandler {
-	return func(msg *nats.Msg) {
-		if err := s.groupMessageHandler.HandleGroupMessage(s.cctx, group, msg.Data); err != nil {
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in NATS event bus: %s", err)
-			}
-			msg.Nak()
-			return
-		}
-
-		msg.AckSync()
-	}
-}
-
-func (s *streamer) addGroup(ctx context.Context, group string) error {
+func (s *streamer) AddHandler(ctx context.Context, name string, handler es.MessageHandler) error {
 	_, span := otel.Tracer("noop").Start(ctx, "AddHandler")
 	defer span.End()
 
@@ -124,24 +87,18 @@ func (s *streamer) addGroup(ctx context.Context, group string) error {
 	s.registeredMu.Lock()
 	defer s.registeredMu.Unlock()
 
-	if _, ok := s.registered[group]; ok {
-		return fmt.Errorf("handler already registered: %s", group)
-	}
+	h := func(msg *nats.Msg) {
+		if err := handler(s.cctx, msg.Data); err != nil {
+			s.errCh <- err
+			msg.Nak()
+			return
+		}
 
-	suffix := ""
-	switch group {
-	case es.InternalGroup:
-		return fmt.Errorf("invalid group name: %s", group)
-	case es.ExternalGroup:
-		suffix = ""
-	case es.RandomGroup:
-		suffix = uuid.NewString()
-	default:
-		suffix = group
+		msg.AckSync()
 	}
 
 	subject := fmt.Sprintf("%s.*.*", s.streamName)
-	sub, unsubscribe, err := s.createQueueSubscriber(subject, group, suffix)
+	sub, unsubscribe, err := s.createQueueSubscriber(subject, name, h)
 	if err != nil {
 		return err
 	}
@@ -150,11 +107,9 @@ func (s *streamer) addGroup(ctx context.Context, group string) error {
 		s.unsubscribe = append(s.unsubscribe, unsubscribe)
 	}
 
-	s.registered[group] = true
-	s.wg.Add(1)
-
 	go s.loop(sub)
 
+	s.wg.Add(1)
 	return nil
 }
 
@@ -197,7 +152,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.conn.LastError()
 }
 
-func NewStreamer(ctx context.Context, service string, natsConfig *es.NatsConfig, reg es.Registry, groupMessageHandler es.GroupMessageHandler) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, natsConfig *es.NatsConfig) (es.Streamer, error) {
 	conn, err := nats.Connect(natsConfig.Url)
 	if err != nil {
 		return nil, err
@@ -215,28 +170,16 @@ func NewStreamer(ctx context.Context, service string, natsConfig *es.NatsConfig,
 
 	cctx, cancel := context.WithCancel(ctx)
 	s := &streamer{
-		service:             service,
-		registry:            reg,
-		groupMessageHandler: groupMessageHandler,
-		streamName:          natsConfig.Subject,
-		conn:                conn,
-		js:                  js,
-		stream:              streamInfo,
+		service:    service,
+		streamName: natsConfig.Subject,
+		conn:       conn,
+		js:         js,
+		stream:     streamInfo,
 
 		cctx:       cctx,
 		cancel:     cancel,
 		registered: make(map[string]bool),
 		errCh:      make(chan error, 100),
-	}
-
-	for _, group := range reg.GetGroups() {
-		if group == es.InternalGroup {
-			continue
-		}
-
-		if err := s.addGroup(ctx, group); err != nil {
-			return nil, err
-		}
 	}
 	return s, nil
 }

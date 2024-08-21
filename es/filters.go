@@ -300,7 +300,7 @@ func NewOrderFactory[T any]() (OrderFactory[T], error) {
 		}
 
 		fieldName := field.Name
-		name := field.Name
+		var name string
 		var direction *OrderDirection
 
 		// do stuff.

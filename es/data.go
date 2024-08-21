@@ -39,7 +39,6 @@ type Data interface {
 	SavePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
 	DeletePersistedCommand(ctx context.Context, cmd *PersistedCommand) error
 	FindPersistedCommands(ctx context.Context, filter Filter) ([]*PersistedCommand, error)
-	NewScheduledCommandNotifier(ctx context.Context) (*ScheduledCommandNotifier, error)
 
 	SaveEvents(ctx context.Context, events []*Event) error
 	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error

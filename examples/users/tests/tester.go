@@ -2,9 +2,9 @@ package tests
 
 import (
 	"context"
-	"fmt"
-	"os"
 
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/go-apis/eventsourcing/es"
 	"github.com/go-apis/eventsourcing/examples/users/data"
 	"github.com/go-apis/utils/xgorm"
@@ -13,6 +13,7 @@ import (
 	_ "github.com/go-apis/eventsourcing/es/providers/data/sqlite"
 	_ "github.com/go-apis/eventsourcing/es/providers/stream/apub"
 	_ "github.com/go-apis/eventsourcing/es/providers/stream/gpub"
+	_ "github.com/go-apis/eventsourcing/es/providers/stream/mpub"
 	_ "github.com/go-apis/eventsourcing/es/providers/stream/noop"
 	_ "github.com/go-apis/eventsourcing/es/providers/stream/npub"
 )
@@ -30,8 +31,10 @@ func (h *tester) Client() es.Client {
 }
 
 func NewTester() (Tester, error) {
-	abc := os.Environ()
-	fmt.Printf("ENV: %v\n", abc)
+	pubSub := gochannel.NewGoChannel(
+		gochannel.Config{},
+		watermill.NewStdLogger(false, false),
+	)
 
 	pcfg := &es.ProviderConfig{
 		Service: "users",
@@ -55,7 +58,7 @@ func NewTester() (Tester, error) {
 			Reset: true,
 		},
 		Stream: es.StreamConfig{
-			Type: "noop",
+			Type: "mpub",
 			PubSub: &es.GcpPubSubConfig{
 				ProjectId: "nordic-gaming",
 				TopicId:   "test_topic",
@@ -68,6 +71,10 @@ func NewTester() (Tester, error) {
 				Region:   "us-east-1",
 				TopicArn: "arn:aws:sns:us-east-1:888821167166:deployment.fifo",
 				Profile:  "Development",
+			},
+			Memory: &es.MemoryBusConfig{
+				Topic:  "test",
+				PubSub: pubSub,
 			},
 		},
 	}

@@ -2,43 +2,21 @@ package es
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
-type clientGroupMessageHandler struct {
-	cli      Client
-	registry Registry
-}
-
-func (c *clientGroupMessageHandler) HandleGroupMessage(ctx context.Context, group string, msg []byte) error {
-	evt, err := c.registry.ParseEvent(ctx, msg)
-	if err != nil {
-		return err
+func GenerateName(group string) string {
+	switch group {
+	case InternalGroup:
+		return ""
+	case ExternalGroup:
+		return ""
+	case RandomGroup:
+		return uuid.NewString()
+	default:
+		return group
 	}
-
-	innerCtx := ctx
-	if evt.By != nil {
-		innerCtx = SetActor(ctx, evt.By)
-	}
-
-	// create the unit.
-	unit, err := c.cli.Unit(innerCtx)
-	if err != nil {
-		return err
-	}
-	return unit.Handle(innerCtx, group, evt)
-}
-
-type clientCommandHandler struct {
-	cli Client
-}
-
-func (c *clientCommandHandler) HandleCommand(ctx context.Context, cmd Command) error {
-	// create the unit.
-	unit, err := c.cli.Unit(ctx)
-	if err != nil {
-		return err
-	}
-	return unit.Dispatch(ctx, cmd)
 }
 
 type Client interface {
@@ -78,22 +56,43 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		conn:           conn,
 	}
 
-	groupMessageHandler := &clientGroupMessageHandler{
-		cli:      client,
-		registry: reg,
-	}
-	commandHandler := &clientCommandHandler{
-		cli: client,
-	}
-
-	scheduler, err := NewCommandScheduler(ctx, reg, conn, commandHandler)
+	scheduler, err := NewCommandScheduler(ctx, client)
 	if err != nil {
 		return nil, err
 	}
 
-	streamer, err := GetStreamer(ctx, pcfg, reg, groupMessageHandler)
+	streamer, err := GetStreamer(ctx, pcfg)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, group := range reg.GetGroups() {
+		if group == InternalGroup {
+			continue
+		}
+
+		name := GenerateName(group)
+		handler := MessageHandler(func(ctx context.Context, payload []byte) error {
+			evt, err := reg.ParseEvent(ctx, payload)
+			if err != nil {
+				return err
+			}
+
+			innerCtx := ctx
+			if evt.By != nil {
+				innerCtx = SetActor(ctx, evt.By)
+			}
+
+			// create the unit.
+			unit, err := client.Unit(innerCtx)
+			if err != nil {
+				return err
+			}
+			return unit.Handle(innerCtx, group, evt)
+		})
+		if err := streamer.AddHandler(ctx, name, handler); err != nil {
+			return nil, err
+		}
 	}
 
 	client.publisher = streamer

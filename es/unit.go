@@ -11,6 +11,8 @@ import (
 )
 
 type Unit interface {
+	Data() Data
+
 	Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error
 	One(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
@@ -34,9 +36,12 @@ type unit struct {
 	data      Data
 	dataStore DataStore
 	publisher EventPublisher
-	scheduler CommandScheduler
 
 	events []*Event
+}
+
+func (u *unit) Data() Data {
+	return u.data
 }
 
 func (u *unit) Get(ctx context.Context, aggregateName string, namespace string, id uuid.UUID, out interface{}) error {

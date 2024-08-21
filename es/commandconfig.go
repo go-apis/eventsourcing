@@ -21,10 +21,8 @@ func NewCommandConfig(obj interface{}) *CommandConfig {
 	switch raw := obj.(type) {
 	case Command:
 		t = reflect.TypeOf(raw)
-		break
 	case reflect.Type:
 		t = raw
-		break
 	default:
 		panic(fmt.Errorf("invalid type %v", raw))
 	}

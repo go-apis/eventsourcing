@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-apis/eventsourcing/es"
-	"github.com/google/uuid"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -62,13 +60,11 @@ func queuePolicySNSToSQS(topicARN string) string {
 }
 
 type streamer struct {
-	service             string
-	registry            es.Registry
-	groupMessageHandler es.GroupMessageHandler
-	snsClient           *sns.Client
-	sqsClient           *sqs.Client
-	config              *es.AwsSnsConfig
-	attributes          map[string]string
+	service    string
+	snsClient  *sns.Client
+	sqsClient  *sqs.Client
+	config     *es.AwsSnsConfig
+	attributes map[string]string
 
 	cctx   context.Context
 	cancel context.CancelFunc
@@ -174,40 +170,27 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 	return createQueueRsp.QueueUrl, cleanup, nil
 }
 
-func (s *streamer) handle(queueUrl *string, group string) func(context.Context, *types.Message) {
-	return func(ctx context.Context, msg *types.Message) {
+func (s *streamer) loop(input *sqs.ReceiveMessageInput, handler es.MessageHandler) {
+	defer s.wg.Done()
+
+	h := func(msg *types.Message) error {
 		var raw []byte
 		if msg.Body != nil {
 			raw = []byte(*msg.Body)
 		}
 
-		if err := s.groupMessageHandler.HandleGroupMessage(ctx, group, raw); err != nil {
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in AWS event bus: %s", err)
-			}
-			return
+		if err := handler(s.cctx, raw); err != nil {
+			return fmt.Errorf("could not handle message: %w", err)
 		}
 
-		if _, err := s.sqsClient.DeleteMessage(ctx, &sqs.DeleteMessageInput{
-			QueueUrl:      queueUrl,
+		if _, err := s.sqsClient.DeleteMessage(s.cctx, &sqs.DeleteMessageInput{
+			QueueUrl:      input.QueueUrl,
 			ReceiptHandle: msg.ReceiptHandle,
 		}); err != nil {
-			err = fmt.Errorf("could not delete message: %w", err)
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in AWS event bus: %s", err)
-			}
+			return fmt.Errorf("could not delete message: %w", err)
 		}
+		return nil
 	}
-}
-
-func (s *streamer) loop(input *sqs.ReceiveMessageInput, group string) {
-	defer s.wg.Done()
-
-	h := s.handle(input.QueueUrl, group)
 
 	for {
 		select {
@@ -216,48 +199,29 @@ func (s *streamer) loop(input *sqs.ReceiveMessageInput, group string) {
 		default:
 			output, err := s.sqsClient.ReceiveMessage(s.cctx, input)
 			if err != nil {
-				err = fmt.Errorf("could not receive: %w", err)
-
-				select {
-				case s.errCh <- err:
-				default:
-					log.Printf("missed error in GCP event bus: %s", err)
-				}
-
-				// Retry the receive loop if there was an error.
+				s.errCh <- fmt.Errorf("could not receive: %w", err)
 				time.Sleep(time.Second)
 				continue
 			}
 
 			for _, msg := range output.Messages {
-				h(s.cctx, &msg)
+				if err := h(&msg); err != nil {
+					s.errCh <- err
+				}
 			}
 		}
 	}
 }
 
-func (s *streamer) addGroup(ctx context.Context, group string) error {
+func (s *streamer) AddHandler(ctx context.Context, name string, handler es.MessageHandler) error {
+	_, span := otel.Tracer("apub").Start(ctx, "AddHandler")
+	defer span.End()
+
 	// Check handler existence.
 	s.registeredMu.Lock()
 	defer s.registeredMu.Unlock()
 
-	if _, ok := s.registered[group]; ok {
-		return fmt.Errorf("handler already registered: %s", group)
-	}
-
-	suffix := ""
-	switch group {
-	case es.InternalGroup:
-		return fmt.Errorf("invalid group name: %s", group)
-	case es.ExternalGroup:
-		suffix = ""
-	case es.RandomGroup:
-		suffix = uuid.NewString()
-	default:
-		suffix = group
-	}
-
-	sub, cleanup, err := s.createSubscription(ctx, suffix)
+	sub, cleanup, err := s.createSubscription(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -266,16 +230,15 @@ func (s *streamer) addGroup(ctx context.Context, group string) error {
 		s.cleanups = append(s.cleanups, cleanup)
 	}
 
-	// Register handler.
-	s.registered[group] = true
-	s.wg.Add(1)
-
 	input := &sqs.ReceiveMessageInput{
 		QueueUrl:            sub,
 		MaxNumberOfMessages: int32(10),
 		WaitTimeSeconds:     int32(10),
 	}
-	go s.loop(input, group)
+
+	go s.loop(input, handler)
+
+	s.wg.Add(1)
 	return nil
 }
 
@@ -323,7 +286,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return nil
 }
 
-func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, reg es.Registry, groupMessageHandler es.GroupMessageHandler) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig) (es.Streamer, error) {
 	awsOpts := []func(*config.LoadOptions) error{}
 	if cfg.Region != "" {
 		awsOpts = append(awsOpts, config.WithRegion(cfg.Region))
@@ -348,28 +311,15 @@ func NewStreamer(ctx context.Context, service string, cfg *es.AwsSnsConfig, reg 
 
 	cctx, cancel := context.WithCancel(ctx)
 	s := &streamer{
-		service:             service,
-		registry:            reg,
-		groupMessageHandler: groupMessageHandler,
-		snsClient:           snsClient,
-		sqsClient:           sqsClient,
-		config:              cfg,
-		attributes:          out.Attributes,
-		cctx:                cctx,
-		cancel:              cancel,
-		registered:          make(map[string]bool),
-		errCh:               make(chan error, 100),
+		service:    service,
+		snsClient:  snsClient,
+		sqsClient:  sqsClient,
+		config:     cfg,
+		attributes: out.Attributes,
+		cctx:       cctx,
+		cancel:     cancel,
+		registered: make(map[string]bool),
+		errCh:      make(chan error, 100),
 	}
-
-	for _, group := range reg.GetGroups() {
-		if group == es.InternalGroup {
-			continue
-		}
-
-		if err := s.addGroup(ctx, group); err != nil {
-			return nil, err
-		}
-	}
-
 	return s, nil
 }

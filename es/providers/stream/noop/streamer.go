@@ -12,7 +12,7 @@ type streamer struct {
 	errCh chan error
 }
 
-func (s *streamer) AddHandler(ctx context.Context, name string, handler es.EventHandler) error {
+func (s *streamer) AddHandler(ctx context.Context, name string, handler es.MessageHandler) error {
 	_, span := otel.Tracer("noop").Start(ctx, "AddHandler")
 	defer span.End()
 

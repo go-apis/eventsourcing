@@ -80,7 +80,6 @@ func NewEntityOptions(agg interface{}) []EntityOption {
 	switch raw := agg.(type) {
 	case reflect.Type:
 		t = raw
-		break
 	default:
 		t = reflect.TypeOf(agg)
 	}

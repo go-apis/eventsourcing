@@ -3,6 +3,7 @@ package es
 import (
 	"fmt"
 
+	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/go-apis/utils/xgorm"
 )
 
@@ -11,6 +12,7 @@ type StreamConfig struct {
 	PubSub *GcpPubSubConfig
 	Nats   *NatsConfig
 	AWS    *AwsSnsConfig
+	Memory *MemoryBusConfig
 }
 
 type GcpPubSubConfig struct {
@@ -28,6 +30,11 @@ type AwsSnsConfig struct {
 	Region    string
 	TopicArn  string
 	QueueName string
+}
+
+type MemoryBusConfig struct {
+	Topic  string
+	PubSub *gochannel.GoChannel
 }
 
 type SqliteConfig struct {
@@ -75,9 +82,4 @@ func NewAggregateConfig(aggregate Aggregate, items ...interface{}) *AggregateCon
 		EntityOptions:  entityOptions,
 		CommandConfigs: commandConfigs,
 	}
-}
-
-type CommandHandlerConfig struct {
-	handler        CommandHandler
-	commandConfigs []*CommandConfig
 }

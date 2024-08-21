@@ -40,7 +40,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Conn,
 		return nil, err
 	}
 
-	return gdb.NewConn(ctx, cfg.Service, db, reg)
+	return gdb.NewConn(ctx, cfg.Service, db, reg, false)
 }
 
 func init() {

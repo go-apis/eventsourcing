@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/go-apis/eventsourcing/es"
 	"github.com/google/uuid"
@@ -23,10 +22,11 @@ func (l lock) Unlock(ctx context.Context) error {
 }
 
 type data struct {
-	service  string
-	registry es.Registry
-	db       *gorm.DB
-	tx       *gorm.DB
+	service        string
+	registry       es.Registry
+	db             *gorm.DB
+	tx             *gorm.DB
+	disableLocking bool
 }
 
 func (d *data) getDb() *gorm.DB {
@@ -88,6 +88,12 @@ func (d *data) Begin(ctx context.Context) (es.Tx, error) {
 func (d *data) Lock(ctx context.Context) (es.Lock, error) {
 	_, span := otel.Tracer("local").Start(ctx, "Lock")
 	defer span.End()
+
+	if d.disableLocking {
+		return lock(func(ctx context.Context) error {
+			return nil
+		}), nil
+	}
 
 	db := d.getDb().WithContext(ctx).Exec("SELECT pg_advisory_lock(hashtext($1))", d.service)
 	if db.Error != nil {
@@ -275,32 +281,6 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*
 	}
 
 	return cmds, nil
-}
-
-func (d *data) NewScheduledCommandNotifier(ctx context.Context) (*es.ScheduledCommandNotifier, error) {
-	inner, cancel := context.WithCancel(ctx)
-
-	ch := make(chan time.Time)
-	notifier := es.NewScheduledCommandNotifier(ch, func() {
-		cancel()
-		close(ch)
-	})
-
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-inner.Done():
-				return
-			case t := <-ticker.C:
-				ch <- t
-			}
-		}
-	}()
-
-	return notifier, nil
 }
 
 func (d *data) loadEventData(evt *Event) (interface{}, error) {
@@ -558,11 +538,12 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 	return int(totalRows), r.Error
 }
 
-func newData(service string, db *gorm.DB, registry es.Registry) es.Data {
+func newData(service string, db *gorm.DB, registry es.Registry, disableLocking bool) es.Data {
 	d := &data{
-		service:  service,
-		db:       db,
-		registry: registry,
+		service:        service,
+		db:             db,
+		registry:       registry,
+		disableLocking: disableLocking,
 	}
 	return d
 }

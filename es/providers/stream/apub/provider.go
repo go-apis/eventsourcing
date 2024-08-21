@@ -7,7 +7,7 @@ import (
 	"github.com/go-apis/eventsourcing/es"
 )
 
-func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry, groupMessageHandler es.GroupMessageHandler) (es.Streamer, error) {
+func New(ctx context.Context, cfg *es.ProviderConfig) (es.Streamer, error) {
 	if cfg.Stream.Type != "apub" {
 		return nil, fmt.Errorf("invalid data provider type: %s", cfg.Stream.Type)
 	}
@@ -18,7 +18,7 @@ func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry, groupMess
 		return nil, fmt.Errorf("invalid aws topic arn")
 	}
 
-	return NewStreamer(ctx, cfg.Service, cfg.Stream.AWS, reg, groupMessageHandler)
+	return NewStreamer(ctx, cfg.Service, cfg.Stream.AWS)
 }
 
 func init() {

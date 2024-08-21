@@ -34,10 +34,8 @@ func NewEventConfig(thisService string, evt interface{}) *EventConfig {
 	switch raw := evt.(type) {
 	case reflect.Type:
 		t = raw
-		break
 	default:
 		t = reflect.TypeOf(raw)
-		break
 	}
 
 	for t.Kind() == reflect.Ptr {

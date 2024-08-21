@@ -44,15 +44,15 @@ func TestIt(t *testing.T) {
 		QueueName: "noops-prod-test-events.fifo",
 	}
 
-	reg, err := es.NewRegistry(service, &FakeData{}, &FakeHandler{})
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	// reg, err := es.NewRegistry(service, &FakeData{}, &FakeHandler{})
+	// if err != nil {
+	// 	t.Fatal(err)
+	// 	return
+	// }
 
-	messageHandler := &FakeMessageHandler{}
+	// messageHandler := &FakeMessageHandler{}
 
-	streamer, err := NewStreamer(ctx, service, snsCfg, reg, messageHandler)
+	streamer, err := NewStreamer(ctx, service, snsCfg)
 	if err != nil {
 		t.Fatal(err)
 		return

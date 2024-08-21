@@ -3,23 +3,19 @@ package gpub
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/go-apis/eventsourcing/es"
-	"github.com/google/uuid"
 )
 
 type Unsubscribe func(ctx context.Context) error
 
 type streamer struct {
-	service             string
-	registry            es.Registry
-	groupMessageHandler es.GroupMessageHandler
-	client              *pubsub.Client
-	topic               *pubsub.Topic
+	service string
+	client  *pubsub.Client
+	topic   *pubsub.Topic
 
 	cctx   context.Context
 	cancel context.CancelFunc
@@ -27,7 +23,6 @@ type streamer struct {
 
 	errCh chan error
 
-	registered   map[string]bool
 	registeredMu sync.RWMutex
 	unsubscribe  []Unsubscribe
 }
@@ -64,65 +59,41 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*pubs
 	return sub, sub.Delete, nil
 }
 
-func (s *streamer) loop(sub *pubsub.Subscription, group string) {
+func (s *streamer) loop(sub *pubsub.Subscription, handler es.MessageHandler) {
 	defer s.wg.Done()
 
-	for {
-		if err := sub.Receive(s.cctx, s.handle(group)); err != nil {
-			err = fmt.Errorf("could not receive: %w", err)
+	h := func(ctx context.Context, msg *pubsub.Message) {
+		raw := msg.Data
 
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in GCP event bus: %s", err)
-			}
-
-			// Retry the receive loop if there was an error.
-			time.Sleep(time.Second)
-			continue
-		}
-
-		return
-	}
-}
-
-func (s *streamer) handle(group string) func(context.Context, *pubsub.Message) {
-	return func(ctx context.Context, msg *pubsub.Message) {
-		if err := s.groupMessageHandler.HandleGroupMessage(ctx, group, msg.Data); err != nil {
-			select {
-			case s.errCh <- err:
-			default:
-				log.Printf("missed error in GCP event bus: %s", err)
-			}
+		if err := handler(s.cctx, raw); err != nil {
+			s.errCh <- fmt.Errorf("could not handle message: %w", err)
 			msg.Nack()
-			return
 		}
 		msg.Ack()
 	}
+
+	for {
+		select {
+		case <-s.cctx.Done():
+			return
+		default:
+			if err := sub.Receive(s.cctx, h); err != nil {
+				s.errCh <- fmt.Errorf("could not receive: %w", err)
+
+				// Retry the receive loop if there was an error.
+				time.Sleep(time.Second)
+				continue
+			}
+		}
+	}
 }
 
-func (s *streamer) addGroup(ctx context.Context, group string) error {
+func (s *streamer) AddHandler(ctx context.Context, name string, handler es.MessageHandler) error {
 	// Check handler existence.
 	s.registeredMu.Lock()
 	defer s.registeredMu.Unlock()
 
-	if _, ok := s.registered[group]; ok {
-		return fmt.Errorf("handler already registered: %s", group)
-	}
-
-	suffix := ""
-	switch group {
-	case es.InternalGroup:
-		return fmt.Errorf("invalid group name: %s", group)
-	case es.ExternalGroup:
-		suffix = ""
-	case es.RandomGroup:
-		suffix = uuid.NewString()
-	default:
-		suffix = group
-	}
-
-	sub, unsubscribe, err := s.createSubscription(ctx, suffix)
+	sub, unsubscribe, err := s.createSubscription(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -131,11 +102,9 @@ func (s *streamer) addGroup(ctx context.Context, group string) error {
 		s.unsubscribe = append(s.unsubscribe, unsubscribe)
 	}
 
-	// Register handler.
-	s.registered[group] = true
-	s.wg.Add(1)
+	go s.loop(sub, handler)
 
-	go s.loop(sub, group)
+	s.wg.Add(1)
 	return nil
 }
 
@@ -178,7 +147,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return s.client.Close()
 }
 
-func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig, reg es.Registry, groupMessageHandler es.GroupMessageHandler) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig) (es.Streamer, error) {
 	client, err := pubsub.NewClient(ctx, config.ProjectId)
 	if err != nil {
 		return nil, err
@@ -192,26 +161,12 @@ func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig
 
 	cctx, cancel := context.WithCancel(ctx)
 	s := &streamer{
-		service:             service,
-		registry:            reg,
-		groupMessageHandler: groupMessageHandler,
-		client:              client,
-		topic:               topic,
-		cctx:                cctx,
-		cancel:              cancel,
-		registered:          make(map[string]bool),
-		errCh:               make(chan error, 100),
+		service: service,
+		client:  client,
+		topic:   topic,
+		cctx:    cctx,
+		cancel:  cancel,
+		errCh:   make(chan error, 100),
 	}
-
-	for _, group := range reg.GetGroups() {
-		if group == es.InternalGroup {
-			continue
-		}
-
-		if err := s.addGroup(ctx, group); err != nil {
-			return nil, err
-		}
-	}
-
 	return s, nil
 }

@@ -36,12 +36,12 @@ func GetConn(ctx context.Context, cfg *ProviderConfig, reg Registry) (Conn, erro
 	return nil, fmt.Errorf("data provider not found: %s", cfg.Data.Type)
 }
 
-func GetStreamer(ctx context.Context, cfg *ProviderConfig, reg Registry, groupMessageHandler GroupMessageHandler) (Streamer, error) {
+func GetStreamer(ctx context.Context, cfg *ProviderConfig) (Streamer, error) {
 	lock.Lock()
 	defer lock.Unlock()
 
 	if factory, ok := StreamProviders[cfg.Stream.Type]; ok {
-		return factory(ctx, cfg, reg, groupMessageHandler)
+		return factory(ctx, cfg)
 	}
 
 	return nil, fmt.Errorf("streamer provider not found: %s", cfg.Stream.Type)
