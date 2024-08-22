@@ -1,11 +1,17 @@
 package es
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/go-apis/utils/xgorm"
 )
+
+type MemoryBusPubSub interface {
+	Publish(topic string, messages ...*message.Message) error
+	Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error)
+}
 
 type StreamConfig struct {
 	Type   string
@@ -34,7 +40,7 @@ type AwsSnsConfig struct {
 
 type MemoryBusConfig struct {
 	Topic  string
-	PubSub *gochannel.GoChannel
+	PubSub MemoryBusPubSub
 }
 
 type SqliteConfig struct {

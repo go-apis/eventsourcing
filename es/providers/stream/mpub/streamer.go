@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/ThreeDotsLabs/watermill/message"
-	"github.com/ThreeDotsLabs/watermill/pubsub/gochannel"
 	"github.com/go-apis/eventsourcing/es"
 
 	"go.opentelemetry.io/otel"
@@ -18,7 +17,7 @@ type streamer struct {
 	wg     sync.WaitGroup
 
 	topic  string
-	pubsub *gochannel.GoChannel
+	pubsub es.MemoryBusPubSub
 
 	errCh chan error
 
@@ -103,7 +102,7 @@ func (s *streamer) Close(ctx context.Context) error {
 	return nil
 }
 
-func NewStreamer(ctx context.Context, topic string, pubsub *gochannel.GoChannel) (es.Streamer, error) {
+func NewStreamer(ctx context.Context, topic string, pubsub es.MemoryBusPubSub) (es.Streamer, error) {
 	if topic == "" {
 		return nil, fmt.Errorf("missing topic")
 	}
