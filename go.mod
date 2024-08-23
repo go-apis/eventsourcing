@@ -7,7 +7,7 @@ require (
 	github.com/ThreeDotsLabs/watermill v1.3.5
 	github.com/aws/aws-sdk-go-v2 v1.30.4
 	github.com/aws/aws-sdk-go-v2/config v1.27.28
-	github.com/aws/aws-sdk-go-v2/service/sns v1.31.4
+	github.com/aws/aws-sdk-go-v2/service/sns v1.31.5
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.34.4
 	github.com/go-apis/utils v0.2.1
 	github.com/google/uuid v1.6.0
