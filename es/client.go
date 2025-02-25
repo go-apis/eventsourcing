@@ -21,6 +21,7 @@ func GenerateName(group string) string {
 
 type Client interface {
 	Unit(ctx context.Context) (Unit, error)
+	MigrateDb(ctx context.Context) error
 }
 
 type client struct {
@@ -44,6 +45,10 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 	return unit, nil
 }
 
+func (c *client) MigrateDb(ctx context.Context) error {
+	return c.conn.MigrateDb(ctx)
+}
+
 func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Client, err error) {
 	conn, err := GetConn(ctx, pcfg, reg)
 	if err != nil {
@@ -56,9 +61,12 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		conn:           conn,
 	}
 
-	scheduler, err := NewCommandScheduler(ctx, client)
-	if err != nil {
-		return nil, err
+	var scheduler CommandScheduler
+	if pcfg.UseScheduler {
+		scheduler, err = NewCommandScheduler(ctx, client)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	streamer, err := GetStreamer(ctx, pcfg)

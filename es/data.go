@@ -16,6 +16,7 @@ type SnapshotSearch struct {
 type ConnFactory func(ctx context.Context, cfg *ProviderConfig, reg Registry) (Conn, error)
 
 type Conn interface {
+	MigrateDb(ctx context.Context) error
 	NewData(ctx context.Context) (Data, error)
 	Close(ctx context.Context) error
 }

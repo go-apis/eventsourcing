@@ -51,6 +51,18 @@ func (c *conn) NewData(ctx context.Context) (es.Data, error) {
 	return newData(c.service, db, c.registry, c.disableLocking), nil
 }
 
+func (c *conn) MigrateDb(ctx context.Context) error {
+	pctx, pspan := otel.Tracer("local").Start(ctx, "NewData")
+	defer pspan.End()
+
+	db := c.db.WithContext(pctx)
+	if err := AutoMigrate(pctx, db, c.service, c.registry); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *conn) Close(ctx context.Context) error {
 	_, pspan := otel.Tracer("local").Start(ctx, "Close")
 	defer pspan.End()

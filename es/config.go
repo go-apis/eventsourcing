@@ -59,8 +59,9 @@ type ProviderConfig struct {
 	Service string
 	Version string
 
-	Data   DataConfig
-	Stream StreamConfig
+	Data         DataConfig
+	Stream       StreamConfig
+	UseScheduler bool
 }
 
 type AggregateConfig struct {
