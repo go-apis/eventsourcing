@@ -43,6 +43,7 @@ type Data interface {
 
 	SaveEvents(ctx context.Context, events []*Event) error
 	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error
+	SaveEntities(ctx context.Context, aggregateName string, entities []Entity) error
 	DeleteEntity(ctx context.Context, aggregateName string, entity Entity) error
 	Truncate(ctx context.Context, aggregateName string) error
 

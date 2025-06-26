@@ -396,7 +396,7 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		Create(&evts)
 	return out.Error
 }
-func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Entity) error {
+func (d *data) SaveEntity(ctx context.Context, aggregateName string, entity es.Entity) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "SaveEntity")
 	defer span.End()
 
@@ -408,7 +408,22 @@ func (d *data) SaveEntity(ctx context.Context, aggregateName string, raw es.Enti
 			Columns:   []clause.Column{{Name: "id"}, {Name: "namespace"}},
 			UpdateAll: true,
 		}).
-		Create(raw)
+		Create(entity)
+	return out.Error
+}
+func (d *data) SaveEntities(ctx context.Context, aggregateName string, entities []es.Entity) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveEntity")
+	defer span.End()
+
+	table := TableName(d.service, aggregateName)
+	out := d.getDb().
+		WithContext(pctx).
+		Table(table).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}, {Name: "namespace"}},
+			UpdateAll: true,
+		}).
+		Create(&entities)
 	return out.Error
 }
 func (d *data) DeleteEntity(ctx context.Context, aggregateName string, raw es.Entity) error {
