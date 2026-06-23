@@ -109,13 +109,13 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 	defer func() {
 		if err != nil {
 			if streamer != nil {
-				streamer.Close(ctx)
+				_ = streamer.Close(ctx)
 			}
 			if conn != nil {
-				conn.Close(ctx)
+				_ = conn.Close(ctx)
 			}
 			if scheduler != nil {
-				scheduler.Close(ctx)
+				_ = scheduler.Close(ctx)
 			}
 		}
 	}()
@@ -124,13 +124,13 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 
 		ctx := context.Background()
 		if streamer != nil {
-			streamer.Close(ctx)
+			_ = streamer.Close(ctx)
 		}
 		if conn != nil {
-			conn.Close(ctx)
+			_ = conn.Close(ctx)
 		}
 		if scheduler != nil {
-			scheduler.Close(ctx)
+			_ = scheduler.Close(ctx)
 		}
 	}()
 

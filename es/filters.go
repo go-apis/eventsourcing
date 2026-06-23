@@ -118,7 +118,7 @@ func IsBoolOp(op Op) bool {
 
 func IsBoolType(t reflect.Type) bool {
 	ref := t
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		ref = t.Elem()
 	}
 	return ref == boolType
@@ -126,7 +126,7 @@ func IsBoolType(t reflect.Type) bool {
 
 func IsDirection(t reflect.Type) bool {
 	ref := t
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		ref = t.Elem()
 	}
 	return ref == directionType
@@ -140,12 +140,12 @@ type WhereHandle[T any] struct {
 
 func (w WhereHandle[T]) Resolve(obj T) *WhereClause {
 	t := reflect.ValueOf(obj)
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
 	field := t.FieldByName(w.FieldName)
-	for field.Kind() == reflect.Ptr {
+	for field.Kind() == reflect.Pointer {
 		if field.IsNil() {
 			return nil
 		}
@@ -180,7 +180,7 @@ type WhereFactory[T any] func(T) Where
 func NewWhereFactory[T any]() (WhereFactory[T], error) {
 	var obj T
 	t := reflect.TypeOf(obj)
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
@@ -242,12 +242,12 @@ type OrderHandle[T any] struct {
 
 func (w OrderHandle[T]) value(obj T) *string {
 	t := reflect.ValueOf(obj)
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
 	field := t.FieldByName(w.FieldName)
-	for field.Kind() == reflect.Ptr {
+	for field.Kind() == reflect.Pointer {
 		if field.IsNil() {
 			return nil
 		}
@@ -285,7 +285,7 @@ type OrderFactory[T any] func(T) []Order
 func NewOrderFactory[T any]() (OrderFactory[T], error) {
 	var obj T
 	t := reflect.TypeOf(obj)
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 

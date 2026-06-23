@@ -255,7 +255,7 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var cmds []*es.PersistedCommand
 	for rows.Next() {
@@ -332,7 +332,7 @@ func (d *data) FindEvents(ctx context.Context, filter es.Filter) ([]*es.Event, e
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*es.Event
 	for rows.Next() {

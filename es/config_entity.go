@@ -84,7 +84,7 @@ func NewEntityOptions(agg interface{}) []EntityOption {
 		t = reflect.TypeOf(agg)
 	}
 
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		isNil = reflect.ValueOf(agg).IsNil()
 		t = t.Elem()
 	}

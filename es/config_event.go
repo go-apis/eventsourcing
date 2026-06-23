@@ -38,7 +38,7 @@ func NewEventConfig(thisService string, evt interface{}) *EventConfig {
 		t = reflect.TypeOf(raw)
 	}
 
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 

@@ -63,7 +63,7 @@ func (u *StandardUser) HandleAddGroup(ctx context.Context, cmd *commands.AddGrou
 }
 func (u *StandardUser) HandleUpdateConnection(ctx context.Context, cmd *commands.UpdateConnection) error {
 	if len(u.Connections) == 0 {
-		return fmt.Errorf("Can't update connection")
+		return fmt.Errorf("can't update connection")
 	}
 
 	return u.Apply(ctx, &events.ConnectionUpdated{

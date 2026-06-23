@@ -132,7 +132,7 @@ func (s *dataStore) saveSourced(ctx context.Context, entityConfig *EntityConfig,
 	events := make([]*Event, len(raw))
 	for i, data := range raw {
 		t := reflect.TypeOf(data)
-		for t.Kind() == reflect.Ptr {
+		for t.Kind() == reflect.Pointer {
 			t = t.Elem()
 		}
 		name := t.Name()
@@ -199,7 +199,7 @@ func (s *dataStore) saveAggregateHolder(ctx context.Context, entityConfig *Entit
 	events := make([]*Event, len(raw))
 	for i, data := range raw {
 		t := reflect.TypeOf(data)
-		for t.Kind() == reflect.Ptr {
+		for t.Kind() == reflect.Pointer {
 			t = t.Elem()
 		}
 		name := t.Name()

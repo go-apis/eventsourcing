@@ -110,7 +110,7 @@ func (a *Community) ApplyEvent(ctx context.Context, event *es.Event) error {
 	case *events.CommunityStaffAdded:
 		return a.applyCommunityStaffAdded(ctx, event, e)
 	}
-	return fmt.Errorf("Unknown event %T", event.Data)
+	return fmt.Errorf("unknown event %T", event.Data)
 }
 
 func (a *Community) applyCommunityCreated(ctx context.Context, event *es.Event, data *events.CommunityCreated) error {

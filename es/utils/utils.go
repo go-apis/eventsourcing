@@ -7,7 +7,7 @@ import (
 func GetElemType(source interface{}) reflect.Type {
 	rawType := reflect.TypeOf(source)
 	// source is a pointer, convert to its value
-	if rawType.Kind() == reflect.Ptr {
+	if rawType.Kind() == reflect.Pointer {
 		rawType = rawType.Elem()
 	}
 	return rawType
