@@ -567,6 +567,12 @@ func (d *data) GroupedCount(ctx context.Context, aggregateName string, namespace
 		return nil, fmt.Errorf("invalid group by column: %q", groupBy)
 	}
 
+	// Distinct combined with a grouped count is ill-defined, so reject it
+	// explicitly rather than silently ignoring it.
+	if filter.Distinct != nil {
+		return nil, fmt.Errorf("GroupedCount does not support Filter.Distinct")
+	}
+
 	table := TableName(d.service, aggregateName)
 	q := d.getDb().
 		WithContext(pctx).
@@ -578,15 +584,16 @@ func (d *data) GroupedCount(ctx context.Context, aggregateName string, namespace
 		q = q.Where("namespace = ?", namespace)
 	}
 
-	// Scan the key via a nullable pointer so a NULL group (e.g. rows where the
-	// grouped column is unset) deterministically becomes the empty-string key
-	// instead of relying on driver-specific NULL handling.
+	// Cast the key to TEXT so scanning into a string is reliable for non-text
+	// grouped columns, and scan via a nullable pointer so a NULL group (rows
+	// where the grouped column is unset) deterministically becomes the
+	// empty-string key instead of relying on driver-specific NULL handling.
 	var rows []struct {
 		Key   *string `gorm:"column:key"`
 		Count int     `gorm:"column:count"`
 	}
 	r := q.
-		Select(groupBy + " AS key, count(*) AS count").
+		Select("CAST(" + groupBy + " AS TEXT) AS key, count(*) AS count").
 		Group(groupBy).
 		Scan(&rows)
 	if r.Error != nil {
