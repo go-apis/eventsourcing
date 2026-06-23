@@ -51,6 +51,14 @@ type Data interface {
 	One(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error)
+	GroupedCount(ctx context.Context, aggregateName string, namespace string, filter Filter, groupBy string) ([]GroupCount, error)
 
 	FindEvents(ctx context.Context, filter Filter) ([]*Event, error)
+}
+
+// GroupCount is a single (key, count) row from a grouped aggregation, i.e. the
+// result of a SQL `GROUP BY <column>` with a `count(*)`.
+type GroupCount struct {
+	Key   string `json:"key"`
+	Count int    `json:"count"`
 }

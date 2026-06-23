@@ -25,6 +25,7 @@ type Query[T Entity] interface {
 	Get(ctx context.Context, id uuid.UUID) (T, error)
 	Find(ctx context.Context, filter Filter) ([]T, error)
 	Count(ctx context.Context, filter Filter) (int, error)
+	GroupedCount(ctx context.Context, filter Filter, groupBy string) ([]GroupCount, error)
 	Pagination(ctx context.Context, filter Filter) (*Pagination[T], error)
 }
 
@@ -89,6 +90,19 @@ func (q *query[T]) Count(ctx context.Context, filter Filter) (int, error) {
 
 	namespace := q.getNamespace(pctx)
 	return unit.Count(pctx, q.name, namespace, filter)
+}
+
+func (q *query[T]) GroupedCount(ctx context.Context, filter Filter, groupBy string) ([]GroupCount, error) {
+	pctx, pspan := otel.Tracer("Query").Start(ctx, "GroupedCount")
+	defer pspan.End()
+
+	unit, err := GetUnit(pctx)
+	if err != nil {
+		return nil, err
+	}
+
+	namespace := q.getNamespace(pctx)
+	return unit.GroupedCount(pctx, q.name, namespace, filter, groupBy)
 }
 
 func (q *query[T]) Pagination(ctx context.Context, filter Filter) (*Pagination[T], error) {
