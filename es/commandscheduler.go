@@ -41,7 +41,7 @@ func (c *commandScheduler) handle(ctx context.Context, t time.Time) error {
 	if err != nil {
 		return err
 	}
-	defer lock.Unlock(ctx)
+	defer func() { _ = lock.Unlock(ctx) }()
 
 	filter := Filter{
 		Where: WhereClause{

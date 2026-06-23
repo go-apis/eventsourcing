@@ -196,7 +196,7 @@ func NewWhereFactory[T any]() (WhereFactory[T], error) {
 
 		fieldName := field.Name
 		name := field.Name
-		op := OpEqual
+		var op Op
 
 		// do stuff.
 		split := utils.SplitTag(tag)
