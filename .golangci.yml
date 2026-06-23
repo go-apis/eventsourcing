@@ -1,0 +1,16 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  exclusions:
+    rules:
+      # cloud.google.com/go/pubsub is deprecated in favour of .../pubsub/v2.
+      # Migrating the gpub streamer to the v2 client is a separate task (the v2
+      # API differs substantially and needs live GCP to verify), so suppress the
+      # deprecation here until that lands.
+      - path: es/providers/stream/gpub/streamer.go
+        linters:
+          - staticcheck
+        text: SA1019

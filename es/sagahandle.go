@@ -53,7 +53,7 @@ func NewSagaHandle(m reflect.Method) (*SagaHandle, bool) {
 		return nil, false
 	}
 	in3 := m.Type.In(2)
-	if in3.Kind() != reflect.Ptr || !in3.Elem().ConvertibleTo(eventType) {
+	if in3.Kind() != reflect.Pointer || !in3.Elem().ConvertibleTo(eventType) {
 		return nil, false
 	}
 	in4 := m.Type.In(3)

@@ -77,7 +77,7 @@ func (a *Community) handleCommunityNewCommand(ctx context.Context, cmd *commands
 		return ErrInvalidState
 	}
 
-	a.Apply(ctx, &events.CommunityCreated{
+	if err := a.Apply(ctx, &events.CommunityCreated{
 		By:              cmd.By,
 		Alias:           cmd.Alias,
 		Name:            cmd.Name,
@@ -88,16 +88,16 @@ func (a *Community) handleCommunityNewCommand(ctx context.Context, cmd *commands
 		Hidden:          cmd.Hidden,
 		DonationEnabled: cmd.DonationEnabled,
 		PaymentCountry:  cmd.PaymentCountry,
-	})
-	a.Apply(ctx, &events.CommunityStaffAdded{
+	}); err != nil {
+		return err
+	}
+	return a.Apply(ctx, &events.CommunityStaffAdded{
 		AccountId: cmd.By,
 		RoleId:    RoleIdOwner,
 	})
-	return nil
 }
 func (a *Community) handleCommunityDeleteCommand(ctx context.Context, cmd *commands.CommunityDeleteCommand) error {
-	a.Apply(ctx, &events.CommunityDeleted{})
-	return nil
+	return a.Apply(ctx, &events.CommunityDeleted{})
 }
 
 // ApplyEvent to auth
@@ -110,7 +110,7 @@ func (a *Community) ApplyEvent(ctx context.Context, event *es.Event) error {
 	case *events.CommunityStaffAdded:
 		return a.applyCommunityStaffAdded(ctx, event, e)
 	}
-	return fmt.Errorf("Unknown event %T", event.Data)
+	return fmt.Errorf("unknown event %T", event.Data)
 }
 
 func (a *Community) applyCommunityCreated(ctx context.Context, event *es.Event, data *events.CommunityCreated) error {

@@ -58,7 +58,7 @@ func whereClauseQuery(c es.WhereClause) string {
 }
 
 func isNil(a interface{}) bool {
-	defer func() { recover() }()
+	defer func() { _ = recover() }()
 	return a == nil || reflect.ValueOf(a).IsNil()
 }
 

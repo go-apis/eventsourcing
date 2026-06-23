@@ -27,7 +27,7 @@ func NewCommandConfig(obj interface{}) *CommandConfig {
 		panic(fmt.Errorf("invalid type %v", raw))
 	}
 
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 

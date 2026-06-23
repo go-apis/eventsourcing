@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-apis/eventsourcing/es"
@@ -254,7 +255,7 @@ func (d *data) FindPersistedCommands(ctx context.Context, filter es.Filter) ([]*
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var cmds []*es.PersistedCommand
 	for rows.Next() {
@@ -331,7 +332,7 @@ func (d *data) FindEvents(ctx context.Context, filter es.Filter) ([]*es.Event, e
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var events []*es.Event
 	for rows.Next() {
@@ -551,6 +552,63 @@ func (d *data) Count(ctx context.Context, aggregateName string, namespace string
 
 	r := q.Count(&totalRows)
 	return int(totalRows), r.Error
+}
+
+// identifierRegexp matches a bare SQL identifier (column name). GroupedCount
+// interpolates the group-by column into the query, so we restrict it to
+// caller-controlled column names and reject anything else.
+var identifierRegexp = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func (d *data) GroupedCount(ctx context.Context, aggregateName string, namespace string, filter es.Filter, groupBy string) ([]es.GroupCount, error) {
+	pctx, span := otel.Tracer("local").Start(ctx, "GroupedCount")
+	defer span.End()
+
+	if !identifierRegexp.MatchString(groupBy) {
+		return nil, fmt.Errorf("invalid group by column: %q", groupBy)
+	}
+
+	// Distinct combined with a grouped count is ill-defined, so reject it
+	// explicitly rather than silently ignoring it.
+	if filter.Distinct != nil {
+		return nil, fmt.Errorf("GroupedCount does not support Filter.Distinct")
+	}
+
+	table := TableName(d.service, aggregateName)
+	q := d.getDb().
+		WithContext(pctx).
+		Table(table)
+
+	q = where(q, filter.Where)
+
+	if namespace != "" {
+		q = q.Where("namespace = ?", namespace)
+	}
+
+	// Cast the key to TEXT so scanning into a string is reliable for non-text
+	// grouped columns, and scan via a nullable pointer so a NULL group (rows
+	// where the grouped column is unset) deterministically becomes the
+	// empty-string key instead of relying on driver-specific NULL handling.
+	var rows []struct {
+		Key   *string `gorm:"column:key"`
+		Count int     `gorm:"column:count"`
+	}
+	r := q.
+		Select("CAST(" + groupBy + " AS TEXT) AS key, count(*) AS count").
+		Group(groupBy).
+		Scan(&rows)
+	if r.Error != nil {
+		return nil, r.Error
+	}
+
+	out := make([]es.GroupCount, 0, len(rows))
+	for _, row := range rows {
+		key := ""
+		if row.Key != nil {
+			key = *row.Key
+		}
+		out = append(out, es.GroupCount{Key: key, Count: row.Count})
+	}
+	return out, nil
 }
 
 func newData(service string, db *gorm.DB, registry es.Registry, disableLocking bool) es.Data {

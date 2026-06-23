@@ -82,9 +82,7 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*stri
 	if s.config.QueueName != "" {
 		queueName = s.config.QueueName
 	}
-	if strings.HasSuffix(queueName, ".fifo") {
-		queueName = strings.TrimSuffix(queueName, ".fifo")
-	}
+	queueName = strings.TrimSuffix(queueName, ".fifo")
 	if suffix != "" {
 		queueName = fmt.Sprintf("%s-%s", queueName, suffix)
 	}

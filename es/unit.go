@@ -17,6 +17,7 @@ type Unit interface {
 	One(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Find(ctx context.Context, aggregateName string, namespace string, filter Filter, out interface{}) error
 	Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error)
+	GroupedCount(ctx context.Context, aggregateName string, namespace string, filter Filter, groupBy string) ([]GroupCount, error)
 
 	Load(ctx context.Context, name string, id uuid.UUID, opts ...DataLoadOption) (Entity, error)
 	Save(ctx context.Context, name string, aggregate Entity) error
@@ -58,6 +59,10 @@ func (u *unit) Find(ctx context.Context, aggregateName string, namespace string,
 
 func (u *unit) Count(ctx context.Context, aggregateName string, namespace string, filter Filter) (int, error) {
 	return u.data.Count(ctx, aggregateName, namespace, filter)
+}
+
+func (u *unit) GroupedCount(ctx context.Context, aggregateName string, namespace string, filter Filter, groupBy string) ([]GroupCount, error) {
+	return u.data.GroupedCount(ctx, aggregateName, namespace, filter, groupBy)
 }
 
 func (u *unit) Load(ctx context.Context, name string, id uuid.UUID, opts ...DataLoadOption) (Entity, error) {

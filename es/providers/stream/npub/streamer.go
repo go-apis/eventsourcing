@@ -90,11 +90,11 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Messa
 	h := func(msg *nats.Msg) {
 		if err := handler(s.cctx, msg.Data); err != nil {
 			s.errCh <- err
-			msg.Nak()
+			_ = msg.Nak()
 			return
 		}
 
-		msg.AckSync()
+		_ = msg.AckSync()
 	}
 
 	subject := fmt.Sprintf("%s.*.*", s.streamName)
