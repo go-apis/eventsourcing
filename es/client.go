@@ -2,6 +2,7 @@ package es
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 )
@@ -83,6 +84,13 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 		handler := MessageHandler(func(ctx context.Context, payload []byte) error {
 			evt, err := reg.ParseEvent(ctx, payload)
 			if err != nil {
+				// The shared topic carries every service's published events;
+				// ones this service has no registration for can never be
+				// handled, so skip them instead of nacking into a redelivery
+				// loop that jams the subscription.
+				if errors.Is(err, ErrNotFound) {
+					return nil
+				}
 				return err
 			}
 
