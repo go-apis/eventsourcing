@@ -67,7 +67,10 @@ func (s *streamer) loop(sub *pubsub.Subscription, handler es.MessageHandler) {
 
 		if err := handler(s.cctx, raw); err != nil {
 			s.errCh <- fmt.Errorf("could not handle message: %w", err)
+			// Nack only: falling through to Ack here would confirm the
+			// message and the failed event would never be redelivered.
 			msg.Nack()
+			return
 		}
 		msg.Ack()
 	}
