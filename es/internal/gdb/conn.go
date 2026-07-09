@@ -28,8 +28,24 @@ func AutoMigrate(ctx context.Context, db *gorm.DB, service string, reg es.Regist
 		if err := db.Table(table).AutoMigrate(&Entity{}); err != nil {
 			return err
 		}
+		// Aggregates without gorm PK tags make gorm attempt
+		// "ALTER COLUMN namespace DROP NOT NULL" on the composite PK, which
+		// Postgres rejects and aborts AutoMigrate before the aggregate's own
+		// columns are added — fatal for hand-provisioned schemas. Fall back
+		// to adding missing columns individually.
 		if err := db.Table(table).AutoMigrate(obj); err != nil {
-			return err
+			tdb := db.Table(table)
+			stmt := &gorm.Statement{DB: tdb}
+			if perr := stmt.Parse(obj); perr == nil {
+				for _, field := range stmt.Schema.Fields {
+					if field.DBName == "" {
+						continue
+					}
+					if !tdb.Table(table).Migrator().HasColumn(&Entity{}, field.DBName) {
+						_ = tdb.Table(table).Migrator().AddColumn(obj, field.DBName)
+					}
+				}
+			}
 		}
 	}
 
