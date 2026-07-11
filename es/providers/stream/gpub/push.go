@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"path"
 	"sync"
@@ -85,6 +86,11 @@ func (s *pushStreamer) PushHandler() http.Handler {
 		}
 
 		if err := handler(r.Context(), env.Message.Data); err != nil {
+			slog.ErrorContext(r.Context(), "pubsub push delivery failed",
+				"subscription", env.Subscription,
+				"messageId", env.Message.MessageId,
+				"error", err,
+			)
 			select {
 			case s.errCh <- fmt.Errorf("could not handle message %s: %w", env.Message.MessageId, err):
 			default:
