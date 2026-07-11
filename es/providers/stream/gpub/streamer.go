@@ -112,6 +112,10 @@ func (s *streamer) AddHandler(ctx context.Context, name string, handler es.Messa
 }
 
 func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
+	return publishEvent(ctx, s.topic, evt)
+}
+
+func publishEvent(ctx context.Context, topic *pubsub.Topic, evt *es.Event) error {
 	orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
 	data, err := es.MarshalEvent(ctx, evt)
 	if err != nil {
@@ -123,11 +127,20 @@ func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 		OrderingKey: orderingKey,
 	}
 
-	rsp := s.topic.Publish(ctx, msg)
+	rsp := topic.Publish(ctx, msg)
 	if _, err := rsp.Get(ctx); err != nil {
 		return err
 	}
 	return nil
+}
+
+func newTopic(client *pubsub.Client, topicId string) *pubsub.Topic {
+	topic := client.Topic(topicId)
+	topic.EnableMessageOrdering = true
+	topic.PublishSettings.ByteThreshold = 5000
+	topic.PublishSettings.CountThreshold = 10
+	topic.PublishSettings.DelayThreshold = 100 * time.Millisecond
+	return topic
 }
 
 func (s *streamer) Errors() <-chan error {
@@ -156,11 +169,7 @@ func NewStreamer(ctx context.Context, service string, config *es.GcpPubSubConfig
 		return nil, err
 	}
 
-	topic := client.Topic(config.TopicId)
-	topic.EnableMessageOrdering = true
-	topic.PublishSettings.ByteThreshold = 5000
-	topic.PublishSettings.CountThreshold = 10
-	topic.PublishSettings.DelayThreshold = 100 * time.Millisecond
+	topic := newTopic(client, config.TopicId)
 
 	cctx, cancel := context.WithCancel(ctx)
 	s := &streamer{
