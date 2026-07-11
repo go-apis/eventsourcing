@@ -3,6 +3,7 @@ package es
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/google/uuid"
 )
@@ -48,6 +49,15 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 
 func (c *client) MigrateDb(ctx context.Context) error {
 	return c.conn.MigrateDb(ctx)
+}
+
+// PushHandler returns the streamer's HTTP delivery handler when the
+// configured streamer consumes via push (see PushReceiver).
+func (c *client) PushHandler() (http.Handler, bool) {
+	if pr, ok := c.publisher.(PushReceiver); ok {
+		return pr.PushHandler(), true
+	}
+	return nil, false
 }
 
 func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Client, err error) {

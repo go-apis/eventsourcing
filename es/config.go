@@ -24,6 +24,11 @@ type StreamConfig struct {
 type GcpPubSubConfig struct {
 	ProjectId string
 	TopicId   string
+	// Mode selects how subscriptions are consumed: "pull" (default) runs
+	// in-process receive loops and self-provisions subscriptions; "push"
+	// serves deliveries over HTTP (see PushReceiver) and expects
+	// subscriptions to be provisioned externally.
+	Mode string
 }
 
 type NatsConfig struct {
