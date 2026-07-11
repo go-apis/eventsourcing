@@ -8,6 +8,7 @@ import (
 	"path"
 	"sync"
 
+	//nolint:staticcheck // v1 client kept for parity with the pull streamer; v2 migration is a separate change.
 	"cloud.google.com/go/pubsub"
 	"github.com/go-apis/eventsourcing/es"
 )
