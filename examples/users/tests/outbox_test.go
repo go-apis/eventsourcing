@@ -192,3 +192,44 @@ func TestOutboxResumeDrainsPending(t *testing.T) {
 
 	requireOutboxDrained(t, cli)
 }
+
+// TestDetachedUnit: a detached unit ignores the ctx unit and commits on its
+// own, so handlers can land chunk increments independently of the
+// delivery-wide transaction.
+func TestDetachedUnit(t *testing.T) {
+	tester, err := NewTester()
+	require.NoError(t, err)
+
+	cli := tester.Client()
+	ctx := es.SetClient(context.Background(), cli)
+
+	outer, err := cli.Unit(ctx)
+	require.NoError(t, err)
+	ctx = es.SetUnit(ctx, outer)
+
+	detached, err := es.NewDetachedUnit(ctx)
+	require.NoError(t, err)
+	require.NotSame(t, outer, detached)
+
+	dctx := helpers.SetSkipSaga(es.SetUnit(ctx, detached))
+	userId := uuid.New()
+	require.NoError(t, detached.Dispatch(dctx,
+		&commands.CreateUser{
+			BaseCommand: es.BaseCommand{AggregateId: userId},
+			Username:    "detached.tester",
+			Password:    "12345678",
+		},
+	))
+
+	// Committed by the detached unit: visible to an unrelated fresh unit.
+	freshCtx := context.Background()
+	fresh, err := cli.Unit(freshCtx)
+	require.NoError(t, err)
+	freshCtx = es.SetUnit(freshCtx, fresh)
+	var out struct {
+		Id       uuid.UUID `json:"id"`
+		Username string    `json:"username"`
+	}
+	require.NoError(t, fresh.Get(freshCtx, "StandardUser", "default", userId, &out))
+	require.Equal(t, "detached.tester", out.Username)
+}
