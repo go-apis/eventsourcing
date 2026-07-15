@@ -109,6 +109,8 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 			if evt.By != nil {
 				innerCtx = SetActor(ctx, evt.By)
 			}
+			// Handlers can mint detached units (chunked commits) from ctx.
+			innerCtx = SetClient(innerCtx, client)
 
 			// create the unit.
 			unit, err := client.Unit(innerCtx)
