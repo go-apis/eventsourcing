@@ -115,23 +115,61 @@ func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 	return publishEvent(ctx, s.topic, evt)
 }
 
+func (s *streamer) PublishRaw(ctx context.Context, orderingKey string, payload []byte) error {
+	return publishRaw(ctx, s.topic, orderingKey, payload)
+}
+
+func (s *streamer) PublishRawBatch(ctx context.Context, msgs []es.RawEvent) []error {
+	return publishRawBatch(ctx, s.topic, msgs)
+}
+
 func publishEvent(ctx context.Context, topic *pubsub.Topic, evt *es.Event) error {
-	orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
 	data, err := es.MarshalEvent(ctx, evt)
 	if err != nil {
 		return err
 	}
 
+	return publishRaw(ctx, topic, es.EventOrderingKey(evt), data)
+}
+
+func publishRaw(ctx context.Context, topic *pubsub.Topic, orderingKey string, payload []byte) error {
 	msg := &pubsub.Message{
-		Data:        data,
+		Data:        payload,
 		OrderingKey: orderingKey,
 	}
 
 	rsp := topic.Publish(ctx, msg)
 	if _, err := rsp.Get(ctx); err != nil {
+		// A failed publish pauses its ordering key on this topic handle;
+		// without a resume every retry of the same key fails immediately
+		// for the life of the process.
+		topic.ResumePublish(orderingKey)
 		return err
 	}
 	return nil
+}
+
+// publishRawBatch fires every message before awaiting any ack, so the
+// client batches on the wire (see newTopic's PublishSettings) instead of
+// paying a round trip per event; the ordering key still serializes
+// same-key messages client-side.
+func publishRawBatch(ctx context.Context, topic *pubsub.Topic, msgs []es.RawEvent) []error {
+	results := make([]*pubsub.PublishResult, len(msgs))
+	for i, m := range msgs {
+		results[i] = topic.Publish(ctx, &pubsub.Message{
+			Data:        m.Payload,
+			OrderingKey: m.OrderingKey,
+		})
+	}
+
+	errs := make([]error, len(msgs))
+	for i, rsp := range results {
+		if _, err := rsp.Get(ctx); err != nil {
+			topic.ResumePublish(msgs[i].OrderingKey)
+			errs[i] = err
+		}
+	}
+	return errs
 }
 
 func newTopic(client *pubsub.Client, topicId string) *pubsub.Topic {

@@ -108,6 +108,14 @@ func (s *pushStreamer) Publish(ctx context.Context, evt *es.Event) error {
 	return publishEvent(ctx, s.topic, evt)
 }
 
+func (s *pushStreamer) PublishRaw(ctx context.Context, orderingKey string, payload []byte) error {
+	return publishRaw(ctx, s.topic, orderingKey, payload)
+}
+
+func (s *pushStreamer) PublishRawBatch(ctx context.Context, msgs []es.RawEvent) []error {
+	return publishRawBatch(ctx, s.topic, msgs)
+}
+
 func (s *pushStreamer) Errors() <-chan error {
 	return s.errCh
 }

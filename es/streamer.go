@@ -25,6 +25,20 @@ type EventPublisher interface {
 	Publish(ctx context.Context, evt *Event) error
 }
 
+// RawEvent is a pre-marshaled event ready for the broker.
+type RawEvent struct {
+	OrderingKey string
+	Payload     []byte
+}
+
+// RawEventBatchPublisher is implemented by streamers that can send many
+// pre-marshaled events in one call, letting the provider batch on the wire
+// instead of paying a round trip per event. The returned slice holds one
+// error per message, index-aligned with msgs.
+type RawEventBatchPublisher interface {
+	PublishRawBatch(ctx context.Context, msgs []RawEvent) []error
+}
+
 type MessageHandler func(ctx context.Context, payload []byte) error
 
 type Streamer interface {

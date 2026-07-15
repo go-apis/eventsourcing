@@ -42,6 +42,13 @@ type Data interface {
 	FindPersistedCommands(ctx context.Context, filter Filter) ([]*PersistedCommand, error)
 
 	SaveEvents(ctx context.Context, events []*Event) error
+	SaveOutbox(ctx context.Context, rows []*OutboxEvent) error
+	// ClaimOutbox locks and returns up to limit pending outbox rows in
+	// insert order. It must run inside Begin: the claim is released by the
+	// surrounding Commit/Rollback. Implementations return no rows when
+	// another instance already holds the service's relay lock.
+	ClaimOutbox(ctx context.Context, limit int) ([]*OutboxEvent, error)
+	DeleteOutbox(ctx context.Context, ids []int64) error
 	SaveEntity(ctx context.Context, aggregateName string, entity Entity) error
 	SaveEntities(ctx context.Context, aggregateName string, entities []Entity) error
 	DeleteEntity(ctx context.Context, aggregateName string, entity Entity) error

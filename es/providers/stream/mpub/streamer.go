@@ -75,17 +75,33 @@ func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 	_, span := otel.Tracer("mpub").Start(ctx, "Publish")
 	defer span.End()
 
-	key := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
 	data, err := es.MarshalEvent(ctx, evt)
 	if err != nil {
 		return err
 	}
 
-	msg := message.NewMessage(key, data)
+	return s.PublishRaw(ctx, es.EventOrderingKey(evt), data)
+}
+
+func (s *streamer) PublishRaw(ctx context.Context, orderingKey string, payload []byte) error {
+	_, span := otel.Tracer("mpub").Start(ctx, "PublishRaw")
+	defer span.End()
+
+	msg := message.NewMessage(orderingKey, payload)
 	if err := s.pubsub.Publish(s.topic, msg); err != nil {
 		return err
 	}
 	return nil
+}
+
+// PublishRawBatch has no wire batching to exploit on the in-memory bus; it
+// exists so the memory streamer exercises the same relay path as gpub.
+func (s *streamer) PublishRawBatch(ctx context.Context, msgs []es.RawEvent) []error {
+	errs := make([]error, len(msgs))
+	for i, m := range msgs {
+		errs[i] = s.PublishRaw(ctx, m.OrderingKey, m.Payload)
+	}
+	return errs
 }
 
 func (s *streamer) Errors() <-chan error {

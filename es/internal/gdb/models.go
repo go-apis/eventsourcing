@@ -30,6 +30,28 @@ type Event struct {
 	Metadata      datatypes.JSONMap `json:"metadata" gorm:"type:jsonb;serializer:json"`
 }
 
+// Outbox rows are publishable events awaiting relay to the stream. They are
+// inserted in the same transaction as the events they mirror and deleted
+// once published, so the table's steady state is empty; depth and row age
+// are the publish-backlog health signals.
+//
+// Like the events table, one outbox is shared by every service on the
+// database: rows are stamped with the owning service and each service's
+// relay claims only its own, ordered by id via the composite index — which
+// is what keeps claims cheap when a service builds a real backlog.
+type Outbox struct {
+	Id          int64           `json:"id" gorm:"primaryKey;autoIncrement;index:idx_outbox_service_id,priority:2"`
+	ServiceName string          `json:"service_name" gorm:"index:idx_outbox_service_id,priority:1"`
+	OrderingKey string          `json:"ordering_key"`
+	Payload     json.RawMessage `json:"payload" gorm:"type:jsonb"`
+	CreatedAt   time.Time       `json:"created_at"`
+}
+
+// TableName keeps the singular pattern name rather than gorm's "outboxes".
+func (Outbox) TableName() string {
+	return "outbox"
+}
+
 // todo add version
 type Snapshot struct {
 	ServiceName   string          `gorm:"primaryKey"`
