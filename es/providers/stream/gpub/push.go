@@ -112,6 +112,10 @@ func (s *pushStreamer) PublishRaw(ctx context.Context, orderingKey string, paylo
 	return publishRaw(ctx, s.topic, orderingKey, payload)
 }
 
+func (s *pushStreamer) PublishRawBatch(ctx context.Context, msgs []es.RawEvent) []error {
+	return publishRawBatch(ctx, s.topic, msgs)
+}
+
 func (s *pushStreamer) Errors() <-chan error {
 	return s.errCh
 }

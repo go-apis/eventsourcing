@@ -94,6 +94,16 @@ func (s *streamer) PublishRaw(ctx context.Context, orderingKey string, payload [
 	return nil
 }
 
+// PublishRawBatch has no wire batching to exploit on the in-memory bus; it
+// exists so the memory streamer exercises the same relay path as gpub.
+func (s *streamer) PublishRawBatch(ctx context.Context, msgs []es.RawEvent) []error {
+	errs := make([]error, len(msgs))
+	for i, m := range msgs {
+		errs[i] = s.PublishRaw(ctx, m.OrderingKey, m.Payload)
+	}
+	return errs
+}
+
 func (s *streamer) Errors() <-chan error {
 	return s.errCh
 }

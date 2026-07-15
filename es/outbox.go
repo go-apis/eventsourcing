@@ -186,11 +186,62 @@ func sequenceKey(orderingKey string) string {
 	return orderingKey
 }
 
-// publish delivers the claimed rows: aggregates run concurrently (bounded),
-// rows of one aggregate sequentially in claim (insert) order, and a failure
-// stops that aggregate so later rows never overtake an unpublished earlier
-// one. It returns the ids that made it out and the first error encountered.
+// publish delivers the claimed rows and returns the ids that made it out
+// plus the first error encountered. Batch-capable streamers get the whole
+// claim in one call so the provider can batch on the wire; others fall back
+// to bounded per-aggregate concurrency. Either way one aggregate's rows are
+// only deleted as a contiguous prefix of successes, so an event is never
+// dropped from the outbox while an earlier event of its aggregate is still
+// pending.
 func (r *outboxRelay) publish(ctx context.Context, rows []*OutboxEvent) ([]int64, error) {
+	if batch, ok := r.publisher.(RawEventBatchPublisher); ok {
+		return r.publishBatch(ctx, batch, rows)
+	}
+	return r.publishGrouped(ctx, rows)
+}
+
+// publishBatch hands the whole claim to the streamer in insert order and
+// resolves per-row outcomes. After a failed row, later rows of the same
+// aggregate stay in the outbox even if the broker accepted them — the retry
+// will re-send them, and at-least-once is the contract consumers already
+// hold; dropping them instead could leave a permanent gap behind a
+// transient failure.
+func (r *outboxRelay) publishBatch(ctx context.Context, batch RawEventBatchPublisher, rows []*OutboxEvent) ([]int64, error) {
+	msgs := make([]RawEvent, len(rows))
+	for i, row := range rows {
+		msgs[i] = RawEvent{
+			OrderingKey: row.OrderingKey,
+			Payload:     row.Payload,
+		}
+	}
+
+	errs := batch.PublishRawBatch(ctx, msgs)
+
+	var firstErr error
+	done := make([]int64, 0, len(rows))
+	failed := map[string]bool{}
+	for i, row := range rows {
+		key := sequenceKey(row.OrderingKey)
+		if failed[key] {
+			continue
+		}
+		if errs[i] != nil {
+			failed[key] = true
+			if firstErr == nil {
+				firstErr = errs[i]
+			}
+			continue
+		}
+		done = append(done, row.Id)
+	}
+
+	return done, firstErr
+}
+
+// publishGrouped is the fallback for streamers without batch support:
+// aggregates run concurrently (bounded), rows of one aggregate sequentially
+// in claim (insert) order, and a failure stops that aggregate.
+func (r *outboxRelay) publishGrouped(ctx context.Context, rows []*OutboxEvent) ([]int64, error) {
 	// Group by aggregate preserving claim (id) order.
 	keys := make([]string, 0, len(rows))
 	groups := make(map[string][]*OutboxEvent, len(rows))
