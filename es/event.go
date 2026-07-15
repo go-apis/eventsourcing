@@ -30,3 +30,10 @@ type Event struct {
 func (e Event) String() string {
 	return fmt.Sprintf("%s@%d", e.Type, e.Version)
 }
+
+// EventOrderingKey is the broker ordering key for a published event. Every
+// streamer uses the same derivation so outbox rows and direct publishes
+// order identically.
+func EventOrderingKey(evt *Event) string {
+	return fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
+}

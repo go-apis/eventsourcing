@@ -397,6 +397,94 @@ func (d *data) SaveEvents(ctx context.Context, events []*es.Event) error {
 		Create(&evts)
 	return out.Error
 }
+func (d *data) SaveOutbox(ctx context.Context, rows []*es.OutboxEvent) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "SaveOutbox")
+	defer span.End()
+
+	if len(rows) == 0 {
+		return nil // nothing to save
+	}
+
+	objs := make([]*Outbox, len(rows))
+	for i, row := range rows {
+		objs[i] = &Outbox{
+			ServiceName: d.service,
+			OrderingKey: row.OrderingKey,
+			Payload:     row.Payload,
+		}
+	}
+
+	out := d.getDb().
+		WithContext(pctx).
+		Create(&objs)
+	return out.Error
+}
+func (d *data) ClaimOutbox(ctx context.Context, limit int) ([]*es.OutboxEvent, error) {
+	pctx, span := otel.Tracer("local").Start(ctx, "ClaimOutbox")
+	defer span.End()
+
+	if d.tx == nil {
+		return nil, fmt.Errorf("ClaimOutbox requires a transaction")
+	}
+
+	q := d.tx.
+		WithContext(pctx).
+		Model(&Outbox{}).
+		Where("service_name = ?", d.service).
+		Order("id").
+		Limit(limit)
+
+	if !d.disableLocking {
+		// One active relay per service: the transaction-scoped advisory
+		// lock releases on Commit/Rollback, so a crashed claimer never
+		// wedges the outbox. Losing the race is not an error — the winner
+		// is draining.
+		var got bool
+		if err := d.tx.
+			WithContext(pctx).
+			Raw("SELECT pg_try_advisory_xact_lock(hashtext(?))", "outbox:"+d.service).
+			Scan(&got).Error; err != nil {
+			return nil, err
+		}
+		if !got {
+			return nil, nil
+		}
+		// SKIP LOCKED guards against rows a concurrent claim (e.g. a relay
+		// on a connection that missed the advisory lock) still holds.
+		q = q.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})
+	}
+
+	var objs []*Outbox
+	if r := q.Find(&objs); r.Error != nil {
+		return nil, r.Error
+	}
+
+	rows := make([]*es.OutboxEvent, len(objs))
+	for i, obj := range objs {
+		rows[i] = &es.OutboxEvent{
+			Id:          obj.Id,
+			Service:     obj.ServiceName,
+			OrderingKey: obj.OrderingKey,
+			Payload:     obj.Payload,
+			CreatedAt:   obj.CreatedAt,
+		}
+	}
+	return rows, nil
+}
+func (d *data) DeleteOutbox(ctx context.Context, ids []int64) error {
+	pctx, span := otel.Tracer("local").Start(ctx, "DeleteOutbox")
+	defer span.End()
+
+	if len(ids) == 0 {
+		return nil // nothing to delete
+	}
+
+	out := d.getDb().
+		WithContext(pctx).
+		Where("id IN ?", ids).
+		Delete(&Outbox{})
+	return out.Error
+}
 func (d *data) SaveEntity(ctx context.Context, aggregateName string, entity es.Entity) error {
 	pctx, span := otel.Tracer("local").Start(ctx, "SaveEntity")
 	defer span.End()

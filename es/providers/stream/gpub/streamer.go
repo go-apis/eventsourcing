@@ -115,15 +115,22 @@ func (s *streamer) Publish(ctx context.Context, evt *es.Event) error {
 	return publishEvent(ctx, s.topic, evt)
 }
 
+func (s *streamer) PublishRaw(ctx context.Context, orderingKey string, payload []byte) error {
+	return publishRaw(ctx, s.topic, orderingKey, payload)
+}
+
 func publishEvent(ctx context.Context, topic *pubsub.Topic, evt *es.Event) error {
-	orderingKey := fmt.Sprintf("%s:%s:%s:%d", evt.Namespace, evt.AggregateId.String(), evt.AggregateType, evt.Version)
 	data, err := es.MarshalEvent(ctx, evt)
 	if err != nil {
 		return err
 	}
 
+	return publishRaw(ctx, topic, es.EventOrderingKey(evt), data)
+}
+
+func publishRaw(ctx context.Context, topic *pubsub.Topic, orderingKey string, payload []byte) error {
 	msg := &pubsub.Message{
-		Data:        data,
+		Data:        payload,
 		OrderingKey: orderingKey,
 	}
 

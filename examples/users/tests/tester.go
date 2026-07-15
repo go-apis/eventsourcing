@@ -20,14 +20,20 @@ import (
 
 type Tester interface {
 	Client() es.Client
+	PubSub() es.MemoryBusPubSub
 }
 
 type tester struct {
 	client es.Client
+	pubSub es.MemoryBusPubSub
 }
 
 func (h *tester) Client() es.Client {
 	return h.client
+}
+
+func (h *tester) PubSub() es.MemoryBusPubSub {
+	return h.pubSub
 }
 
 func NewTester() (Tester, error) {
@@ -85,7 +91,14 @@ func NewTester() (Tester, error) {
 		return nil, err
 	}
 
+	// The pg provider migrates on demand (services expose it behind an
+	// endpoint); sqlite migrates on open, for which this is a no-op.
+	if err := cli.MigrateDb(ctx); err != nil {
+		return nil, err
+	}
+
 	return &tester{
 		client: cli,
+		pubSub: pubSub,
 	}, nil
 }

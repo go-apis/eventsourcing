@@ -36,7 +36,7 @@ type unit struct {
 	registry  Registry
 	data      Data
 	dataStore DataStore
-	publisher EventPublisher
+	notifier  PublishNotifier
 
 	events []*Event
 }
@@ -123,30 +123,63 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 		return
 	}
 
+	// Outbox pattern: park publishable events in the same transaction as
+	// the events themselves, so "the change happened" and "the change will
+	// be announced" commit atomically. The relay delivers them to the
+	// stream after commit — a crash between the two delays publication
+	// instead of silently losing it.
+	if !skipPublish {
+		rows, oerr := u.outboxRows(ctx)
+		if oerr != nil {
+			err = oerr
+			return
+		}
+		if len(rows) > 0 {
+			if serr := u.data.SaveOutbox(ctx, rows); serr != nil {
+				err = serr
+				return
+			}
+		}
+	}
+
 	if rerr := tx.Commit(ctx); rerr != nil {
 		return fmt.Errorf("committing transaction fail: %w", rerr)
 	}
 
-	// publish events?
 	if !skipPublish {
-		for _, evt := range u.events {
-			evtConfig, err := u.registry.GetEventConfig(evt.Service, evt.Type)
-			if err != nil {
-				continue
-			}
-			if !evtConfig.Publish {
-				continue
-			}
-
-			if err := u.publisher.Publish(ctx, evt); err != nil {
-				return err
-			}
-		}
-
 		u.events = nil
+		if u.notifier != nil {
+			u.notifier.Nudge()
+		}
 	}
 
 	return nil
+}
+
+// outboxRows marshals the unit's publishable events into outbox rows,
+// mirroring the publish-flag filtering the old post-commit loop applied.
+func (u *unit) outboxRows(ctx context.Context) ([]*OutboxEvent, error) {
+	var rows []*OutboxEvent
+	for _, evt := range u.events {
+		evtConfig, err := u.registry.GetEventConfig(evt.Service, evt.Type)
+		if err != nil {
+			continue
+		}
+		if !evtConfig.Publish {
+			continue
+		}
+
+		payload, err := MarshalEvent(ctx, evt)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, &OutboxEvent{
+			Service:     evt.Service,
+			OrderingKey: EventOrderingKey(evt),
+			Payload:     payload,
+		})
+	}
+	return rows, nil
 }
 
 func (u *unit) schedule(ctx context.Context, cmd Command, executeAfter time.Time) (uuid.UUID, error) {
@@ -208,7 +241,7 @@ func (u *unit) Dispatch(ctx context.Context, cmds ...Command) error {
 	})
 }
 
-func newUnit(ctx context.Context, service string, registry Registry, conn Conn, publisher EventPublisher) (Unit, error) {
+func newUnit(ctx context.Context, service string, registry Registry, conn Conn, notifier PublishNotifier) (Unit, error) {
 	data, err := conn.NewData(ctx)
 	if err != nil {
 		return nil, err
@@ -220,6 +253,6 @@ func newUnit(ctx context.Context, service string, registry Registry, conn Conn, 
 		data:      data,
 		registry:  registry,
 		dataStore: ds,
-		publisher: publisher,
+		notifier:  notifier,
 	}, nil
 }

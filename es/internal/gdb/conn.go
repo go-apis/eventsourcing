@@ -13,7 +13,7 @@ func AutoMigrate(ctx context.Context, db *gorm.DB, service string, reg es.Regist
 	_, pspan := otel.Tracer("local").Start(ctx, "Initialize")
 	defer pspan.End()
 
-	if err := db.AutoMigrate(&Event{}, &Snapshot{}, &PersistedCommand{}); err != nil {
+	if err := db.AutoMigrate(&Event{}, &Snapshot{}, &PersistedCommand{}, &Outbox{}); err != nil {
 		return err
 	}
 

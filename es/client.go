@@ -31,6 +31,7 @@ type client struct {
 	registry       Registry
 	conn           Conn
 	publisher      EventPublisher
+	relay          *outboxRelay
 }
 
 func (c *client) Unit(ctx context.Context) (Unit, error) {
@@ -40,7 +41,7 @@ func (c *client) Unit(ctx context.Context) (Unit, error) {
 	}
 
 	// create it.
-	unit, err := newUnit(ctx, c.providerConfig.Service, c.registry, c.conn, c.publisher)
+	unit, err := newUnit(ctx, c.providerConfig.Service, c.registry, c.conn, c.relay)
 	if err != nil {
 		return nil, err
 	}
@@ -123,9 +124,21 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 
 	client.publisher = streamer
 
+	// The relay owns delivery to the stream: units park publishable events
+	// in the outbox and nudge it. It also drains rows a crashed process
+	// left behind.
+	relay, err := newOutboxRelay(ctx, pcfg.Service, conn, reg, streamer)
+	if err != nil {
+		return nil, err
+	}
+	client.relay = relay
+
 	// close stuff if we have an error.
 	defer func() {
 		if err != nil {
+			if relay != nil {
+				_ = relay.Close(ctx)
+			}
 			if streamer != nil {
 				_ = streamer.Close(ctx)
 			}
@@ -137,10 +150,16 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 			}
 		}
 	}()
+
+	go relay.run(ctx)
+
 	go func() {
 		<-ctx.Done()
 
 		ctx := context.Background()
+		if relay != nil {
+			_ = relay.Close(ctx)
+		}
 		if streamer != nil {
 			_ = streamer.Close(ctx)
 		}

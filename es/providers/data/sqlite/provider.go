@@ -31,6 +31,17 @@ func New(ctx context.Context, cfg *es.ProviderConfig, reg es.Registry) (es.Conn,
 		return nil, err
 	}
 
+	// A :memory: database exists per connection, so a pool would hand
+	// concurrent goroutines (e.g. the outbox relay) fresh empty databases.
+	// Pin the pool to the single connection that was migrated.
+	if cfg.Data.Sqlite.Memory {
+		sqlDB, err := db.DB()
+		if err != nil {
+			return nil, err
+		}
+		sqlDB.SetMaxOpenConns(1)
+	}
+
 	if err := gdb.AutoMigrate(ctx, db, cfg.Service, reg); err != nil {
 		return nil, err
 	}

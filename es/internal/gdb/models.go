@@ -30,6 +30,23 @@ type Event struct {
 	Metadata      datatypes.JSONMap `json:"metadata" gorm:"type:jsonb;serializer:json"`
 }
 
+// Outbox rows are publishable events awaiting relay to the stream. They are
+// inserted in the same transaction as the events they mirror and deleted
+// once published, so the table's steady state is empty; depth and row age
+// are the publish-backlog health signals.
+type Outbox struct {
+	Id          int64           `json:"id" gorm:"primaryKey;autoIncrement"`
+	ServiceName string          `json:"service_name" gorm:"index:idx_outbox_service_name"`
+	OrderingKey string          `json:"ordering_key"`
+	Payload     json.RawMessage `json:"payload" gorm:"type:jsonb"`
+	CreatedAt   time.Time       `json:"created_at"`
+}
+
+// TableName keeps the singular pattern name rather than gorm's "outboxes".
+func (Outbox) TableName() string {
+	return "outbox"
+}
+
 // todo add version
 type Snapshot struct {
 	ServiceName   string          `gorm:"primaryKey"`
