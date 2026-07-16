@@ -99,6 +99,10 @@ func (s *dataStore) loadSourced(ctx context.Context, entityConfig *EntityConfig,
 				Args:   aggregate.GetVersion(),
 			},
 		},
+		// Replay order must not depend on the query plan: an index that
+		// returns rows in another order (e.g. timestamp DESC) would rebuild
+		// state from events applied backwards.
+		Order: []Order{{Expression: "version", Direction: OrderAsc}},
 	}
 	// load up the events from the DB.
 	originalEvents, err := s.data.FindEvents(ctx, eventFilter)
