@@ -52,3 +52,20 @@ func TestOutboxPublishBatchPrefix(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, []int64{1, 2, 5}, done)
 }
+
+// TestSkipPublishScoping: work()'s internal skip only silences nested
+// dispatches on the SAME unit — a detached unit minted inside a bus handler
+// still publishes (the bug that silently dropped every chunked event from
+// the outbox), while an explicit SetSkipPublish suppresses everyone.
+func TestSkipPublishScoping(t *testing.T) {
+	a, b := &unit{}, &unit{}
+
+	ctx := skipPublishFor(context.Background(), a)
+	require.True(t, getSkipPublishFor(ctx, a), "owning unit defers to its work()")
+	require.False(t, getSkipPublishFor(ctx, b), "a detached unit owns its own publishing")
+	require.True(t, GetSkipPublish(ctx), "unit-scoped skip still reads as skip for anonymous callers")
+
+	explicit := SetSkipPublish(context.Background())
+	require.True(t, getSkipPublishFor(explicit, a))
+	require.True(t, getSkipPublishFor(explicit, b), "explicit skip suppresses everyone")
+}

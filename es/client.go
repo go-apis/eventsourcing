@@ -3,6 +3,7 @@ package es
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -117,7 +118,16 @@ func NewClient(ctx context.Context, pcfg *ProviderConfig, reg Registry) (cli Cli
 			if err != nil {
 				return err
 			}
-			return unit.Handle(innerCtx, group, evt)
+			if err := unit.Handle(innerCtx, group, evt); err != nil {
+				slog.ErrorContext(innerCtx, "bus delivery failed",
+					"group", group,
+					"event", evt.Type,
+					"aggregate_id", evt.AggregateId,
+					"error", err,
+				)
+				return err
+			}
+			return nil
 		})
 		if err := streamer.AddHandler(ctx, name, handler); err != nil {
 			return nil, err

@@ -3,6 +3,7 @@ package gpub
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -44,9 +45,11 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*pubs
 	}
 
 	sub, err := s.client.CreateSubscription(ctx, subscriptionId, pubsub.SubscriptionConfig{
-		Topic:                 s.topic,
-		AckDeadline:           10 * time.Second,
-		EnableMessageOrdering: true,
+		Topic:       s.topic,
+		AckDeadline: 10 * time.Second,
+		// Ordered subscriptions route through the emulator's broken
+		// OrderedMessageBacklog even for unkeyed messages — see newTopic.
+		EnableMessageOrdering: os.Getenv("PUBSUB_EMULATOR_HOST") == "",
 		RetryPolicy: &pubsub.RetryPolicy{
 			MinimumBackoff: 10 * time.Millisecond,
 		},
@@ -133,6 +136,9 @@ func publishEvent(ctx context.Context, topic *pubsub.Topic, evt *es.Event) error
 }
 
 func publishRaw(ctx context.Context, topic *pubsub.Topic, orderingKey string, payload []byte) error {
+	if !topic.EnableMessageOrdering {
+		orderingKey = ""
+	}
 	msg := &pubsub.Message{
 		Data:        payload,
 		OrderingKey: orderingKey,
@@ -154,11 +160,26 @@ func publishRaw(ctx context.Context, topic *pubsub.Topic, orderingKey string, pa
 // paying a round trip per event; the ordering key still serializes
 // same-key messages client-side.
 func publishRawBatch(ctx context.Context, topic *pubsub.Topic, msgs []es.RawEvent) []error {
+	// The emulator's StreamingPullPusher threads crash under concurrent
+	// batched publishes (the v0.5.x sequential trickle never hit this);
+	// emulator runs publish one at a time.
+	if os.Getenv("PUBSUB_EMULATOR_HOST") != "" {
+		errs := make([]error, len(msgs))
+		for i, m := range msgs {
+			errs[i] = publishRaw(ctx, topic, m.OrderingKey, m.Payload)
+		}
+		return errs
+	}
+
 	results := make([]*pubsub.PublishResult, len(msgs))
 	for i, m := range msgs {
+		key := m.OrderingKey
+		if !topic.EnableMessageOrdering {
+			key = ""
+		}
 		results[i] = topic.Publish(ctx, &pubsub.Message{
 			Data:        m.Payload,
-			OrderingKey: m.OrderingKey,
+			OrderingKey: key,
 		})
 	}
 
@@ -174,7 +195,11 @@ func publishRawBatch(ctx context.Context, topic *pubsub.Topic, msgs []es.RawEven
 
 func newTopic(client *pubsub.Client, topicId string) *pubsub.Topic {
 	topic := client.Topic(topicId)
-	topic.EnableMessageOrdering = true
+	// The Pub/Sub emulator's ordered-message backlog is broken (pulls NPE
+	// once keyed messages accumulate — messages become undeliverable), so
+	// emulator runs publish unordered; publishRaw/publishRawBatch strip
+	// ordering keys to match, as the client requires.
+	topic.EnableMessageOrdering = os.Getenv("PUBSUB_EMULATOR_HOST") == ""
 	topic.PublishSettings.ByteThreshold = 5000
 	topic.PublishSettings.CountThreshold = 10
 	topic.PublishSettings.DelayThreshold = 100 * time.Millisecond

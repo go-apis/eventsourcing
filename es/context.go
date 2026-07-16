@@ -58,6 +58,12 @@ func GetUnit(ctx context.Context) (Unit, error) {
 }
 func GetSkipPublish(ctx context.Context) bool {
 	skip, ok := ctx.Value(SkipPublishKey).(bool)
+	if !ok {
+		// A unit-scoped skip (see skipPublishFor) also reads as a general
+		// skip for callers that don't identify themselves.
+		_, ok = ctx.Value(SkipPublishKey).(Unit)
+		return ok
+	}
 	return ok && skip
 }
 func GetTime(ctx context.Context) time.Time {
@@ -119,6 +125,27 @@ func SetActor(ctx context.Context, actor *Actor) context.Context {
 }
 func SetSkipPublish(ctx context.Context) context.Context {
 	return context.WithValue(ctx, SkipPublishKey, true)
+}
+
+// skipPublishFor marks publishing as deferred to the given unit: nested
+// dispatches on that unit must not publish (the owning work() will), but a
+// DIFFERENT unit — a detached chunk unit minted inside the handler — still
+// owns its own publishing. An explicit SetSkipPublish(true) suppresses
+// everyone regardless.
+func skipPublishFor(ctx context.Context, u Unit) context.Context {
+	return context.WithValue(ctx, SkipPublishKey, u)
+}
+
+// getSkipPublishFor reports whether publishing is suppressed for this unit:
+// either explicitly for the whole ctx, or unit-scoped to it.
+func getSkipPublishFor(ctx context.Context, u Unit) bool {
+	switch v := ctx.Value(SkipPublishKey).(type) {
+	case bool:
+		return v
+	case Unit:
+		return v == u
+	}
+	return false
 }
 func SetTime(ctx context.Context, t time.Time) context.Context {
 	return context.WithValue(ctx, TimeKey, t)
