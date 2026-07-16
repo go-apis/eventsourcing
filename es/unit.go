@@ -105,7 +105,7 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 		return fmt.Errorf("beginning transaction fail: %w", err)
 	}
 
-	skipPublish := GetSkipPublish(ctx)
+	skipPublish := getSkipPublishFor(ctx, u)
 
 	defer func() {
 		if perr := recover(); perr != nil {
@@ -118,7 +118,7 @@ func (u *unit) work(ctx context.Context, fn func(ctx context.Context) error) (er
 		}
 	}()
 
-	sctx := SetSkipPublish(ctx)
+	sctx := skipPublishFor(ctx, u)
 	if err = fn(sctx); err != nil {
 		return
 	}
