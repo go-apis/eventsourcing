@@ -160,6 +160,17 @@ func publishRaw(ctx context.Context, topic *pubsub.Topic, orderingKey string, pa
 // paying a round trip per event; the ordering key still serializes
 // same-key messages client-side.
 func publishRawBatch(ctx context.Context, topic *pubsub.Topic, msgs []es.RawEvent) []error {
+	// The emulator's StreamingPullPusher threads crash under concurrent
+	// batched publishes (the v0.5.x sequential trickle never hit this);
+	// emulator runs publish one at a time.
+	if os.Getenv("PUBSUB_EMULATOR_HOST") != "" {
+		errs := make([]error, len(msgs))
+		for i, m := range msgs {
+			errs[i] = publishRaw(ctx, topic, m.OrderingKey, m.Payload)
+		}
+		return errs
+	}
+
 	results := make([]*pubsub.PublishResult, len(msgs))
 	for i, m := range msgs {
 		key := m.OrderingKey
