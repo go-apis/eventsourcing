@@ -45,9 +45,11 @@ func (s *streamer) createSubscription(ctx context.Context, suffix string) (*pubs
 	}
 
 	sub, err := s.client.CreateSubscription(ctx, subscriptionId, pubsub.SubscriptionConfig{
-		Topic:                 s.topic,
-		AckDeadline:           10 * time.Second,
-		EnableMessageOrdering: true,
+		Topic:       s.topic,
+		AckDeadline: 10 * time.Second,
+		// Ordered subscriptions route through the emulator's broken
+		// OrderedMessageBacklog even for unkeyed messages — see newTopic.
+		EnableMessageOrdering: os.Getenv("PUBSUB_EMULATOR_HOST") == "",
 		RetryPolicy: &pubsub.RetryPolicy{
 			MinimumBackoff: 10 * time.Millisecond,
 		},
